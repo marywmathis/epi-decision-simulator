@@ -4,263 +4,182 @@ import pandas as pd
 st.set_page_config(page_title="Epidemiology Decision Simulator", layout="wide")
 
 st.title("🧭 Epidemiology Decision Simulator")
-st.markdown("Outcome → Outcome Type → Study Design → Predictor Type → Measure → Test/Model")
+st.markdown("Think structurally: Outcome → Time → Design → Predictor → Measure → Interpretation")
 
 # ==========================================================
-# MODE
+# STEP 1: OUTCOME
 # ==========================================================
 
-mode = st.radio(
-    "Select Mode",
-    [
-        "Decision Builder",
-        "Association Calculator",
-        "Person-Time Calculator"
-    ],
-    horizontal=True
+st.subheader("Step 1️⃣: Identify the Outcome")
+
+outcome_type = st.selectbox(
+    "What type of outcome variable?",
+    ["Binary", "Continuous", "Rate (person-time)"]
 )
 
 # ==========================================================
-# DECISION BUILDER
+# STEP 2: TEMPORALITY
 # ==========================================================
 
-if mode == "Decision Builder":
+st.subheader("Step 2️⃣: When is Exposure Measured?")
 
-    st.subheader("Step 1️⃣: Outcome Variable")
+temporality = st.selectbox(
+    "Relative to outcome...",
+    [
+        "Before outcome occurs (forward in time)",
+        "At same time (single snapshot)",
+        "After outcome occurred (looking backward)"
+    ]
+)
 
-    outcome = st.selectbox(
-        "What is the outcome?",
-        [
-            "Disease status (Yes/No)",
-            "Incidence (new cases)",
-            "Prevalence (existing cases)",
-            "Incidence rate (person-time)",
-            "Continuous measurement"
-        ]
-    )
+# Determine implied design
+if temporality == "Before outcome occurs (forward in time)":
+    implied_design = "Cohort"
+elif temporality == "At same time (single snapshot)":
+    implied_design = "Cross-sectional"
+else:
+    implied_design = "Case-Control"
 
-    st.subheader("Step 2️⃣: Outcome Type")
+st.info(f"Implied Study Design: {implied_design}")
 
-    outcome_type = st.selectbox(
-        "Outcome variable type",
-        [
-            "Binary",
-            "Rate",
-            "Continuous"
-        ]
-    )
+# ==========================================================
+# STEP 3: PREDICTOR
+# ==========================================================
 
-    st.subheader("Step 3️⃣: Study Design")
+st.subheader("Step 3️⃣: Predictor (Exposure) Type")
 
-    design = st.selectbox(
-        "Study design",
-        [
-            "Cohort",
-            "Cross-sectional",
-            "Case-Control",
-            "Matched Case-Control",
-            "Case-Crossover"
-        ]
-    )
+predictor_type = st.selectbox(
+    "Exposure variable type:",
+    ["Binary (2 groups)", "Categorical (>2 groups)", "Continuous"]
+)
 
-    st.subheader("Step 4️⃣: Predictor Variable Type")
+# ==========================================================
+# DECISION LOGIC
+# ==========================================================
 
-    predictor_type = st.selectbox(
-        "What type of predictor (exposure) variable?",
-        [
-            "Binary (2 groups)",
-            "Categorical (>2 groups)",
-            "Continuous",
-            "Matched pairs exposure"
-        ]
-    )
+measure = None
+analysis = None
+limitations = []
+show_table = False
 
-    measure = None
-    model = None
-    test = None
-    show_table = False
-    warning = None
+# BINARY OUTCOME
+if outcome_type == "Binary":
 
-    # ======================================================
-    # LOGIC ENGINE
-    # ======================================================
-
-    # ------------------------
-    # BINARY OUTCOME
-    # ------------------------
-
-    if outcome_type == "Binary":
-
-        if design == "Cohort":
-
-            if predictor_type == "Binary (2 groups)":
-                measure = "Risk Ratio (RR)"
-                test = "Chi-square"
-                show_table = True
-
-            elif predictor_type == "Categorical (>2 groups)":
-                measure = "Multiple Risk Ratios"
-                test = "Chi-square (overall) or Logistic Regression"
-
-            elif predictor_type == "Continuous":
-                measure = "Odds Ratio (per unit increase)"
-                model = "Logistic Regression"
-
-        elif design == "Case-Control":
-
-            if predictor_type == "Binary (2 groups)":
-                measure = "Odds Ratio (OR)"
-                test = "Chi-square"
-                show_table = True
-
-            elif predictor_type in ["Categorical (>2 groups)", "Continuous"]:
-                measure = "Odds Ratio"
-                model = "Logistic Regression"
-
-        elif design == "Cross-sectional":
-
-            if predictor_type == "Binary (2 groups)":
-                measure = "Prevalence Ratio"
-                test = "Chi-square"
-                show_table = True
-
-            else:
-                measure = "Prevalence Odds Ratio"
-                model = "Logistic Regression"
-
-        elif design == "Matched Case-Control":
-
-            measure = "Matched Odds Ratio"
-            test = "McNemar test"
-
-        elif design == "Case-Crossover":
-
-            measure = "Odds Ratio"
-            test = "McNemar test"
-
-    # ------------------------
-    # CONTINUOUS OUTCOME
-    # ------------------------
-
-    elif outcome_type == "Continuous":
-
+    if implied_design == "Cohort":
         if predictor_type == "Binary (2 groups)":
-            measure = "Mean Difference"
-            test = "Independent samples t-test"
+            measure = "Risk Ratio (RR)"
+            analysis = "Chi-square"
+            show_table = True
+        else:
+            measure = "Adjusted Odds Ratio"
+            analysis = "Logistic Regression"
 
-        elif predictor_type == "Categorical (>2 groups)":
-            measure = "Difference in Means"
-            test = "ANOVA"
+    elif implied_design == "Case-Control":
+        measure = "Odds Ratio (OR)"
+        analysis = "Chi-square or Logistic Regression"
+        show_table = True
+        limitations = [
+            "Cannot calculate incidence",
+            "Cannot calculate risk",
+            "Odds Ratio approximates Risk Ratio only when disease is rare"
+        ]
 
-        elif predictor_type == "Continuous":
-            measure = "Beta coefficient"
-            model = "Linear Regression"
+    elif implied_design == "Cross-sectional":
+        measure = "Prevalence Ratio or Prevalence Odds Ratio"
+        analysis = "Chi-square or Logistic Regression"
+        show_table = True
+        limitations = [
+            "Cannot determine temporality",
+            "Cannot calculate incidence"
+        ]
 
-    # ------------------------
-    # RATE OUTCOME
-    # ------------------------
+# CONTINUOUS OUTCOME
+elif outcome_type == "Continuous":
 
-    elif outcome_type == "Rate":
+    if predictor_type == "Binary (2 groups)":
+        measure = "Mean Difference"
+        analysis = "Independent samples t-test"
+    elif predictor_type == "Categorical (>2 groups)":
+        measure = "Difference in Means"
+        analysis = "ANOVA"
+    else:
+        measure = "Beta Coefficient"
+        analysis = "Linear Regression"
 
-        measure = "Rate Ratio"
-        model = "Poisson Regression"
+# RATE OUTCOME
+elif outcome_type == "Rate (person-time)":
 
-    # ======================================================
-    # OUTPUT
-    # ======================================================
-
-    st.divider()
-
-    if measure:
-        col1, col2, col3 = st.columns(3)
-
-        col1.success(f"Measure: {measure}")
-
-        if test:
-            col2.info(f"Statistical Test: {test}")
-
-        if model:
-            col3.warning(f"Model: {model}")
-
-    if show_table:
-        st.subheader("📊 2×2 Table Structure")
-        table = pd.DataFrame(
-            [["a", "b"],
-             ["c", "d"]],
-            columns=["Outcome +", "Outcome -"],
-            index=["Exposed", "Unexposed"]
-        )
-        st.table(table)
-
-# ==========================================================
-# ASSOCIATION CALCULATOR
-# ==========================================================
-
-if mode == "Association Calculator":
-
-    st.subheader("🧮 Risk Ratio / Odds Ratio Calculator")
-
-    a = st.number_input("a", min_value=0.0)
-    b = st.number_input("b", min_value=0.0)
-    c = st.number_input("c", min_value=0.0)
-    d = st.number_input("d", min_value=0.0)
-
-    if st.button("Calculate RR and OR"):
-
-        if (a+b)>0 and (c+d)>0 and b>0 and c>0:
-
-            rr = (a/(a+b)) / (c/(c+d))
-            or_val = (a*d)/(b*c)
-
-            st.success(f"Risk Ratio = {round(rr,4)}")
-            st.success(f"Odds Ratio = {round(or_val,4)}")
+    measure = "Rate Ratio"
+    analysis = "Poisson Regression"
+    limitations = ["Requires person-time denominator"]
 
 # ==========================================================
-# PERSON-TIME CALCULATOR
+# OUTPUT
 # ==========================================================
 
-if mode == "Person-Time Calculator":
+st.divider()
 
-    st.subheader("⏳ Person-Time Calculator")
+col1, col2 = st.columns(2)
+col1.success(f"Measure: {measure}")
+col2.info(f"Analysis: {analysis}")
 
-    n = st.number_input("Number of participants", min_value=1, value=5)
-
-    times = []
-    for i in range(int(n)):
-        t = st.number_input(f"Participant {i+1} time (years)", min_value=0.0, key=i)
-        times.append(t)
-
-    total_py = sum(times)
-
-    st.info(f"Total Person-Years = {round(total_py,3)}")
-
-    cases = st.number_input("Number of new cases", min_value=0.0)
-
-    if st.button("Calculate Incidence Rate"):
-        if total_py > 0:
-            ir = cases / total_py
-            st.success(f"Incidence Rate = {round(ir,4)} cases per person-year")
+# 2x2 table
+if show_table:
+    st.subheader("📊 2×2 Table Structure")
+    table = pd.DataFrame(
+        [["a", "b"],
+         ["c", "d"]],
+        columns=["Outcome +", "Outcome -"],
+        index=["Exposed", "Unexposed"]
+    )
+    st.table(table)
 
 # ==========================================================
-# EDUCATIONAL PANEL
+# INTERPRETATION GENERATOR
 # ==========================================================
 
-with st.expander("🧠 How to Think Through This"):
+st.subheader("📖 Interpretation Generator")
+
+estimate = st.number_input("Enter your calculated estimate (optional)", value=0.0)
+
+if estimate != 0:
+
+    if measure in ["Risk Ratio (RR)", "Odds Ratio (OR)", "Adjusted Odds Ratio"]:
+        if estimate > 1:
+            st.success(f"The exposed group has {round(estimate,2)} times higher odds/risk compared to the unexposed group.")
+        elif estimate < 1:
+            st.success(f"The exposure appears protective (estimate = {round(estimate,2)}).")
+        else:
+            st.success("No association (estimate ≈ 1).")
+
+    elif measure == "Rate Ratio":
+        st.success(f"The incidence rate in the exposed group is {round(estimate,2)} times the rate in the unexposed group.")
+
+    elif measure in ["Mean Difference", "Difference in Means"]:
+        st.success(f"The average outcome differs by {round(estimate,2)} units between groups.")
+
+# ==========================================================
+# CONFOUNDING CHECK
+# ==========================================================
+
+with st.expander("🔎 Confounding Check"):
     st.markdown("""
-    1. Identify outcome variable.
-    2. Determine if outcome is binary, continuous, or rate.
-    3. Identify study design.
-    4. Determine predictor variable type.
-    5. Decide: table-based test or regression model?
+    Ask yourself:
+    - Is there a third variable associated with exposure?
+    - Is it associated with outcome?
+    - Is it NOT on the causal pathway?
+
+    If YES → consider stratification or regression adjustment.
     """)
 
-with st.expander("🚫 Common Mistakes"):
-    st.markdown("""
-    - Risk Ratio cannot be calculated in case-control studies.
-    - Continuous predictors require regression.
-    - Multi-category predictors often require ANOVA or regression.
-    - Matching changes the statistical test.
-    """)
+# ==========================================================
+# LIMITATIONS PANEL
+# ==========================================================
+
+if limitations:
+    with st.expander("⚠ What Cannot Be Estimated"):
+        for item in limitations:
+            st.markdown(f"- {item}")
 
 st.markdown("---")
-st.markdown("Think structurally, not memorization-based.")
+st.markdown("Strong epidemiologists think about design before calculation.")
