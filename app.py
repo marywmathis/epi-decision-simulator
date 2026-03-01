@@ -1,16 +1,19 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
+from scipy.stats import chi2_contingency, t
+import math
 
 st.set_page_config(page_title="Epidemiology Decision Simulator", layout="wide")
 
 st.title("🧭 Epidemiology Decision Simulator")
-st.markdown("Think structurally: Outcome → Time → Design → Predictor → Measure → Interpretation")
+st.markdown("Outcome → Time → Design → Predictor → Measure → Interpretation → Inference")
 
 # ==========================================================
 # STEP 1: OUTCOME
 # ==========================================================
 
-st.subheader("Step 1️⃣: Identify the Outcome")
+st.subheader("Step 1️⃣: Outcome Type")
 
 outcome_type = st.selectbox(
     "What type of outcome variable?",
@@ -33,19 +36,19 @@ temporality = st.selectbox(
 )
 
 if temporality == "Before outcome occurs (forward in time)":
-    implied_design = "Cohort"
+    design = "Cohort"
 elif temporality == "At same time (single snapshot)":
-    implied_design = "Cross-sectional"
+    design = "Cross-sectional"
 else:
-    implied_design = "Case-Control"
+    design = "Case-Control"
 
-st.info(f"Implied Study Design: {implied_design}")
+st.info(f"Implied Study Design: {design}")
 
 # ==========================================================
 # STEP 3: PREDICTOR
 # ==========================================================
 
-st.subheader("Step 3️⃣: Predictor (Exposure) Type")
+st.subheader("Step 3️⃣: Predictor Type")
 
 predictor_type = st.selectbox(
     "Exposure variable type:",
@@ -53,54 +56,29 @@ predictor_type = st.selectbox(
 )
 
 # ==========================================================
-# DECISION LOGIC
+# MEASURE LOGIC
 # ==========================================================
 
 measure = None
 analysis = None
-limitations = []
 show_table = False
-
-# ----------------------
-# BINARY OUTCOME
-# ----------------------
 
 if outcome_type == "Binary":
 
-    if implied_design == "Cohort":
+    if design == "Cohort":
+        measure = "Risk Ratio (RR)"
+        analysis = "Chi-square or Logistic Regression"
+        show_table = True
 
-        if predictor_type == "Binary (2 groups)":
-            measure = "Risk Ratio (RR)"
-            analysis = "Chi-square (crude) or Logistic Regression (adjusted)"
-            show_table = True
-        else:
-            measure = "Adjusted Odds Ratio"
-            analysis = "Logistic Regression"
-
-    elif implied_design == "Case-Control":
-
+    elif design == "Case-Control":
         measure = "Odds Ratio (OR)"
         analysis = "Chi-square or Logistic Regression"
         show_table = True
-        limitations = [
-            "Cannot calculate incidence",
-            "Cannot calculate risk",
-            "Odds Ratio approximates Risk Ratio only when disease is rare"
-        ]
 
-    elif implied_design == "Cross-sectional":
-
-        measure = "Prevalence Ratio or Prevalence Odds Ratio"
+    elif design == "Cross-sectional":
+        measure = "Prevalence Ratio or Odds Ratio"
         analysis = "Chi-square or Logistic Regression"
         show_table = True
-        limitations = [
-            "Cannot determine temporality",
-            "Cannot calculate incidence"
-        ]
-
-# ----------------------
-# CONTINUOUS OUTCOME
-# ----------------------
 
 elif outcome_type == "Continuous":
 
@@ -114,27 +92,19 @@ elif outcome_type == "Continuous":
         measure = "Beta Coefficient"
         analysis = "Linear Regression"
 
-# ----------------------
-# RATE OUTCOME
-# ----------------------
-
 elif outcome_type == "Rate (person-time)":
 
     measure = "Rate Ratio"
     analysis = "Poisson Regression"
-    limitations = ["Requires person-time denominator"]
-
-# ==========================================================
-# OUTPUT
-# ==========================================================
 
 st.divider()
+st.success(f"Measure: {measure}")
+st.info(f"Primary Analysis Approach: {analysis}")
 
-col1, col2 = st.columns(2)
-col1.success(f"Measure: {measure}")
-col2.info(f"Analysis: {analysis}")
+# ==========================================================
+# 2x2 TABLE DISPLAY
+# ==========================================================
 
-# 2×2 table display
 if show_table:
     st.subheader("📊 2×2 Table Structure")
     table = pd.DataFrame(
@@ -146,103 +116,155 @@ if show_table:
     st.table(table)
 
 # ==========================================================
-# INTERPRETATION GENERATOR (IMPROVED)
+# INTERPRETATION GENERATOR
 # ==========================================================
 
 st.subheader("📖 Interpretation Generator")
 
 st.markdown("""
-**What is a calculated estimate?**
-
-This is the numerical value you computed (for example:  
-Risk Ratio = 2.3, Odds Ratio = 0.75, Rate Ratio = 1.8, Mean Difference = 5.2).
-
-Enter your value below to generate correct epidemiologic wording.
+Enter the numeric estimate you calculated (e.g., RR = 2.3).
 """)
 
-measure_type = st.selectbox(
-    "Which measure did you calculate?",
-    ["Risk Ratio (RR)", "Odds Ratio (OR)", "Rate Ratio (IRR)", "Mean Difference"]
-)
-
-estimate = st.number_input(
-    "Enter your calculated value",
-    min_value=-1000.0,
-    value=0.0
-)
+estimate = st.number_input("Enter estimate value", value=0.0)
 
 if estimate != 0:
 
-    st.markdown("### Interpretation:")
-
-    if measure_type == "Risk Ratio (RR)":
+    if measure in ["Risk Ratio (RR)", "Odds Ratio (OR)"]:
 
         if estimate > 1:
-            st.success(f"The exposed group has {round(estimate,2)} times the risk compared to the unexposed group.")
+            st.success(f"The exposed group has {round(estimate,2)} times higher risk/odds compared to the unexposed group.")
         elif estimate < 1:
-            st.success(f"The exposure appears protective. The risk in the exposed group is {round(estimate,2)} times that of the unexposed group.")
+            st.success(f"The exposure appears protective (estimate = {round(estimate,2)}).")
         else:
-            st.success("An RR of 1 suggests no association.")
+            st.success("Estimate ≈ 1 suggests no association.")
 
-    elif measure_type == "Odds Ratio (OR)":
-
-        if estimate > 1:
-            st.success(f"The odds of outcome in the exposed group are {round(estimate,2)} times the odds in the unexposed group.")
-        elif estimate < 1:
-            st.success(f"The exposure appears protective (OR = {round(estimate,2)}).")
-        else:
-            st.success("An OR of 1 suggests no association.")
-
-    elif measure_type == "Rate Ratio (IRR)":
-        st.success(f"The incidence rate in the exposed group is {round(estimate,2)} times the rate in the unexposed group.")
-
-    elif measure_type == "Mean Difference":
+    elif measure == "Mean Difference":
         st.success(f"The average outcome differs by {round(estimate,2)} units between groups.")
 
-    st.info("Remember: Statistical significance depends on confidence intervals or p-values, not just the point estimate.")
+    elif measure == "Rate Ratio":
+        st.success(f"The incidence rate is {round(estimate,2)} times higher in the exposed group.")
+
+    st.info("Statistical significance depends on CI or p-value, not just the point estimate.")
 
 # ==========================================================
-# INTERACTIVE CONFOUNDING CHECK
+# CONFOUNDING CHECK
 # ==========================================================
 
 with st.expander("🔎 Confounding Check (Interactive)"):
 
-    st.markdown("A variable is a confounder only if ALL three conditions are TRUE:")
+    st.markdown("All three must be YES for confounding.")
 
-    q1 = st.selectbox(
-        "1️⃣ Is the third variable associated with the exposure?",
-        ["Select", "Yes", "No"]
-    )
+    c1 = st.selectbox("Associated with exposure?", ["Select", "Yes", "No"])
+    c2 = st.selectbox("Associated with outcome?", ["Select", "Yes", "No"])
+    c3 = st.selectbox("Not on causal pathway?", ["Select", "Yes", "No"])
 
-    q2 = st.selectbox(
-        "2️⃣ Is it associated with the outcome?",
-        ["Select", "Yes", "No"]
-    )
+    if c1 != "Select" and c2 != "Select" and c3 != "Select":
 
-    q3 = st.selectbox(
-        "3️⃣ Is it NOT on the causal pathway between exposure and outcome?",
-        ["Select", "Yes", "No"]
-    )
-
-    if q1 != "Select" and q2 != "Select" and q3 != "Select":
-
-        if q1 == "Yes" and q2 == "Yes" and q3 == "Yes":
-            st.warning("This variable meets criteria for confounding. Consider stratification or regression adjustment.")
-
-        elif q3 == "No":
-            st.info("If it lies on the causal pathway, it is a mediator — not a confounder.")
-
+        if c1 == "Yes" and c2 == "Yes" and c3 == "Yes":
+            st.warning("This variable is likely a confounder. Consider adjustment.")
+        elif c3 == "No":
+            st.info("This is likely a mediator, not a confounder.")
         else:
-            st.success("This variable does NOT meet criteria for confounding.")
+            st.success("Does not meet criteria for confounding.")
 
 # ==========================================================
-# LIMITATIONS PANEL
+# 🔬 INFERENCE MODULE (LAST STEP)
 # ==========================================================
 
-if limitations:
-    with st.expander("⚠ What Cannot Be Estimated in This Design"):
-        for item in limitations:
-            st.markdown(f"- {item}")
+st.divider()
+st.header("🔬 Final Step: Statistical Inference")
+
+st.markdown("Enter raw data to calculate estimate, 95% CI, and p-value.")
+
+# -------------------------
+# 2x2 Inference
+# -------------------------
+
+if outcome_type == "Binary":
+
+    a = st.number_input("a (Exposed +)", min_value=0)
+    b = st.number_input("b (Exposed -)", min_value=0)
+    c = st.number_input("c (Unexposed +)", min_value=0)
+    d = st.number_input("d (Unexposed -)", min_value=0)
+
+    if st.button("Run 2×2 Analysis"):
+
+        table = np.array([[a, b], [c, d]])
+
+        # Chi-square
+        chi2, p, _, _ = chi2_contingency(table)
+
+        # Risk Ratio
+        if (a+b)>0 and (c+d)>0:
+            rr = (a/(a+b)) / (c/(c+d))
+            se_log_rr = math.sqrt((1/a)-(1/(a+b))+(1/c)-(1/(c+d)))
+            ci_low = math.exp(math.log(rr)-1.96*se_log_rr)
+            ci_high = math.exp(math.log(rr)+1.96*se_log_rr)
+            st.success(f"Risk Ratio = {round(rr,3)}")
+            st.success(f"95% CI: ({round(ci_low,3)}, {round(ci_high,3)})")
+
+        # Odds Ratio
+        if b>0 and c>0:
+            or_val = (a*d)/(b*c)
+            se_log_or = math.sqrt(1/a+1/b+1/c+1/d)
+            ci_low_or = math.exp(math.log(or_val)-1.96*se_log_or)
+            ci_high_or = math.exp(math.log(or_val)+1.96*se_log_or)
+            st.success(f"Odds Ratio = {round(or_val,3)}")
+            st.success(f"95% CI: ({round(ci_low_or,3)}, {round(ci_high_or,3)})")
+
+        st.info(f"Chi-square p-value = {round(p,4)}")
+
+# -------------------------
+# Continuous Outcome
+# -------------------------
+
+elif outcome_type == "Continuous":
+
+    mean1 = st.number_input("Mean (Group 1)")
+    sd1 = st.number_input("SD (Group 1)")
+    n1 = st.number_input("n (Group 1)", min_value=1)
+
+    mean2 = st.number_input("Mean (Group 2)")
+    sd2 = st.number_input("SD (Group 2)")
+    n2 = st.number_input("n (Group 2)", min_value=1)
+
+    if st.button("Run t-test"):
+
+        diff = mean1 - mean2
+        se = math.sqrt((sd1**2/n1)+(sd2**2/n2))
+        df = n1+n2-2
+        t_stat = diff/se
+        p = 2*(1-t.cdf(abs(t_stat), df))
+        ci_low = diff - 1.96*se
+        ci_high = diff + 1.96*se
+
+        st.success(f"Mean Difference = {round(diff,3)}")
+        st.success(f"95% CI: ({round(ci_low,3)}, {round(ci_high,3)})")
+        st.info(f"p-value = {round(p,4)}")
+
+# -------------------------
+# Rate Outcome
+# -------------------------
+
+elif outcome_type == "Rate (person-time)":
+
+    cases1 = st.number_input("Cases (Exposed)", min_value=0)
+    py1 = st.number_input("Person-years (Exposed)", min_value=1)
+
+    cases2 = st.number_input("Cases (Unexposed)", min_value=0)
+    py2 = st.number_input("Person-years (Unexposed)", min_value=1)
+
+    if st.button("Run Rate Analysis"):
+
+        ir1 = cases1/py1
+        ir2 = cases2/py2
+        rr = ir1/ir2
+        se_log_rr = math.sqrt((1/cases1)+(1/cases2))
+        ci_low = math.exp(math.log(rr)-1.96*se_log_rr)
+        ci_high = math.exp(math.log(rr)+1.96*se_log_rr)
+
+        st.success(f"Rate Ratio = {round(rr,3)}")
+        st.success(f"95% CI: ({round(ci_low,3)}, {round(ci_high,3)})")
 
 st.markdown("---")
-st.markdown("Strong epidemiologists think about design before calculation.")
+st.markdown("Strong epidemiologists think about design before inference.")
