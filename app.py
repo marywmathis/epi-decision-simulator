@@ -7,7 +7,7 @@ import math
 st.set_page_config(page_title="Epidemiology Decision Simulator", layout="wide")
 
 st.title("🧭 Epidemiology Decision Simulator")
-st.markdown("Study Design → Outcome Type → Exposure Type → Table → Inference → Interpretation")
+st.markdown("Study Design → Outcome Type → Exposure Type → Table → Run Analysis → Interpretation")
 
 # ==========================================================
 # STEP 1: STUDY DESIGN
@@ -73,38 +73,40 @@ if outcome_type == "Rate (person-time)":
         cases2 = st.number_input(f"Cases ({unexposed_label})", min_value=0)
         py2 = st.number_input(f"Person-Time ({unexposed_label})", min_value=1)
 
-    if py1 > 0 and py2 > 0 and cases1 > 0 and cases2 > 0:
+    if st.button("Run Statistical Analysis"):
 
-        ir1 = cases1 / py1
-        ir2 = cases2 / py2
+        if cases1 > 0 and cases2 > 0:
 
-        if ir2 > 0:
+            ir1 = cases1 / py1
+            ir2 = cases2 / py2
 
-            rr = ir1 / ir2
+            if ir2 > 0:
 
-            se_log_rr = math.sqrt((1/cases1) + (1/cases2))
-            ci_low = math.exp(math.log(rr) - 1.96 * se_log_rr)
-            ci_high = math.exp(math.log(rr) + 1.96 * se_log_rr)
+                rr = ir1 / ir2
 
-            st.subheader("📈 Rate Ratio Results")
+                se_log_rr = math.sqrt((1/cases1) + (1/cases2))
+                ci_low = math.exp(math.log(rr) - 1.96 * se_log_rr)
+                ci_high = math.exp(math.log(rr) + 1.96 * se_log_rr)
 
-            st.write(f"Rate Ratio ({exposed_label} vs {unexposed_label}) = {round(rr,3)}")
-            st.write(f"95% CI: ({round(ci_low,3)}, {round(ci_high,3)})")
+                st.subheader("📈 Rate Ratio Results")
+                st.write(f"Rate Ratio = {round(rr,3)}")
+                st.write(f"95% CI: ({round(ci_low,3)}, {round(ci_high,3)})")
 
-            if ci_low <= 1 <= ci_high:
-                st.warning(
-                    f"In this {design.lower()} study, the incidence rate among "
-                    f"{exposed_label} does not differ statistically from "
-                    f"{unexposed_label} at α = 0.05 because the 95% confidence interval includes 1."
-                )
-            else:
-                direction = "higher" if rr > 1 else "lower"
-                st.success(
-                    f"In this {design.lower()} study, the incidence rate among "
-                    f"{exposed_label} is {round(rr,2)} times {direction} than "
-                    f"among {unexposed_label} (95% CI: {round(ci_low,2)}–{round(ci_high,2)}), "
-                    f"indicating statistical significance at α = 0.05."
-                )
+                if ci_low <= 1 <= ci_high:
+                    st.warning(
+                        f"In this {design.lower()} study, the incidence rate among "
+                        f"{exposed_label} does not differ statistically from "
+                        f"{unexposed_label} because the 95% CI includes 1."
+                    )
+                else:
+                    direction = "higher" if rr > 1 else "lower"
+                    st.success(
+                        f"In this {design.lower()} study, the incidence rate among "
+                        f"{exposed_label} is {round(rr,2)} times {direction} than "
+                        f"among {unexposed_label} (95% CI: {round(ci_low,2)}–{round(ci_high,2)})."
+                    )
+        else:
+            st.warning("Both groups must have at least one case to compute rate ratio.")
 
 # ==========================================================
 # CONTINGENCY TABLE SECTION
@@ -124,7 +126,7 @@ elif outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"]:
     else:
         num_cols = st.number_input("Number of Outcome Levels", min_value=2, value=3)
 
-    # Labeling
+    # Labels
     st.subheader("Label Exposure Groups")
     row_names = [
         st.text_input(f"Exposure Group {i+1}", f"Group {i+1}", key=f"row_{i}")
@@ -157,7 +159,6 @@ elif outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"]:
 
     df = pd.DataFrame(data, columns=col_names, index=row_names)
 
-    # Add totals
     df["Row Total"] = df.sum(axis=1)
     total_row = df.sum()
     total_row.name = "Column Total"
@@ -169,118 +170,102 @@ elif outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"]:
     table_array = df.iloc[:-1, :-1].values
 
     # ------------------------------------------------------
-    # SAFE INFERENCE BLOCK
+    # RUN ANALYSIS BUTTON
     # ------------------------------------------------------
 
-    alpha = 0.05
+    if st.button("Run Statistical Analysis"):
 
-    if np.sum(table_array) == 0:
-        st.info("Enter data in the table to compute statistical tests.")
+        alpha = 0.05
 
-    else:
-
-        row_sums = table_array.sum(axis=1)
-        col_sums = table_array.sum(axis=0)
-
-        if np.any(row_sums == 0) or np.any(col_sums == 0):
-            st.info(
-                "Chi-square test will run once every exposure group and outcome "
-                "category contains at least one observation."
-            )
+        if np.sum(table_array) == 0:
+            st.warning("Please enter data before running analysis.")
 
         else:
 
-            chi2, p, dof, expected = chi2_contingency(table_array)
+            row_sums = table_array.sum(axis=1)
+            col_sums = table_array.sum(axis=0)
 
-            st.subheader("📈 Chi-Square Test of Independence")
-
-            st.write(f"χ²({dof}) = {round(chi2,3)}")
-            st.write(f"p-value = {round(p,4)}")
-
-            exposure_label_string = ", ".join(row_names)
-            outcome_label_string = ", ".join(col_names)
-
-            if p < alpha:
-                st.success(
-                    f"In this {design.lower()} study, the distribution of "
-                    f"{outcome_label_string} differs across exposure groups "
-                    f"({exposure_label_string}) "
-                    f"(χ²({dof}) = {round(chi2,2)}, p = {round(p,4)}). "
-                    f"At α = {alpha}, we reject the null hypothesis that exposure "
-                    f"and outcome are independent."
-                )
-
-                st.markdown(
-                    "This indicates that at least one exposure group has a different "
-                    "probability distribution of the outcome compared to the others. "
-                    "The chi-square test evaluates overall association and does not "
-                    "identify which specific groups differ."
-                )
-
-            else:
+            if np.any(row_sums == 0) or np.any(col_sums == 0):
                 st.warning(
-                    f"In this {design.lower()} study, the distribution of "
-                    f"{outcome_label_string} does not differ statistically across "
-                    f"exposure groups ({exposure_label_string}) "
-                    f"(χ²({dof}) = {round(chi2,2)}, p = {round(p,4)}). "
-                    f"At α = {alpha}, we fail to reject the null hypothesis of independence."
+                    "Each exposure group and outcome category must contain "
+                    "at least one observation."
                 )
+            else:
+                try:
+                    chi2, p, dof, expected = chi2_contingency(table_array)
+                except ValueError:
+                    st.warning(
+                        "Chi-square could not be computed due to structural zeros."
+                    )
+                else:
+                    st.subheader("📈 Chi-Square Test of Independence")
+                    st.write(f"χ²({dof}) = {round(chi2,3)}")
+                    st.write(f"p-value = {round(p,4)}")
 
-            # 2x2 RR and OR
-            if num_rows == 2 and num_cols == 2:
+                    exposure_label_string = ", ".join(row_names)
+                    outcome_label_string = ", ".join(col_names)
 
-                a, b = table_array[0]
-                c, d = table_array[1]
-
-                row1_total = a + b
-                row2_total = c + d
-
-                if all(v > 0 for v in [a, b, c, d]):
-
-                    risk1 = a / row1_total
-                    risk2 = c / row2_total
-                    rr = risk1 / risk2
-
-                    se_log_rr = math.sqrt((1/a)-(1/row1_total)+(1/c)-(1/row2_total))
-                    ci_low_rr = math.exp(math.log(rr) - 1.96 * se_log_rr)
-                    ci_high_rr = math.exp(math.log(rr) + 1.96 * se_log_rr)
-
-                    st.subheader("Risk Ratio")
-
-                    if ci_low_rr <= 1 <= ci_high_rr:
-                        st.warning(
-                            f"The risk ratio comparing {row_names[0]} to {row_names[1]} "
-                            f"is {round(rr,2)} (95% CI: {round(ci_low_rr,2)}–{round(ci_high_rr,2)}). "
-                            f"The interval includes 1 and is not statistically significant."
+                    if p < alpha:
+                        st.success(
+                            f"In this {design.lower()} study, the distribution of "
+                            f"{outcome_label_string} differs across exposure groups "
+                            f"({exposure_label_string}). "
+                            f"We reject the null hypothesis of independence."
                         )
                     else:
-                        direction = "higher" if rr > 1 else "lower"
-                        st.success(
-                            f"The risk of {col_names[0]} among {row_names[0]} "
-                            f"is {round(rr,2)} times {direction} than among {row_names[1]} "
-                            f"(95% CI: {round(ci_low_rr,2)}–{round(ci_high_rr,2)})."
-                        )
-
-                    or_val = (a*d)/(b*c)
-                    se_log_or = math.sqrt(1/a + 1/b + 1/c + 1/d)
-                    ci_low_or = math.exp(math.log(or_val) - 1.96 * se_log_or)
-                    ci_high_or = math.exp(math.log(or_val) + 1.96 * se_log_or)
-
-                    st.subheader("Odds Ratio")
-
-                    if ci_low_or <= 1 <= ci_high_or:
                         st.warning(
-                            f"The odds ratio comparing {row_names[0]} to {row_names[1]} "
-                            f"is {round(or_val,2)} (95% CI: {round(ci_low_or,2)}–{round(ci_high_or,2)}). "
-                            f"The interval includes 1 and is not statistically significant."
+                            f"In this {design.lower()} study, there is insufficient "
+                            f"evidence to conclude that exposure groups differ "
+                            f"in outcome distribution."
                         )
-                    else:
-                        direction = "higher" if or_val > 1 else "lower"
-                        st.success(
-                            f"The odds of {col_names[0]} among {row_names[0]} "
-                            f"are {round(or_val,2)} times {direction} than among {row_names[1]} "
-                            f"(95% CI: {round(ci_low_or,2)}–{round(ci_high_or,2)})."
-                        )
+
+                    # 2x2 Measures
+                    if num_rows == 2 and num_cols == 2:
+
+                        a, b = table_array[0]
+                        c, d = table_array[1]
+
+                        if all(v > 0 for v in [a, b, c, d]):
+
+                            # Risk Ratio
+                            rr = (a/(a+b)) / (c/(c+d))
+                            se_log_rr = math.sqrt((1/a)-(1/(a+b))+(1/c)-(1/(c+d)))
+                            ci_low_rr = math.exp(math.log(rr)-1.96*se_log_rr)
+                            ci_high_rr = math.exp(math.log(rr)+1.96*se_log_rr)
+
+                            st.subheader("Risk Ratio")
+
+                            if ci_low_rr <= 1 <= ci_high_rr:
+                                st.warning(
+                                    f"RR = {round(rr,2)} (95% CI {round(ci_low_rr,2)}–{round(ci_high_rr,2)}). "
+                                    "Interval includes 1; not statistically significant."
+                                )
+                            else:
+                                direction = "higher" if rr > 1 else "lower"
+                                st.success(
+                                    f"The risk of {col_names[0]} among {row_names[0]} "
+                                    f"is {round(rr,2)} times {direction} than among {row_names[1]}."
+                                )
+
+                            # Odds Ratio
+                            or_val = (a*d)/(b*c)
+                            se_log_or = math.sqrt(1/a+1/b+1/c+1/d)
+                            ci_low_or = math.exp(math.log(or_val)-1.96*se_log_or)
+                            ci_high_or = math.exp(math.log(or_val)+1.96*se_log_or)
+
+                            st.subheader("Odds Ratio")
+
+                            if ci_low_or <= 1 <= ci_high_or:
+                                st.warning(
+                                    f"OR = {round(or_val,2)} (95% CI {round(ci_low_or,2)}–{round(ci_high_or,2)}). "
+                                    "Interval includes 1; not statistically significant."
+                                )
+                            else:
+                                direction = "higher" if or_val > 1 else "lower"
+                                st.success(
+                                    f"The odds of {col_names[0]} among {row_names[0]} "
+                                    f"are {round(or_val,2)} times {direction} than among {row_names[1]}."
+                                )
 
 st.markdown("---")
 st.markdown("Strong epidemiologists think structurally before computing.")
