@@ -63,26 +63,98 @@ measure = None
 analysis = None
 allow_inference = False
 
-# --------------------------
-# BINARY OUTCOME
-# --------------------------
+# ==========================================================
+# BINARY OUTCOME — STANDARD 2×2 LAYOUT
+# ==========================================================
 
 if outcome_type == "Binary":
 
-    if design == "Cohort":
-        measure = "Risk Ratio (RR), Risk Difference (RD)"
-        analysis = "Chi-square or Logistic Regression"
-        allow_inference = True
+    st.markdown("### Enter 2×2 Table Counts")
 
-    elif design == "Case-Control":
-        measure = "Odds Ratio (OR)"
-        analysis = "Chi-square or Logistic Regression"
-        allow_inference = True
+    st.markdown("####               Outcome +        Outcome -")
 
-    elif design == "Cross-sectional":
-        measure = "Prevalence Ratio or Odds Ratio"
-        analysis = "Chi-square or Logistic Regression"
-        allow_inference = True
+    col_header1, col_header2, col_header3 = st.columns([1,1,1])
+
+    with col_header2:
+        st.markdown("**Outcome +**")
+
+    with col_header3:
+        st.markdown("**Outcome -**")
+
+    # Row 1: Exposed
+    row1_label, row1_col1, row1_col2 = st.columns([1,1,1])
+
+    with row1_label:
+        st.markdown("**Exposed**")
+
+    with row1_col1:
+        a = st.number_input("a", min_value=0, key="a_cell")
+
+    with row1_col2:
+        b = st.number_input("b", min_value=0, key="b_cell")
+
+    # Row 2: Unexposed
+    row2_label, row2_col1, row2_col2 = st.columns([1,1,1])
+
+    with row2_label:
+        st.markdown("**Unexposed**")
+
+    with row2_col1:
+        c = st.number_input("c", min_value=0, key="c_cell")
+
+    with row2_col2:
+        d = st.number_input("d", min_value=0, key="d_cell")
+
+    # Totals
+    row1_total = a + b
+    row2_total = c + d
+    col1_total = a + c
+    col2_total = b + d
+    grand_total = row1_total + row2_total
+
+    table = pd.DataFrame(
+        [
+            [a, b, row1_total],
+            [c, d, row2_total],
+            [col1_total, col2_total, grand_total]
+        ],
+        columns=["Outcome +", "Outcome -", "Row Total"],
+        index=["Exposed", "Unexposed", "Column Total"]
+    )
+
+    st.subheader("2×2 Table with Totals")
+    st.table(table)
+
+    # -------------------------
+    # INFERENCE
+    # -------------------------
+
+    if grand_total > 0 and row1_total > 0 and row2_total > 0:
+
+        if any(x < 5 for x in [a, b, c, d]):
+            st.warning("⚠ Small cell counts detected. Fisher’s Exact Test recommended.")
+
+        risk_exp = a / row1_total if row1_total > 0 else np.nan
+        risk_unexp = c / row2_total if row2_total > 0 else np.nan
+
+        rr = risk_exp / risk_unexp if risk_unexp > 0 else np.nan
+        rd = risk_exp - risk_unexp if not np.isnan(risk_exp) else np.nan
+        or_val = (a * d) / (b * c) if b > 0 and c > 0 else np.nan
+
+        st.subheader("📈 Measures")
+
+        if not np.isnan(rr):
+            st.success(f"Risk Ratio (RR) = {round(rr,3)}")
+            st.success(f"Risk Difference (RD) = {round(rd,3)}")
+
+        if not np.isnan(or_val):
+            st.success(f"Odds Ratio (OR) = {round(or_val,3)}")
+
+        chi2, p_chi, _, _ = chi2_contingency([[a,b],[c,d]])
+        _, p_fisher = fisher_exact([[a,b],[c,d]])
+
+        st.info(f"Chi-square p-value = {round(p_chi,4)}")
+        st.info(f"Fisher’s Exact p-value = {round(p_fisher,4)}")
 
 # --------------------------
 # CATEGORICAL OUTCOME
@@ -251,3 +323,4 @@ with st.expander("🔎 Confounding Check (Interactive)"):
 
 st.markdown("---")
 st.markdown("Strong epidemiologists think structurally before computing.")
+
