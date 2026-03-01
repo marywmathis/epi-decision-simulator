@@ -1,16 +1,16 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from scipy.stats import chi2_contingency
 import math
-from scipy.stats import chi2_contingency, fisher_exact
 
 st.set_page_config(page_title="Epidemiology Decision Simulator", layout="wide")
 
 st.title("🧭 Epidemiology Decision Simulator")
-st.markdown("Study Design → Outcome Type → Exposure Type → Measure → Inference")
+st.markdown("Study Design → Outcome Type → Exposure Type → Table → Inference")
 
 # ==========================================================
-# STUDY DESIGN
+# STEP 1: STUDY DESIGN
 # ==========================================================
 
 st.subheader("Step 1️⃣: Study Design")
@@ -21,7 +21,7 @@ design = st.selectbox(
 )
 
 # ==========================================================
-# OUTCOME TYPE
+# STEP 2: OUTCOME TYPE
 # ==========================================================
 
 st.subheader("Step 2️⃣: Outcome Variable Type")
@@ -38,7 +38,7 @@ outcome_type = st.selectbox(
 )
 
 # ==========================================================
-# EXPOSURE TYPE
+# STEP 3: EXPOSURE TYPE
 # ==========================================================
 
 st.subheader("Step 3️⃣: Exposure Variable Type")
@@ -52,312 +52,150 @@ exposure_type = st.selectbox(
     ]
 )
 
-# ==========================================================
-# MEASURE LOGIC
-# ==========================================================
-
 st.divider()
-st.subheader("Measure Based on Design and Outcome")
-
-measure = None
-analysis = None
-allow_inference = False
 
 # ==========================================================
-# BINARY OUTCOME — DYNAMIC EXPOSURE GROUPS
+# CONTINGENCY TABLE BUILDER (r × c)
 # ==========================================================
 
-if outcome_type == "Binary":
+if outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"] \
+        and exposure_type in ["Binary (2 groups)", "Categorical (>2 groups)"]:
 
-    st.markdown("### Enter Table Counts")
+    st.header("📊 Build Contingency Table")
 
-    # ------------------------------------------------------
-    # Binary Exposure (Standard 2×2)
-    # ------------------------------------------------------
-
+    # Determine number of rows (exposure groups)
     if exposure_type == "Binary (2 groups)":
-
-        group_names = ["Exposed", "Unexposed"]
-
+        num_rows = 2
     else:
-        # Allow dynamic number of groups
-        num_groups = st.number_input(
+        num_rows = st.number_input(
             "Number of Exposure Groups",
             min_value=2,
             value=3,
             step=1
         )
 
-        group_names = []
-        for i in range(num_groups):
-            name = st.text_input(f"Name for Group {i+1}", value=f"Group {i+1}")
-            group_names.append(name)
+    # Determine number of columns (outcome levels)
+    if outcome_type == "Binary":
+        num_cols = 2
+    else:
+        num_cols = st.number_input(
+            "Number of Outcome Levels",
+            min_value=2,
+            value=3,
+            step=1
+        )
 
-    # ------------------------------------------------------
-    # Build Table
-    # ------------------------------------------------------
+    # Custom names
+    st.subheader("Label Exposure Groups")
+    row_names = []
+    for i in range(num_rows):
+        name = st.text_input(f"Exposure Group {i+1}", value=f"Group {i+1}")
+        row_names.append(name)
 
-    st.markdown("#### Outcome +      Outcome -")
+    st.subheader("Label Outcome Levels")
+    col_names = []
+    for j in range(num_cols):
+        name = st.text_input(f"Outcome Level {j+1}", value=f"Level {j+1}")
+        col_names.append(name)
+
+    st.subheader("Enter Cell Counts")
 
     data = []
-    totals_plus = 0
-    totals_minus = 0
+    for i in range(num_rows):
+        row = []
+        cols = st.columns(num_cols)
+        st.markdown(f"**{row_names[i]}**")
+        for j in range(num_cols):
+            with cols[j]:
+                value = st.number_input(
+                    f"{row_names[i]} - {col_names[j]}",
+                    min_value=0,
+                    key=f"cell_{i}_{j}"
+                )
+                row.append(value)
+        data.append(row)
 
-    for group in group_names:
+    df = pd.DataFrame(data, columns=col_names, index=row_names)
 
-        col_label, col_plus, col_minus = st.columns([1,1,1])
-
-        with col_label:
-            st.markdown(f"**{group}**")
-
-        with col_plus:
-            plus = st.number_input(f"{group} & Outcome +", min_value=0, key=f"{group}_plus")
-
-        with col_minus:
-            minus = st.number_input(f"{group} & Outcome -", min_value=0, key=f"{group}_minus")
-
-        data.append([plus, minus])
-        totals_plus += plus
-        totals_minus += minus
-
-    # Convert to dataframe
-    df = pd.DataFrame(
-        data,
-        columns=["Outcome +", "Outcome -"],
-        index=group_names
-    )
-
+    # Add totals
     df["Row Total"] = df.sum(axis=1)
+    total_row = df.sum()
+    total_row.name = "Column Total"
+    df = pd.concat([df, total_row.to_frame().T])
 
-    # Add column totals
-    df.loc["Column Total"] = df.sum()
-
-    st.subheader("Table with Totals")
+    st.subheader("Contingency Table with Totals")
     st.table(df)
 
-    # ------------------------------------------------------
+    # ==========================================================
     # INFERENCE
-    # ------------------------------------------------------
+    # ==========================================================
 
-    if totals_plus + totals_minus > 0:
+    table_array = df.iloc[:-1, :-1].values
 
-        table_array = df.iloc[:-1, :2].values
+    if np.sum(table_array) > 0:
 
-        chi2, p_chi, _, _ = chi2_contingency(table_array)
+        chi2, p, dof, expected = chi2_contingency(table_array)
 
-        st.info(f"Chi-square test of independence p-value = {round(p_chi,4)}")
+        st.subheader("📈 Chi-Square Test of Independence")
+        st.success(f"Chi-square statistic = {round(chi2,3)}")
+        st.success(f"Degrees of freedom = {dof}")
+        st.success(f"p-value = {round(p,4)}")
 
-        # If only 2 groups, calculate RR & OR
-        if len(group_names) == 2:
+        if p < 0.05:
+            st.success("Statistically significant association detected.")
+        else:
+            st.warning("No statistically significant association detected.")
 
-            a = df.iloc[0,0]
-            b = df.iloc[0,1]
-            c = df.iloc[1,0]
-            d = df.iloc[1,1]
+        # Only compute RR/OR if 2x2
+        if num_rows == 2 and num_cols == 2:
+
+            a = table_array[0][0]
+            b = table_array[0][1]
+            c = table_array[1][0]
+            d = table_array[1][1]
 
             row1_total = a + b
             row2_total = c + d
 
-            risk1 = a / row1_total if row1_total > 0 else np.nan
-            risk2 = c / row2_total if row2_total > 0 else np.nan
+            if row1_total > 0 and row2_total > 0:
 
-            rr = risk1 / risk2 if risk2 > 0 else np.nan
-            or_val = (a*d)/(b*c) if b>0 and c>0 else np.nan
+                risk1 = a / row1_total
+                risk2 = c / row2_total
 
-            st.subheader("Measures (Group 1 vs Group 2)")
+                rr = risk1 / risk2 if risk2 > 0 else np.nan
+                or_val = (a*d)/(b*c) if b>0 and c>0 else np.nan
 
-            if not np.isnan(rr):
-                st.success(f"Risk Ratio = {round(rr,3)}")
+                st.subheader("2×2 Measures")
 
-            if not np.isnan(or_val):
-                st.success(f"Odds Ratio = {round(or_val,3)}")
+                if not np.isnan(rr):
+                    st.success(f"Risk Ratio = {round(rr,3)}")
 
-        else:
-            st.info("For >2 exposure groups, Chi-square tests overall association.")
-            st.info("Relative risks or odds ratios can be calculated vs a reference group using regression.")
-
-    # -------------------------
-    # INFERENCE
-    # -------------------------
-
-    if grand_total > 0 and row1_total > 0 and row2_total > 0:
-
-        if any(x < 5 for x in [a, b, c, d]):
-            st.warning("⚠ Small cell counts detected. Fisher’s Exact Test recommended.")
-
-        risk_exp = a / row1_total if row1_total > 0 else np.nan
-        risk_unexp = c / row2_total if row2_total > 0 else np.nan
-
-        rr = risk_exp / risk_unexp if risk_unexp > 0 else np.nan
-        rd = risk_exp - risk_unexp if not np.isnan(risk_exp) else np.nan
-        or_val = (a * d) / (b * c) if b > 0 and c > 0 else np.nan
-
-        st.subheader("📈 Measures")
-
-        if not np.isnan(rr):
-            st.success(f"Risk Ratio (RR) = {round(rr,3)}")
-            st.success(f"Risk Difference (RD) = {round(rd,3)}")
-
-        if not np.isnan(or_val):
-            st.success(f"Odds Ratio (OR) = {round(or_val,3)}")
-
-        chi2, p_chi, _, _ = chi2_contingency([[a,b],[c,d]])
-        _, p_fisher = fisher_exact([[a,b],[c,d]])
-
-        st.info(f"Chi-square p-value = {round(p_chi,4)}")
-        st.info(f"Fisher’s Exact p-value = {round(p_fisher,4)}")
-
-# --------------------------
-# CATEGORICAL OUTCOME
-# --------------------------
-
-elif outcome_type == "Categorical (Nominal >2 levels)":
-
-    measure = "Relative Risk Ratios or Odds Ratios"
-    analysis = "Multinomial Logistic Regression"
-    allow_inference = False
-
-# --------------------------
-# ORDINAL OUTCOME
-# --------------------------
-
-elif outcome_type == "Ordinal":
-
-    measure = "Proportional Odds Ratio"
-    analysis = "Ordinal Logistic Regression"
-    allow_inference = False
-
-# --------------------------
-# CONTINUOUS OUTCOME
-# --------------------------
-
-elif outcome_type == "Continuous":
-
-    if exposure_type == "Binary (2 groups)":
-        measure = "Mean Difference"
-        analysis = "Independent samples t-test"
-    else:
-        measure = "Regression Coefficient (Beta)"
-        analysis = "Linear Regression"
-    allow_inference = False  # Keeping 2x2 inference only for binary
-
-# --------------------------
-# RATE OUTCOME
-# --------------------------
+                if not np.isnan(or_val):
+                    st.success(f"Odds Ratio = {round(or_val,3)}")
 
 elif outcome_type == "Rate (person-time)":
 
-    measure = "Rate Ratio"
-    analysis = "Poisson Regression"
-    allow_inference = True
+    st.header("📊 Rate Data Entry")
 
-st.success(f"Primary Measure: {measure}")
-st.info(f"Primary Analysis Approach: {analysis}")
+    cases1 = st.number_input("Cases (Exposed)", min_value=0)
+    py1 = st.number_input("Person-Time (Exposed)", min_value=1)
 
-# ==========================================================
-# INFERENCE SECTION (ONLY WHEN APPROPRIATE)
-# ==========================================================
+    cases2 = st.number_input("Cases (Unexposed)", min_value=0)
+    py2 = st.number_input("Person-Time (Unexposed)", min_value=1)
 
-if allow_inference:
+    ir1 = cases1 / py1
+    ir2 = cases2 / py2
 
-    st.divider()
-    st.header("📊 Data Entry & Automatic Inference")
+    rr = ir1 / ir2 if ir2 > 0 else np.nan
 
-    # ==========================
-    # BINARY OUTCOME
-    # ==========================
-
-    if outcome_type == "Binary":
-
-        st.markdown("### Enter 2×2 Table Counts")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            a = st.number_input("Exposed & Outcome +", min_value=0)
-            b = st.number_input("Exposed & Outcome -", min_value=0)
-
-        with col2:
-            c = st.number_input("Unexposed & Outcome +", min_value=0)
-            d = st.number_input("Unexposed & Outcome -", min_value=0)
-
-        row1_total = a + b
-        row2_total = c + d
-        col1_total = a + c
-        col2_total = b + d
-        grand_total = row1_total + row2_total
-
-        table = pd.DataFrame(
-            [
-                [a, b, row1_total],
-                [c, d, row2_total],
-                [col1_total, col2_total, grand_total]
-            ],
-            columns=["Outcome +", "Outcome -", "Row Total"],
-            index=["Exposed", "Unexposed", "Column Total"]
-        )
-
-        st.subheader("2×2 Table with Totals")
-        st.table(table)
-
-        if grand_total > 0 and row1_total > 0 and row2_total > 0:
-
-            # Small cell warning
-            if any(x < 5 for x in [a, b, c, d]):
-                st.warning("⚠ Small cell counts detected. Fisher’s Exact Test recommended.")
-
-            risk_exp = a / row1_total if row1_total > 0 else np.nan
-            risk_unexp = c / row2_total if row2_total > 0 else np.nan
-
-            rr = risk_exp / risk_unexp if risk_unexp > 0 else np.nan
-            rd = risk_exp - risk_unexp if not np.isnan(risk_exp) else np.nan
-            or_val = (a * d) / (b * c) if b > 0 and c > 0 else np.nan
-
-            st.subheader("📈 Measures")
-
-            if not np.isnan(rr):
-                st.success(f"Risk Ratio (RR) = {round(rr,3)}")
-                st.success(f"Risk Difference (RD) = {round(rd,3)}")
-
-            if not np.isnan(or_val):
-                st.success(f"Odds Ratio (OR) = {round(or_val,3)}")
-
-            # Tests
-            chi2, p_chi, _, _ = chi2_contingency([[a,b],[c,d]])
-            _, p_fisher = fisher_exact([[a,b],[c,d]])
-
-            st.info(f"Chi-square p-value = {round(p_chi,4)}")
-            st.info(f"Fisher’s Exact p-value = {round(p_fisher,4)}")
-
-    # ==========================
-    # RATE OUTCOME
-    # ==========================
-
-    elif outcome_type == "Rate (person-time)":
-
-        st.markdown("### Enter Cases and Person-Time")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            cases1 = st.number_input("Cases (Exposed)", min_value=0)
-            py1 = st.number_input("Person-Time (Exposed)", min_value=1)
-
-        with col2:
-            cases2 = st.number_input("Cases (Unexposed)", min_value=0)
-            py2 = st.number_input("Person-Time (Unexposed)", min_value=1)
-
-        ir1 = cases1 / py1
-        ir2 = cases2 / py2
-        rr = ir1 / ir2 if ir2 > 0 else np.nan
-
-        st.success(f"Rate Ratio = {round(rr,3)}")
+    st.success(f"Rate Ratio = {round(rr,3)}")
 
 # ==========================================================
 # CONFOUNDING CHECK
 # ==========================================================
 
 with st.expander("🔎 Confounding Check (Interactive)"):
+
     st.markdown("All three must be YES to meet confounding criteria.")
 
     c1 = st.selectbox("Associated with exposure?", ["Select", "Yes", "No"])
@@ -374,5 +212,3 @@ with st.expander("🔎 Confounding Check (Interactive)"):
 
 st.markdown("---")
 st.markdown("Strong epidemiologists think structurally before computing.")
-
-
