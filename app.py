@@ -78,14 +78,22 @@ if outcome_type == "Rate (person-time)":
         ir1 = cases1 / py1
         ir2 = cases2 / py2
 
-        if ir2 > 0:
-            rr = ir1 / ir2
-            st.success(f"Rate Ratio ({exposed_label} vs {unexposed_label}) = {round(rr,3)}")
+        if ir2 > 0 and cases1 > 0 and cases2 > 0:
 
-            st.markdown(
-                f"The incidence rate among **{exposed_label}** is "
-                f"{round(rr,2)} times the rate among **{unexposed_label}**."
-            )
+            rr = ir1 / ir2
+
+            # CI
+            se_log_rr = math.sqrt((1/cases1) + (1/cases2))
+            ci_low = math.exp(math.log(rr) - 1.96 * se_log_rr)
+            ci_high = math.exp(math.log(rr) + 1.96 * se_log_rr)
+
+            st.success(f"Rate Ratio ({exposed_label} vs {unexposed_label}) = {round(rr,3)}")
+            st.info(f"95% CI: ({round(ci_low,3)}, {round(ci_high,3)})")
+
+            if ci_low <= 1 <= ci_high:
+                st.warning("The confidence interval includes 1, suggesting the association is not statistically significant at α = 0.05.")
+            else:
+                st.success("The confidence interval does not include 1, suggesting statistical significance at α = 0.05.")
 
 # ==========================================================
 # CONTINGENCY TABLE ENGINE
@@ -95,13 +103,11 @@ elif outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"]:
 
     st.header("📊 Build Contingency Table")
 
-    # Number of exposure groups
     if exposure_type == "Binary (2 groups)":
         num_rows = 2
     else:
         num_rows = st.number_input("Number of Exposure Groups", min_value=2, value=3)
 
-    # Number of outcome levels
     if outcome_type == "Binary":
         num_cols = 2
     else:
@@ -160,25 +166,12 @@ elif outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"]:
         st.success(f"χ²({dof}) = {round(chi2,3)}")
         st.success(f"p-value = {round(p,4)}")
 
-        exposure_label_string = ", ".join(row_names)
-        outcome_label_string = ", ".join(col_names)
-
         if p < 0.05:
-            st.markdown(
-                f"There is a statistically significant association between "
-                f"**exposure categories ({exposure_label_string})** and "
-                f"**outcome categories ({outcome_label_string})** "
-                f"(χ²({dof}) = {round(chi2,2)}, p = {round(p,4)})."
-            )
+            st.success("There is a statistically significant association.")
         else:
-            st.markdown(
-                f"There is no statistically significant association between "
-                f"**exposure categories ({exposure_label_string})** and "
-                f"**outcome categories ({outcome_label_string})** "
-                f"(χ²({dof}) = {round(chi2,2)}, p = {round(p,4)})."
-            )
+            st.warning("There is no statistically significant association.")
 
-        # If 2×2, compute RR and OR
+        # 2×2 Only: RR, OR + CI
         if num_rows == 2 and num_cols == 2:
 
             a = table_array[0][0]
@@ -189,24 +182,39 @@ elif outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"]:
             row1_total = a + b
             row2_total = c + d
 
-            if row1_total > 0 and row2_total > 0:
+            if a>0 and b>0 and c>0 and d>0:
 
                 risk1 = a / row1_total
                 risk2 = c / row2_total
 
                 if risk2 > 0:
                     rr = risk1 / risk2
+
+                    se_log_rr = math.sqrt((1/a)-(1/row1_total)+(1/c)-(1/row2_total))
+                    ci_low_rr = math.exp(math.log(rr) - 1.96 * se_log_rr)
+                    ci_high_rr = math.exp(math.log(rr) + 1.96 * se_log_rr)
+
                     st.success(f"Risk Ratio ({row_names[0]} vs {row_names[1]}) = {round(rr,3)}")
+                    st.info(f"95% CI for RR: ({round(ci_low_rr,3)}, {round(ci_high_rr,3)})")
 
-                    st.markdown(
-                        f"The risk of **{col_names[0]}** among "
-                        f"**{row_names[0]}** is {round(rr,2)} times "
-                        f"the risk among **{row_names[1]}**."
-                    )
+                    if ci_low_rr <= 1 <= ci_high_rr:
+                        st.warning("The RR confidence interval includes 1 → not statistically significant.")
+                    else:
+                        st.success("The RR confidence interval excludes 1 → statistically significant.")
 
-                if b > 0 and c > 0:
-                    or_val = (a * d) / (b * c)
-                    st.success(f"Odds Ratio ({row_names[0]} vs {row_names[1]}) = {round(or_val,3)}")
+                or_val = (a * d) / (b * c)
+
+                se_log_or = math.sqrt(1/a + 1/b + 1/c + 1/d)
+                ci_low_or = math.exp(math.log(or_val) - 1.96 * se_log_or)
+                ci_high_or = math.exp(math.log(or_val) + 1.96 * se_log_or)
+
+                st.success(f"Odds Ratio ({row_names[0]} vs {row_names[1]}) = {round(or_val,3)}")
+                st.info(f"95% CI for OR: ({round(ci_low_or,3)}, {round(ci_high_or,3)})")
+
+                if ci_low_or <= 1 <= ci_high_or:
+                    st.warning("The OR confidence interval includes 1 → not statistically significant.")
+                else:
+                    st.success("The OR confidence interval excludes 1 → statistically significant.")
 
 # ==========================================================
 # CONFOUNDING CHECK
