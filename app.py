@@ -3,71 +3,33 @@ import pandas as pd
 
 st.set_page_config(page_title="Epidemiology Decision Simulator", layout="wide")
 
-# ==========================================================
-# STYLING
-# ==========================================================
-
-st.markdown("""
-<style>
-.big-title {font-size:32px !important; font-weight:700;}
-.section-header {font-size:22px !important; font-weight:600;}
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown('<p class="big-title">🧭 Epidemiology Decision Simulator</p>', unsafe_allow_html=True)
-st.markdown("Outcome → Outcome Type → Study Design → Measure → Formula → Test")
+st.title("🧭 Epidemiology Decision Simulator")
+st.markdown("Outcome → Outcome Type → Study Design → Predictor Type → Measure → Test/Model")
 
 # ==========================================================
-# MODE SELECTOR
+# MODE
 # ==========================================================
 
 mode = st.radio(
     "Select Mode",
     [
         "Decision Builder",
-        "Scenario Practice",
         "Association Calculator",
-        "Person-Time (Cohort) Calculator"
+        "Person-Time Calculator"
     ],
     horizontal=True
 )
 
 # ==========================================================
-# SCENARIO MODE
-# ==========================================================
-
-if mode == "Scenario Practice":
-
-    st.subheader("📝 Practice Scenario")
-
-    scenarios = {
-        "Asthma & Vaping (Cohort)":
-        "Researchers follow adolescents for 5 years to assess new asthma diagnoses.",
-
-        "Smoking & Lung Cancer (Case-Control)":
-        "Investigators identify lung cancer cases and controls and assess past smoking.",
-
-        "Hypertension Survey (Cross-sectional)":
-        "A one-time survey measures the proportion currently with hypertension.",
-
-        "Blood Pressure Trial (Continuous)":
-        "Researchers compare mean systolic BP between treatment and placebo."
-    }
-
-    selected = st.selectbox("Choose scenario", list(scenarios.keys()))
-    st.info(scenarios[selected])
-    st.divider()
-
-# ==========================================================
 # DECISION BUILDER
 # ==========================================================
 
-if mode in ["Decision Builder", "Scenario Practice"]:
+if mode == "Decision Builder":
 
-    st.subheader("Step 1️⃣: Outcome")
+    st.subheader("Step 1️⃣: Outcome Variable")
 
     outcome = st.selectbox(
-        "What is the outcome variable?",
+        "What is the outcome?",
         [
             "Disease status (Yes/No)",
             "Incidence (new cases)",
@@ -80,20 +42,18 @@ if mode in ["Decision Builder", "Scenario Practice"]:
     st.subheader("Step 2️⃣: Outcome Type")
 
     outcome_type = st.selectbox(
-        "What type of variable is it?",
+        "Outcome variable type",
         [
             "Binary",
             "Rate",
-            "Continuous",
-            "Matched pairs",
-            "Time-based comparison"
+            "Continuous"
         ]
     )
 
     st.subheader("Step 3️⃣: Study Design")
 
     design = st.selectbox(
-        "What is the study design?",
+        "Study design",
         [
             "Cohort",
             "Cross-sectional",
@@ -103,94 +63,133 @@ if mode in ["Decision Builder", "Scenario Practice"]:
         ]
     )
 
+    st.subheader("Step 4️⃣: Predictor Variable Type")
+
+    predictor_type = st.selectbox(
+        "What type of predictor (exposure) variable?",
+        [
+            "Binary (2 groups)",
+            "Categorical (>2 groups)",
+            "Continuous",
+            "Matched pairs exposure"
+        ]
+    )
+
     measure = None
-    formula = None
+    model = None
     test = None
-    warning = None
     show_table = False
+    warning = None
 
+    # ======================================================
     # LOGIC ENGINE
+    # ======================================================
 
-    if design == "Cohort":
+    # ------------------------
+    # BINARY OUTCOME
+    # ------------------------
 
-        if outcome == "Disease status (Yes/No)" and outcome_type == "Binary":
-            measure = "Risk Ratio (RR)"
-            formula = "RR = [a/(a+b)] / [c/(c+d)]"
-            test = "Chi-square"
-            show_table = True
+    if outcome_type == "Binary":
 
-        elif outcome == "Incidence rate (person-time)" and outcome_type == "Rate":
-            measure = "Rate Ratio"
-            formula = "IRR = IR exposed / IR unexposed"
-            test = "Poisson regression"
+        if design == "Cohort":
 
-        elif outcome == "Continuous measurement" and outcome_type == "Continuous":
+            if predictor_type == "Binary (2 groups)":
+                measure = "Risk Ratio (RR)"
+                test = "Chi-square"
+                show_table = True
+
+            elif predictor_type == "Categorical (>2 groups)":
+                measure = "Multiple Risk Ratios"
+                test = "Chi-square (overall) or Logistic Regression"
+
+            elif predictor_type == "Continuous":
+                measure = "Odds Ratio (per unit increase)"
+                model = "Logistic Regression"
+
+        elif design == "Case-Control":
+
+            if predictor_type == "Binary (2 groups)":
+                measure = "Odds Ratio (OR)"
+                test = "Chi-square"
+                show_table = True
+
+            elif predictor_type in ["Categorical (>2 groups)", "Continuous"]:
+                measure = "Odds Ratio"
+                model = "Logistic Regression"
+
+        elif design == "Cross-sectional":
+
+            if predictor_type == "Binary (2 groups)":
+                measure = "Prevalence Ratio"
+                test = "Chi-square"
+                show_table = True
+
+            else:
+                measure = "Prevalence Odds Ratio"
+                model = "Logistic Regression"
+
+        elif design == "Matched Case-Control":
+
+            measure = "Matched Odds Ratio"
+            test = "McNemar test"
+
+        elif design == "Case-Crossover":
+
+            measure = "Odds Ratio"
+            test = "McNemar test"
+
+    # ------------------------
+    # CONTINUOUS OUTCOME
+    # ------------------------
+
+    elif outcome_type == "Continuous":
+
+        if predictor_type == "Binary (2 groups)":
             measure = "Mean Difference"
-            formula = "Mean₁ − Mean₂"
             test = "Independent samples t-test"
 
-        else:
-            warning = "⚠️ That combination does not align with a standard cohort analysis."
+        elif predictor_type == "Categorical (>2 groups)":
+            measure = "Difference in Means"
+            test = "ANOVA"
 
-    elif design == "Cross-sectional":
+        elif predictor_type == "Continuous":
+            measure = "Beta coefficient"
+            model = "Linear Regression"
 
-        if outcome == "Prevalence (existing cases)" and outcome_type == "Binary":
-            measure = "Prevalence Ratio (PR)"
-            formula = "PR = Prevalence exposed / Prevalence unexposed"
-            test = "Chi-square"
-            show_table = True
-        else:
-            warning = "⚠️ Cross-sectional studies measure prevalence."
+    # ------------------------
+    # RATE OUTCOME
+    # ------------------------
 
-    elif design == "Case-Control":
+    elif outcome_type == "Rate":
 
-        if outcome_type == "Binary":
-            measure = "Odds Ratio (OR)"
-            formula = "OR = (a×d)/(b×c)"
-            test = "Chi-square"
-            show_table = True
-        else:
-            warning = "⚠️ Case-control studies estimate odds."
+        measure = "Rate Ratio"
+        model = "Poisson Regression"
 
-    elif design == "Matched Case-Control":
-
-        if outcome_type == "Matched pairs":
-            measure = "Matched Odds Ratio"
-            formula = "OR = b/c (discordant pairs)"
-            test = "McNemar test"
-        else:
-            warning = "⚠️ Matched designs require matched data."
-
-    elif design == "Case-Crossover":
-
-        if outcome_type == "Time-based comparison":
-            measure = "Odds Ratio"
-            formula = "OR = b/c"
-            test = "McNemar test"
-        else:
-            warning = "⚠️ Case-crossover compares exposure over time."
+    # ======================================================
+    # OUTPUT
+    # ======================================================
 
     st.divider()
 
     if measure:
         col1, col2, col3 = st.columns(3)
-        col1.success(f"Measure: {measure}")
-        col2.info(f"Formula: {formula}")
-        col3.warning(f"Test: {test}")
 
-    if warning:
-        st.error(warning)
+        col1.success(f"Measure: {measure}")
+
+        if test:
+            col2.info(f"Statistical Test: {test}")
+
+        if model:
+            col3.warning(f"Model: {model}")
 
     if show_table:
         st.subheader("📊 2×2 Table Structure")
-
         table = pd.DataFrame(
             [["a", "b"],
              ["c", "d"]],
             columns=["Outcome +", "Outcome -"],
             index=["Exposed", "Unexposed"]
         )
-
         st.table(table)
 
 # ==========================================================
@@ -199,99 +198,69 @@ if mode in ["Decision Builder", "Scenario Practice"]:
 
 if mode == "Association Calculator":
 
-    st.subheader("🧮 Association Calculator")
+    st.subheader("🧮 Risk Ratio / Odds Ratio Calculator")
 
-    calc_type = st.selectbox(
-        "Choose measure",
-        ["Risk Ratio", "Odds Ratio", "Mean Difference"]
-    )
+    a = st.number_input("a", min_value=0.0)
+    b = st.number_input("b", min_value=0.0)
+    c = st.number_input("c", min_value=0.0)
+    d = st.number_input("d", min_value=0.0)
 
-    if calc_type in ["Risk Ratio", "Odds Ratio"]:
+    if st.button("Calculate RR and OR"):
 
-        a = st.number_input("a", min_value=0.0)
-        b = st.number_input("b", min_value=0.0)
-        c = st.number_input("c", min_value=0.0)
-        d = st.number_input("d", min_value=0.0)
+        if (a+b)>0 and (c+d)>0 and b>0 and c>0:
 
-        if st.button("Calculate"):
+            rr = (a/(a+b)) / (c/(c+d))
+            or_val = (a*d)/(b*c)
 
-            if calc_type == "Risk Ratio":
-                if (a+b)>0 and (c+d)>0:
-                    rr = (a/(a+b)) / (c/(c+d))
-                    st.success(f"Risk Ratio = {round(rr,4)}")
-
-            if calc_type == "Odds Ratio":
-                if b>0 and c>0:
-                    or_val = (a*d)/(b*c)
-                    st.success(f"Odds Ratio = {round(or_val,4)}")
-
-    if calc_type == "Mean Difference":
-
-        mean1 = st.number_input("Mean Group 1")
-        mean2 = st.number_input("Mean Group 2")
-
-        if st.button("Calculate Difference"):
-            st.success(f"Mean Difference = {round(mean1-mean2,4)}")
+            st.success(f"Risk Ratio = {round(rr,4)}")
+            st.success(f"Odds Ratio = {round(or_val,4)}")
 
 # ==========================================================
 # PERSON-TIME CALCULATOR
 # ==========================================================
 
-if mode == "Person-Time (Cohort) Calculator":
+if mode == "Person-Time Calculator":
 
-    st.subheader("⏳ Person-Time Calculator (Cohort Study)")
+    st.subheader("⏳ Person-Time Calculator")
 
-    st.markdown("Enter each participant's time at risk (in years).")
-
-    num_people = st.number_input("Number of participants", min_value=1, value=5)
+    n = st.number_input("Number of participants", min_value=1, value=5)
 
     times = []
-    for i in range(int(num_people)):
+    for i in range(int(n)):
         t = st.number_input(f"Participant {i+1} time (years)", min_value=0.0, key=i)
         times.append(t)
 
-    total_person_time = sum(times)
+    total_py = sum(times)
 
-    st.info(f"Total Person-Years = {round(total_person_time,3)}")
-
-    st.markdown("### Incidence Rate Calculation")
+    st.info(f"Total Person-Years = {round(total_py,3)}")
 
     cases = st.number_input("Number of new cases", min_value=0.0)
 
     if st.button("Calculate Incidence Rate"):
-        if total_person_time > 0:
-            ir = cases / total_person_time
+        if total_py > 0:
+            ir = cases / total_py
             st.success(f"Incidence Rate = {round(ir,4)} cases per person-year")
 
-    st.markdown("### Rate Ratio (Two Groups)")
-
-    st.markdown("Group 1")
-    cases1 = st.number_input("Cases (Group 1)", min_value=0.0, key="g1c")
-    py1 = st.number_input("Person-Years (Group 1)", min_value=0.0, key="g1py")
-
-    st.markdown("Group 2")
-    cases2 = st.number_input("Cases (Group 2)", min_value=0.0, key="g2c")
-    py2 = st.number_input("Person-Years (Group 2)", min_value=0.0, key="g2py")
-
-    if st.button("Calculate Rate Ratio"):
-        if py1>0 and py2>0:
-            ir1 = cases1/py1
-            ir2 = cases2/py2
-            rr = ir1/ir2 if ir2>0 else None
-            st.success(f"Rate Ratio = {round(rr,4)}")
-
 # ==========================================================
-# EDUCATION PANEL
+# EDUCATIONAL PANEL
 # ==========================================================
+
+with st.expander("🧠 How to Think Through This"):
+    st.markdown("""
+    1. Identify outcome variable.
+    2. Determine if outcome is binary, continuous, or rate.
+    3. Identify study design.
+    4. Determine predictor variable type.
+    5. Decide: table-based test or regression model?
+    """)
 
 with st.expander("🚫 Common Mistakes"):
     st.markdown("""
-    - RR cannot be calculated in case-control studies.
-    - Cross-sectional studies measure prevalence.
-    - Matched designs require McNemar.
-    - Odds ≠ Risk.
-    - Person-time stops at outcome or loss to follow-up.
+    - Risk Ratio cannot be calculated in case-control studies.
+    - Continuous predictors require regression.
+    - Multi-category predictors often require ANOVA or regression.
+    - Matching changes the statistical test.
     """)
 
 st.markdown("---")
-st.markdown("Always identify: Outcome → Type → Design → Measure → Test")
+st.markdown("Think structurally, not memorization-based.")
