@@ -64,66 +64,117 @@ analysis = None
 allow_inference = False
 
 # ==========================================================
-# BINARY OUTCOME — STANDARD 2×2 LAYOUT
+# BINARY OUTCOME — DYNAMIC EXPOSURE GROUPS
 # ==========================================================
 
 if outcome_type == "Binary":
 
-    st.markdown("### Enter 2×2 Table Counts")
+    st.markdown("### Enter Table Counts")
 
-    st.markdown("####               Outcome +        Outcome -")
+    # ------------------------------------------------------
+    # Binary Exposure (Standard 2×2)
+    # ------------------------------------------------------
 
-    col_header1, col_header2, col_header3 = st.columns([1,1,1])
+    if exposure_type == "Binary (2 groups)":
 
-    with col_header2:
-        st.markdown("**Outcome +**")
+        group_names = ["Exposed", "Unexposed"]
 
-    with col_header3:
-        st.markdown("**Outcome -**")
+    else:
+        # Allow dynamic number of groups
+        num_groups = st.number_input(
+            "Number of Exposure Groups",
+            min_value=2,
+            value=3,
+            step=1
+        )
 
-    # Row 1: Exposed
-    row1_label, row1_col1, row1_col2 = st.columns([1,1,1])
+        group_names = []
+        for i in range(num_groups):
+            name = st.text_input(f"Name for Group {i+1}", value=f"Group {i+1}")
+            group_names.append(name)
 
-    with row1_label:
-        st.markdown("**Exposed**")
+    # ------------------------------------------------------
+    # Build Table
+    # ------------------------------------------------------
 
-    with row1_col1:
-        a = st.number_input("a", min_value=0, key="a_cell")
+    st.markdown("#### Outcome +      Outcome -")
 
-    with row1_col2:
-        b = st.number_input("b", min_value=0, key="b_cell")
+    data = []
+    totals_plus = 0
+    totals_minus = 0
 
-    # Row 2: Unexposed
-    row2_label, row2_col1, row2_col2 = st.columns([1,1,1])
+    for group in group_names:
 
-    with row2_label:
-        st.markdown("**Unexposed**")
+        col_label, col_plus, col_minus = st.columns([1,1,1])
 
-    with row2_col1:
-        c = st.number_input("c", min_value=0, key="c_cell")
+        with col_label:
+            st.markdown(f"**{group}**")
 
-    with row2_col2:
-        d = st.number_input("d", min_value=0, key="d_cell")
+        with col_plus:
+            plus = st.number_input(f"{group} & Outcome +", min_value=0, key=f"{group}_plus")
 
-    # Totals
-    row1_total = a + b
-    row2_total = c + d
-    col1_total = a + c
-    col2_total = b + d
-    grand_total = row1_total + row2_total
+        with col_minus:
+            minus = st.number_input(f"{group} & Outcome -", min_value=0, key=f"{group}_minus")
 
-    table = pd.DataFrame(
-        [
-            [a, b, row1_total],
-            [c, d, row2_total],
-            [col1_total, col2_total, grand_total]
-        ],
-        columns=["Outcome +", "Outcome -", "Row Total"],
-        index=["Exposed", "Unexposed", "Column Total"]
+        data.append([plus, minus])
+        totals_plus += plus
+        totals_minus += minus
+
+    # Convert to dataframe
+    df = pd.DataFrame(
+        data,
+        columns=["Outcome +", "Outcome -"],
+        index=group_names
     )
 
-    st.subheader("2×2 Table with Totals")
-    st.table(table)
+    df["Row Total"] = df.sum(axis=1)
+
+    # Add column totals
+    df.loc["Column Total"] = df.sum()
+
+    st.subheader("Table with Totals")
+    st.table(df)
+
+    # ------------------------------------------------------
+    # INFERENCE
+    # ------------------------------------------------------
+
+    if totals_plus + totals_minus > 0:
+
+        table_array = df.iloc[:-1, :2].values
+
+        chi2, p_chi, _, _ = chi2_contingency(table_array)
+
+        st.info(f"Chi-square test of independence p-value = {round(p_chi,4)}")
+
+        # If only 2 groups, calculate RR & OR
+        if len(group_names) == 2:
+
+            a = df.iloc[0,0]
+            b = df.iloc[0,1]
+            c = df.iloc[1,0]
+            d = df.iloc[1,1]
+
+            row1_total = a + b
+            row2_total = c + d
+
+            risk1 = a / row1_total if row1_total > 0 else np.nan
+            risk2 = c / row2_total if row2_total > 0 else np.nan
+
+            rr = risk1 / risk2 if risk2 > 0 else np.nan
+            or_val = (a*d)/(b*c) if b>0 and c>0 else np.nan
+
+            st.subheader("Measures (Group 1 vs Group 2)")
+
+            if not np.isnan(rr):
+                st.success(f"Risk Ratio = {round(rr,3)}")
+
+            if not np.isnan(or_val):
+                st.success(f"Odds Ratio = {round(or_val,3)}")
+
+        else:
+            st.info("For >2 exposure groups, Chi-square tests overall association.")
+            st.info("Relative risks or odds ratios can be calculated vs a reference group using regression.")
 
     # -------------------------
     # INFERENCE
@@ -323,4 +374,5 @@ with st.expander("🔎 Confounding Check (Interactive)"):
 
 st.markdown("---")
 st.markdown("Strong epidemiologists think structurally before computing.")
+
 
