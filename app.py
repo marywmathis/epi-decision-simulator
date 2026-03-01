@@ -32,7 +32,6 @@ temporality = st.selectbox(
     ]
 )
 
-# Determine implied design
 if temporality == "Before outcome occurs (forward in time)":
     implied_design = "Cohort"
 elif temporality == "At same time (single snapshot)":
@@ -62,19 +61,24 @@ analysis = None
 limitations = []
 show_table = False
 
+# ----------------------
 # BINARY OUTCOME
+# ----------------------
+
 if outcome_type == "Binary":
 
     if implied_design == "Cohort":
+
         if predictor_type == "Binary (2 groups)":
             measure = "Risk Ratio (RR)"
-            analysis = "Chi-square"
+            analysis = "Chi-square (crude) or Logistic Regression (adjusted)"
             show_table = True
         else:
             measure = "Adjusted Odds Ratio"
             analysis = "Logistic Regression"
 
     elif implied_design == "Case-Control":
+
         measure = "Odds Ratio (OR)"
         analysis = "Chi-square or Logistic Regression"
         show_table = True
@@ -85,6 +89,7 @@ if outcome_type == "Binary":
         ]
 
     elif implied_design == "Cross-sectional":
+
         measure = "Prevalence Ratio or Prevalence Odds Ratio"
         analysis = "Chi-square or Logistic Regression"
         show_table = True
@@ -93,7 +98,10 @@ if outcome_type == "Binary":
             "Cannot calculate incidence"
         ]
 
+# ----------------------
 # CONTINUOUS OUTCOME
+# ----------------------
+
 elif outcome_type == "Continuous":
 
     if predictor_type == "Binary (2 groups)":
@@ -106,7 +114,10 @@ elif outcome_type == "Continuous":
         measure = "Beta Coefficient"
         analysis = "Linear Regression"
 
+# ----------------------
 # RATE OUTCOME
+# ----------------------
+
 elif outcome_type == "Rate (person-time)":
 
     measure = "Rate Ratio"
@@ -123,7 +134,7 @@ col1, col2 = st.columns(2)
 col1.success(f"Measure: {measure}")
 col2.info(f"Analysis: {analysis}")
 
-# 2x2 table
+# 2×2 table display
 if show_table:
     st.subheader("📊 2×2 Table Structure")
     table = pd.DataFrame(
@@ -135,49 +146,101 @@ if show_table:
     st.table(table)
 
 # ==========================================================
-# INTERPRETATION GENERATOR
+# INTERPRETATION GENERATOR (IMPROVED)
 # ==========================================================
 
 st.subheader("📖 Interpretation Generator")
 
-estimate = st.number_input("Enter your calculated estimate (optional)", value=0.0)
+st.markdown("""
+**What is a calculated estimate?**
+
+This is the numerical value you computed (for example:  
+Risk Ratio = 2.3, Odds Ratio = 0.75, Rate Ratio = 1.8, Mean Difference = 5.2).
+
+Enter your value below to generate correct epidemiologic wording.
+""")
+
+measure_type = st.selectbox(
+    "Which measure did you calculate?",
+    ["Risk Ratio (RR)", "Odds Ratio (OR)", "Rate Ratio (IRR)", "Mean Difference"]
+)
+
+estimate = st.number_input(
+    "Enter your calculated value",
+    min_value=-1000.0,
+    value=0.0
+)
 
 if estimate != 0:
 
-    if measure in ["Risk Ratio (RR)", "Odds Ratio (OR)", "Adjusted Odds Ratio"]:
-        if estimate > 1:
-            st.success(f"The exposed group has {round(estimate,2)} times higher odds/risk compared to the unexposed group.")
-        elif estimate < 1:
-            st.success(f"The exposure appears protective (estimate = {round(estimate,2)}).")
-        else:
-            st.success("No association (estimate ≈ 1).")
+    st.markdown("### Interpretation:")
 
-    elif measure == "Rate Ratio":
+    if measure_type == "Risk Ratio (RR)":
+
+        if estimate > 1:
+            st.success(f"The exposed group has {round(estimate,2)} times the risk compared to the unexposed group.")
+        elif estimate < 1:
+            st.success(f"The exposure appears protective. The risk in the exposed group is {round(estimate,2)} times that of the unexposed group.")
+        else:
+            st.success("An RR of 1 suggests no association.")
+
+    elif measure_type == "Odds Ratio (OR)":
+
+        if estimate > 1:
+            st.success(f"The odds of outcome in the exposed group are {round(estimate,2)} times the odds in the unexposed group.")
+        elif estimate < 1:
+            st.success(f"The exposure appears protective (OR = {round(estimate,2)}).")
+        else:
+            st.success("An OR of 1 suggests no association.")
+
+    elif measure_type == "Rate Ratio (IRR)":
         st.success(f"The incidence rate in the exposed group is {round(estimate,2)} times the rate in the unexposed group.")
 
-    elif measure in ["Mean Difference", "Difference in Means"]:
+    elif measure_type == "Mean Difference":
         st.success(f"The average outcome differs by {round(estimate,2)} units between groups.")
 
+    st.info("Remember: Statistical significance depends on confidence intervals or p-values, not just the point estimate.")
+
 # ==========================================================
-# CONFOUNDING CHECK
+# INTERACTIVE CONFOUNDING CHECK
 # ==========================================================
 
-with st.expander("🔎 Confounding Check"):
-    st.markdown("""
-    Ask yourself:
-    - Is there a third variable associated with exposure?
-    - Is it associated with outcome?
-    - Is it NOT on the causal pathway?
+with st.expander("🔎 Confounding Check (Interactive)"):
 
-    If YES → consider stratification or regression adjustment.
-    """)
+    st.markdown("A variable is a confounder only if ALL three conditions are TRUE:")
+
+    q1 = st.selectbox(
+        "1️⃣ Is the third variable associated with the exposure?",
+        ["Select", "Yes", "No"]
+    )
+
+    q2 = st.selectbox(
+        "2️⃣ Is it associated with the outcome?",
+        ["Select", "Yes", "No"]
+    )
+
+    q3 = st.selectbox(
+        "3️⃣ Is it NOT on the causal pathway between exposure and outcome?",
+        ["Select", "Yes", "No"]
+    )
+
+    if q1 != "Select" and q2 != "Select" and q3 != "Select":
+
+        if q1 == "Yes" and q2 == "Yes" and q3 == "Yes":
+            st.warning("This variable meets criteria for confounding. Consider stratification or regression adjustment.")
+
+        elif q3 == "No":
+            st.info("If it lies on the causal pathway, it is a mediator — not a confounder.")
+
+        else:
+            st.success("This variable does NOT meet criteria for confounding.")
 
 # ==========================================================
 # LIMITATIONS PANEL
 # ==========================================================
 
 if limitations:
-    with st.expander("⚠ What Cannot Be Estimated"):
+    with st.expander("⚠ What Cannot Be Estimated in This Design"):
         for item in limitations:
             st.markdown(f"- {item}")
 
