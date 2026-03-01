@@ -55,15 +55,42 @@ exposure_type = st.selectbox(
 st.divider()
 
 # ==========================================================
-# CONTINGENCY TABLE BUILDER (r × c)
+# RATE OUTCOME (Handled Separately)
 # ==========================================================
 
-if outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"] \
+if outcome_type == "Rate (person-time)":
+
+    st.header("📊 Rate Data Entry")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        cases1 = st.number_input("Cases (Exposed)", min_value=0)
+        py1 = st.number_input("Person-Time (Exposed)", min_value=1)
+
+    with col2:
+        cases2 = st.number_input("Cases (Unexposed)", min_value=0)
+        py2 = st.number_input("Person-Time (Unexposed)", min_value=1)
+
+    if py1 > 0 and py2 > 0:
+
+        ir1 = cases1 / py1
+        ir2 = cases2 / py2
+
+        if ir2 > 0:
+            rr = ir1 / ir2
+            st.success(f"Rate Ratio = {round(rr,3)}")
+
+# ==========================================================
+# CONTINGENCY TABLE ENGINE (Binary/Nominal/Ordinal)
+# ==========================================================
+
+elif outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"] \
         and exposure_type in ["Binary (2 groups)", "Categorical (>2 groups)"]:
 
     st.header("📊 Build Contingency Table")
 
-    # Determine number of rows (exposure groups)
+    # Number of exposure groups
     if exposure_type == "Binary (2 groups)":
         num_rows = 2
     else:
@@ -74,7 +101,7 @@ if outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"] \
             step=1
         )
 
-    # Determine number of columns (outcome levels)
+    # Number of outcome levels
     if outcome_type == "Binary":
         num_cols = 2
     else:
@@ -85,26 +112,30 @@ if outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"] \
             step=1
         )
 
-    # Custom names
-    st.subheader("Label Exposure Groups")
+    # Labels
     row_names = []
+    st.subheader("Label Exposure Groups")
     for i in range(num_rows):
-        name = st.text_input(f"Exposure Group {i+1}", value=f"Group {i+1}")
-        row_names.append(name)
+        row_names.append(
+            st.text_input(f"Exposure Group {i+1}", value=f"Group {i+1}", key=f"row_{i}")
+        )
 
-    st.subheader("Label Outcome Levels")
     col_names = []
+    st.subheader("Label Outcome Levels")
     for j in range(num_cols):
-        name = st.text_input(f"Outcome Level {j+1}", value=f"Level {j+1}")
-        col_names.append(name)
+        col_names.append(
+            st.text_input(f"Outcome Level {j+1}", value=f"Level {j+1}", key=f"col_{j}")
+        )
 
     st.subheader("Enter Cell Counts")
 
     data = []
+
     for i in range(num_rows):
+        st.markdown(f"**{row_names[i]}**")
         row = []
         cols = st.columns(num_cols)
-        st.markdown(f"**{row_names[i]}**")
+
         for j in range(num_cols):
             with cols[j]:
                 value = st.number_input(
@@ -113,6 +144,7 @@ if outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"] \
                     key=f"cell_{i}_{j}"
                 )
                 row.append(value)
+
         data.append(row)
 
     df = pd.DataFrame(data, columns=col_names, index=row_names)
@@ -126,9 +158,9 @@ if outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"] \
     st.subheader("Contingency Table with Totals")
     st.table(df)
 
-    # ==========================================================
+    # ------------------------------------------------------
     # INFERENCE
-    # ==========================================================
+    # ------------------------------------------------------
 
     table_array = df.iloc[:-1, :-1].values
 
@@ -146,7 +178,7 @@ if outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"] \
         else:
             st.warning("No statistically significant association detected.")
 
-        # Only compute RR/OR if 2x2
+        # Only compute RR/OR if 2×2
         if num_rows == 2 and num_cols == 2:
 
             a = table_array[0][0]
@@ -162,33 +194,13 @@ if outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"] \
                 risk1 = a / row1_total
                 risk2 = c / row2_total
 
-                rr = risk1 / risk2 if risk2 > 0 else np.nan
-                or_val = (a*d)/(b*c) if b>0 and c>0 else np.nan
-
-                st.subheader("2×2 Measures")
-
-                if not np.isnan(rr):
+                if risk2 > 0:
+                    rr = risk1 / risk2
                     st.success(f"Risk Ratio = {round(rr,3)}")
 
-                if not np.isnan(or_val):
+                if b > 0 and c > 0:
+                    or_val = (a * d) / (b * c)
                     st.success(f"Odds Ratio = {round(or_val,3)}")
-
-elif outcome_type == "Rate (person-time)":
-
-    st.header("📊 Rate Data Entry")
-
-    cases1 = st.number_input("Cases (Exposed)", min_value=0)
-    py1 = st.number_input("Person-Time (Exposed)", min_value=1)
-
-    cases2 = st.number_input("Cases (Unexposed)", min_value=0)
-    py2 = st.number_input("Person-Time (Unexposed)", min_value=1)
-
-    ir1 = cases1 / py1
-    ir2 = cases2 / py2
-
-    rr = ir1 / ir2 if ir2 > 0 else np.nan
-
-    st.success(f"Rate Ratio = {round(rr,3)}")
 
 # ==========================================================
 # CONFOUNDING CHECK
