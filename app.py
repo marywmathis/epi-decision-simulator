@@ -225,14 +225,40 @@ elif outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"]:
 
     # Labels
     st.subheader("Label Exposure Groups")
+    st.caption(
+        "Name each exposure group — these are the groups you are comparing. "
+        "Examples: *Received medication* vs *No medication*; *Smoker* vs *Non-smoker*; "
+        "*Vaccinated* vs *Unvaccinated*; *Exposed to toxin* vs *Not exposed*."
+    )
     row_names = [
-        st.text_input(f"Exposure Group {i+1}", f"Group {i+1}", key=f"row_{i}")
+        st.text_input(
+            f"Exposure Group {i+1}",
+            f"Group {i+1}",
+            key=f"row_{i}",
+            help=(
+                "Enter a short, descriptive name for this group. "
+                "Examples: Exposed, Unexposed, Vaccinated, Smoker, Received Treatment, High-dose, Control group."
+            )
+        )
         for i in range(num_rows)
     ]
 
     st.subheader("Label Outcome Levels")
+    st.caption(
+        "Name each outcome category — this is what you measured or counted. "
+        "Examples: *Hypertension* vs *No hypertension*; *Asthma exacerbation* vs *No exacerbation*; "
+        "*Lung cancer* vs *No lung cancer*; *Hospitalized* vs *Not hospitalized*."
+    )
     col_names = [
-        st.text_input(f"Outcome Level {j+1}", f"Level {j+1}", key=f"col_{j}")
+        st.text_input(
+            f"Outcome Level {j+1}",
+            f"Level {j+1}",
+            key=f"col_{j}",
+            help=(
+                "Enter a short, descriptive name for this outcome category. "
+                "Examples: Disease, No disease, Outcome present, Outcome absent, Case, Control, Mild, Moderate, Severe."
+            )
+        )
         for j in range(num_cols)
     ]
 
