@@ -6,6 +6,59 @@ import math
 
 st.set_page_config(page_title="Epidemiology Decision Simulator", layout="wide")
 
+# ==========================================================
+# CI VISUALIZATION HELPER
+# ==========================================================
+
+def draw_ci(label, estimate, ci_low, ci_high):
+    """Draw a number line showing the CI, point estimate, and null value (1)."""
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+
+    significant = not (ci_low <= 1 <= ci_high)
+    color = "#2e7d32" if significant else "#e65100"
+
+    # Determine axis range with padding
+    all_vals = [ci_low, ci_high, estimate, 1.0]
+    span = max(all_vals) - min(all_vals)
+    pad = max(span * 0.3, 0.3)
+    x_min = max(0.01, min(all_vals) - pad)
+    x_max = max(all_vals) + pad
+
+    fig, ax = plt.subplots(figsize=(8, 1.2))
+    fig.patch.set_facecolor("#f9f9f9")
+    ax.set_facecolor("#f9f9f9")
+
+    # Number line
+    ax.plot([x_min, x_max], [0, 0], color="#cccccc", linewidth=1.5, zorder=1)
+
+    # CI line
+    ax.plot([ci_low, ci_high], [0, 0], color=color, linewidth=6, solid_capstyle="round", zorder=2)
+
+    # Point estimate
+    ax.scatter([estimate], [0], color=color, s=120, zorder=4)
+
+    # Null line at 1
+    ax.axvline(x=1, color="#333333", linewidth=1.5, linestyle="--", zorder=3)
+    ax.text(1, 0.55, "1\n(null)", ha="center", va="bottom", fontsize=8, color="#333333")
+
+    # Labels
+    ax.text(ci_low, -0.55, f"{round(ci_low,2)}", ha="center", va="top", fontsize=8, color=color)
+    ax.text(estimate, 0.55, f"{label}={round(estimate,2)}", ha="center", va="bottom", fontsize=8.5,
+            color=color, fontweight="bold")
+    ax.text(ci_high, -0.55, f"{round(ci_high,2)}", ha="center", va="top", fontsize=8, color=color)
+
+    sig_text = "CI does not cross 1 → statistically significant" if significant else "CI crosses 1 → not statistically significant"
+    ax.set_title(sig_text, fontsize=9, color=color, pad=4)
+
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(-1, 1)
+    ax.axis("off")
+    plt.tight_layout(pad=0.2)
+
+    st.pyplot(fig)
+    plt.close(fig)
+
 st.title("🧭 Epidemiology Decision Simulator")
 st.markdown("Study Design → Outcome Type → Exposure Type → Table → Run Analysis → Interpretation")
 
@@ -140,6 +193,8 @@ if outcome_type == "Rate (person-time)":
                         f"95% CI: {round(ci_low,2)}–{round(ci_high,2)}). "
                         f"Because the CI does not include 1, we **reject the null hypothesis**."
                     )
+
+                draw_ci("IRR", rr, ci_low, ci_high)
         else:
             st.warning("Both groups must have at least one case to compute rate ratio.")
 
@@ -319,6 +374,8 @@ elif outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"]:
                                     f"The CI does not include 1 → **statistically significant**."
                                 )
 
+                            draw_ci("RR", rr, ci_low_rr, ci_high_rr)
+
                             # Odds Ratio
                             or_val = (a*d)/(b*c)
                             se_log_or = math.sqrt(1/a+1/b+1/c+1/d)
@@ -346,6 +403,8 @@ elif outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"]:
                                     f"are {round(or_val,2)} times {direction} than among {row_names[1]}. "
                                     f"The CI does not include 1 → **statistically significant**."
                                 )
+
+                            draw_ci("OR", or_val, ci_low_or, ci_high_or)
 
                         else:
                             st.info(
