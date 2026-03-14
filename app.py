@@ -11,53 +11,60 @@ st.set_page_config(page_title="Epidemiology Decision Simulator", layout="wide")
 # ==========================================================
 
 def draw_ci(label, estimate, ci_low, ci_high):
-    """Draw a number line showing the CI, point estimate, and null value (1)."""
-    import matplotlib.pyplot as plt
-    import matplotlib.patches as mpatches
+    """Draw a CI number line using pure SVG — no extra libraries required."""
 
     significant = not (ci_low <= 1 <= ci_high)
-    color = "#2e7d32" if significant else "#e65100"
+    color = "#2e7d32" if significant else "#c0392b"
+    sig_text = "CI does not cross 1 → statistically significant" if significant else "CI crosses 1 → not statistically significant"
 
-    # Determine axis range with padding
+    # Map data values to SVG x positions (SVG canvas: 0–600)
     all_vals = [ci_low, ci_high, estimate, 1.0]
     span = max(all_vals) - min(all_vals)
-    pad = max(span * 0.3, 0.3)
-    x_min = max(0.01, min(all_vals) - pad)
+    pad = max(span * 0.35, 0.4)
+    x_min = max(0.001, min(all_vals) - pad)
     x_max = max(all_vals) + pad
 
-    fig, ax = plt.subplots(figsize=(8, 1.2))
-    fig.patch.set_facecolor("#f9f9f9")
-    ax.set_facecolor("#f9f9f9")
+    def to_svg_x(val):
+        return 40 + (val - x_min) / (x_max - x_min) * 520
 
-    # Number line
-    ax.plot([x_min, x_max], [0, 0], color="#cccccc", linewidth=1.5, zorder=1)
+    cx_low   = round(to_svg_x(ci_low), 1)
+    cx_high  = round(to_svg_x(ci_high), 1)
+    cx_est   = round(to_svg_x(estimate), 1)
+    cx_null  = round(to_svg_x(1.0), 1)
 
-    # CI line
-    ax.plot([ci_low, ci_high], [0, 0], color=color, linewidth=6, solid_capstyle="round", zorder=2)
+    svg = f"""
+    <svg xmlns="http://www.w3.org/2000/svg" width="600" height="90" style="font-family:sans-serif;">
+      <!-- background -->
+      <rect width="600" height="90" fill="#f9f9f9" rx="6"/>
 
-    # Point estimate
-    ax.scatter([estimate], [0], color=color, s=120, zorder=4)
+      <!-- baseline -->
+      <line x1="40" y1="45" x2="560" y2="45" stroke="#cccccc" stroke-width="2"/>
 
-    # Null line at 1
-    ax.axvline(x=1, color="#333333", linewidth=1.5, linestyle="--", zorder=3)
-    ax.text(1, 0.55, "1\n(null)", ha="center", va="bottom", fontsize=8, color="#333333")
+      <!-- CI bar -->
+      <line x1="{cx_low}" y1="45" x2="{cx_high}" y2="45" stroke="{color}" stroke-width="7" stroke-linecap="round"/>
 
-    # Labels
-    ax.text(ci_low, -0.55, f"{round(ci_low,2)}", ha="center", va="top", fontsize=8, color=color)
-    ax.text(estimate, 0.55, f"{label}={round(estimate,2)}", ha="center", va="bottom", fontsize=8.5,
-            color=color, fontweight="bold")
-    ax.text(ci_high, -0.55, f"{round(ci_high,2)}", ha="center", va="top", fontsize=8, color=color)
+      <!-- CI end ticks -->
+      <line x1="{cx_low}" y1="38" x2="{cx_low}" y2="52" stroke="{color}" stroke-width="2"/>
+      <line x1="{cx_high}" y1="38" x2="{cx_high}" y2="52" stroke="{color}" stroke-width="2"/>
 
-    sig_text = "CI does not cross 1 → statistically significant" if significant else "CI crosses 1 → not statistically significant"
-    ax.set_title(sig_text, fontsize=9, color=color, pad=4)
+      <!-- point estimate dot -->
+      <circle cx="{cx_est}" cy="45" r="7" fill="{color}"/>
 
-    ax.set_xlim(x_min, x_max)
-    ax.set_ylim(-1, 1)
-    ax.axis("off")
-    plt.tight_layout(pad=0.2)
+      <!-- null line at 1 -->
+      <line x1="{cx_null}" y1="22" x2="{cx_null}" y2="68" stroke="#333333" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <text x="{cx_null}" y="18" text-anchor="middle" font-size="11" fill="#333333">1 (null)</text>
 
-    st.pyplot(fig)
-    plt.close(fig)
+      <!-- labels -->
+      <text x="{cx_low}" y="72" text-anchor="middle" font-size="11" fill="{color}">{round(ci_low,2)}</text>
+      <text x="{cx_est}" y="72" text-anchor="middle" font-size="12" fill="{color}" font-weight="bold">{label}={round(estimate,2)}</text>
+      <text x="{cx_high}" y="72" text-anchor="middle" font-size="11" fill="{color}">{round(ci_high,2)}</text>
+
+      <!-- significance label -->
+      <text x="300" y="88" text-anchor="middle" font-size="11" fill="{color}" font-style="italic">{sig_text}</text>
+    </svg>
+    """
+
+    st.markdown(svg, unsafe_allow_html=True)
 
 st.title("🧭 Epidemiology Decision Simulator")
 st.markdown("Study Design → Outcome Type → Exposure Type → Table → Run Analysis → Interpretation")
