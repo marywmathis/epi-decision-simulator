@@ -128,8 +128,44 @@ with tab1:
     st.markdown("#### 💡 Load a Preset Scenario")
     st.caption("Choose a preset to pre-fill all fields with realistic data, or select \'I\'ll enter my own data\' to start from scratch.")
 
+    # Track the last loaded preset so we only inject session state once per change
+    if "last_preset" not in st.session_state:
+        st.session_state["last_preset"] = None
+
     preset_choice = st.selectbox("Select a scenario:", list(PRESETS.keys()), key="preset_choice")
     preset = PRESETS[preset_choice]
+
+    # When preset changes, write all values into session state so widgets pick them up
+    if preset_choice != st.session_state["last_preset"]:
+        st.session_state["last_preset"] = preset_choice
+        if preset:
+            for key in ["design", "outcome_type", "exposure_type",
+                        "row_0", "row_1", "col_0", "col_1",
+                        "cell_0_0", "cell_0_1", "cell_1_0", "cell_1_1",
+                        "exposed_label", "unexposed_label",
+                        "cases1", "py1", "cases2", "py2"]:
+                if key in preset:
+                    st.session_state[key] = preset[key]
+        else:
+            # Reset to defaults
+            st.session_state["row_0"] = "Group 1"
+            st.session_state["row_1"] = "Group 2"
+            st.session_state["col_0"] = "Level 1"
+            st.session_state["col_1"] = "Level 2"
+            st.session_state["cell_0_0"] = 0
+            st.session_state["cell_0_1"] = 0
+            st.session_state["cell_1_0"] = 0
+            st.session_state["cell_1_1"] = 0
+            st.session_state["cases1"] = 0
+            st.session_state["cases2"] = 0
+            st.session_state["py1"] = 1
+            st.session_state["py2"] = 1
+            st.session_state["exposed_label"] = "Exposed"
+            st.session_state["unexposed_label"] = "Unexposed"
+            st.session_state["design"] = "Cohort"
+            st.session_state["outcome_type"] = "Binary"
+            st.session_state["exposure_type"] = "Binary (2 groups)"
+        st.rerun()
 
     if preset:
         st.info(preset["description"])
@@ -137,15 +173,17 @@ with tab1:
     st.divider()
 
     def pval(key, default):
-        return preset[key] if preset and key in preset else default
+        return st.session_state.get(key, preset[key] if preset and key in preset else default)
 
     st.subheader("Step 1️⃣: Study Design")
 
     design_options = ["Cohort", "Case-Control", "Cross-sectional"]
+    if "design" not in st.session_state:
+        st.session_state["design"] = "Cohort"
     design = st.selectbox(
         "Select study design:",
         design_options,
-        index=design_options.index(pval("design", "Cohort")),
+        index=design_options.index(st.session_state.get("design", "Cohort")),
         help=(
             "Cohort: Follow exposed and unexposed groups forward in time to compare new cases (incidence). "
             "Produces a Risk Ratio (RR) or Rate Ratio.\n\n"
@@ -159,10 +197,12 @@ with tab1:
     st.subheader("Step 2️⃣: Outcome Variable Type")
 
     outcome_options = ["Binary", "Categorical (Nominal >2 levels)", "Ordinal", "Rate (person-time)"]
+    if "outcome_type" not in st.session_state:
+        st.session_state["outcome_type"] = "Binary"
     outcome_type = st.selectbox(
         "Select outcome type:",
         outcome_options,
-        index=outcome_options.index(pval("outcome_type", "Binary")),
+        index=outcome_options.index(st.session_state.get("outcome_type", "Binary")),
         help=(
             "Binary: The outcome has exactly two categories (e.g., disease: Yes/No). "
             "Produces a 2x2 table and allows RR and OR calculation.\n\n"
@@ -178,10 +218,12 @@ with tab1:
     st.subheader("Step 3️⃣: Exposure Variable Type")
 
     exposure_options = ["Binary (2 groups)", "Categorical (>2 groups)"]
+    if "exposure_type" not in st.session_state:
+        st.session_state["exposure_type"] = "Binary (2 groups)"
     exposure_type = st.selectbox(
         "Select exposure type:",
         exposure_options,
-        index=exposure_options.index(pval("exposure_type", "Binary (2 groups)")),
+        index=exposure_options.index(st.session_state.get("exposure_type", "Binary (2 groups)")),
         help=(
             "Binary (2 groups): Exposed vs. unexposed — the most common setup. "
             "Enables a standard 2x2 table and full RR/OR analysis.\n\n"
@@ -206,16 +248,16 @@ with tab1:
             "The **Incidence Rate Ratio (IRR)** compares the rate of new cases between the two groups."
         )
 
-        exposed_label = st.text_input("Label for Exposed Group", pval("exposed_label", "Exposed"))
-        unexposed_label = st.text_input("Label for Unexposed Group", pval("unexposed_label", "Unexposed"))
+        exposed_label = st.text_input("Label for Exposed Group", key="exposed_label")
+        unexposed_label = st.text_input("Label for Unexposed Group", key="unexposed_label")
 
         col1, col2 = st.columns(2)
         with col1:
-            cases1 = st.number_input(f"Cases ({exposed_label})", min_value=0, value=pval("cases1", 0))
-            py1 = st.number_input(f"Person-Time ({exposed_label})", min_value=1, value=pval("py1", 1))
+            cases1 = st.number_input(f"Cases ({exposed_label})", min_value=0, key="cases1")
+            py1 = st.number_input(f"Person-Time ({exposed_label})", min_value=1, key="py1")
         with col2:
-            cases2 = st.number_input(f"Cases ({unexposed_label})", min_value=0, value=pval("cases2", 0))
-            py2 = st.number_input(f"Person-Time ({unexposed_label})", min_value=1, value=pval("py2", 1))
+            cases2 = st.number_input(f"Cases ({unexposed_label})", min_value=0, key="cases2")
+            py2 = st.number_input(f"Person-Time ({unexposed_label})", min_value=1, key="py2")
 
         if st.button("Run Statistical Analysis"):
             if cases1 > 0 and cases2 > 0:
@@ -278,7 +320,7 @@ with tab1:
         )
         row_names = [
             st.text_input(
-                f"Exposure Group {i+1}", pval(f"row_{i}", f"Group {i+1}"), key=f"row_{i}",
+                f"Exposure Group {i+1}", key=f"row_{i}",
                 help="Examples: Exposed, Unexposed, Vaccinated, Smoker, Received Treatment, Control group."
             )
             for i in range(num_rows)
@@ -292,7 +334,7 @@ with tab1:
         )
         col_names = [
             st.text_input(
-                f"Outcome Level {j+1}", pval(f"col_{j}", f"Level {j+1}"), key=f"col_{j}",
+                f"Outcome Level {j+1}", key=f"col_{j}",
                 help="Examples: Disease, No disease, Outcome present, Outcome absent, Mild, Moderate, Severe."
             )
             for j in range(num_cols)
@@ -310,7 +352,6 @@ with tab1:
                     value = st.number_input(
                         f"{row_names[i]} - {col_names[j]}",
                         min_value=0,
-                        value=pval(f"cell_{i}_{j}", 0),
                         key=f"cell_{i}_{j}"
                     )
                     row.append(value)
