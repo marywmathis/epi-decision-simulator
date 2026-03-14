@@ -962,6 +962,69 @@ with tab2:
                         f"A lower NNH means a more dangerous exposure."
                     )
 
+                # ---- NNT/NNH Interpretation Guide ----
+                st.subheader("📐 How to Interpret This Number")
+
+                if r_treatment < r_control:
+                    # NNT guidance
+                    st.markdown("""
+**Is this NNT good or bad?** Context is everything. An NNT that seems large can still represent
+an important public health benefit — especially for serious outcomes like heart attacks or death,
+or when a treatment is low-cost and low-risk.
+
+**General benchmarks for NNT:**
+| NNT Range | General Interpretation |
+|-----------|----------------------|
+| 1 – 5 | Highly effective. Nearly everyone treated benefits (e.g., antibiotics for strep throat). |
+| 6 – 15 | Very effective. Strong benefit for a meaningful proportion of patients. |
+| 16 – 50 | Moderately effective. Common for preventive interventions in general populations. |
+| 51 – 100 | Modest effect. May still be worthwhile if the outcome is severe or treatment is cheap. |
+| > 100 | Small effect per person. Meaningful only at population scale or for catastrophic outcomes. |
+
+**Real-world NNT examples for comparison:**
+| Intervention | NNT | Outcome | Timeframe |
+|---|---|---|---|
+| Tamiflu for influenza | ~14 | Reduce duration by 1 day | Per illness |
+| Statins (high-risk patients) | ~20 | Prevent 1 MI or stroke | 5 years |
+| Statins (low-risk / primary prevention) | ~50–100 | Prevent 1 cardiac event | 5 years |
+| Aspirin for secondary MI prevention | ~40 | Prevent 1 death or MI | 2 years |
+| Smoking cessation counseling | ~10–20 | 1 additional person quits | 1 year |
+| Seatbelt use | ~3,300 | Prevent 1 death per crash | Per crash |
+
+**Key principle:** A large NNT is not automatically bad. Ask:
+- How serious is the outcome? (Preventing 1 death in 200 patients may be very worthwhile.)
+- What are the costs and risks of treatment? (Low side effects = higher acceptable NNT.)
+- What is the baseline risk? (Low-risk populations always produce higher NNTs for preventive interventions.)
+                    """)
+                else:
+                    # NNH guidance
+                    st.markdown("""
+**Is this NNH concerning?** Context determines whether an NNH represents an acceptable risk or a serious safety signal.
+
+**General benchmarks for NNH:**
+| NNH Range | General Interpretation |
+|-----------|----------------------|
+| 1 – 10 | Very high harm rate. Exposure is extremely dangerous for this outcome. |
+| 11 – 50 | High harm rate. Serious safety concern requiring careful risk-benefit analysis. |
+| 51 – 200 | Moderate harm rate. Common in drug side effect studies; must be weighed against benefits. |
+| 201 – 1,000 | Low harm rate. May be acceptable depending on severity of harm and magnitude of benefit. |
+| > 1,000 | Very rare harm. Usually acceptable unless the outcome is catastrophic (e.g., death). |
+
+**Real-world NNH examples for comparison:**
+| Exposure / Drug | NNH | Harm | Timeframe |
+|---|---|---|---|
+| Daily aspirin (low-dose) | ~67 | GI bleeding event | 3 years |
+| NSAIDs (regular use) | ~100 | GI complications | 1 year |
+| COX-2 inhibitors (Vioxx) | ~150 | Cardiovascular event | 18 months |
+| Smoking (1+ pack/day) | ~7 | Lung cancer | Lifetime |
+| Unvaccinated (measles outbreak) | ~1.1 | Measles infection | Per outbreak |
+
+**Key principle:** NNH must always be interpreted alongside NNT (the benefit).
+- If NNT < NNH: more people benefit than are harmed — generally favorable.
+- If NNH < NNT: more people are harmed than benefit — raises serious safety concerns.
+- Always consider: How severe is the harm vs. the benefit?
+                    """)
+
     # ----------------------------------------------------------
     # HAZARD RATIO
     # ----------------------------------------------------------
