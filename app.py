@@ -72,13 +72,80 @@ tab1, tab2 = st.tabs(["📊 Measures of Association", "📐 Advanced Epi Measure
 # TAB 1: MEASURES OF ASSOCIATION (original app)
 # ==========================================================
 
+
 with tab1:
+
+    # ----------------------------------------------------------
+    # PRESET SCENARIOS
+    # ----------------------------------------------------------
+
+    PRESETS = {
+        "None — I'll enter my own data": None,
+        "Cohort: Smoking & Lung Cancer": {
+            "design": "Cohort", "outcome_type": "Binary", "exposure_type": "Binary (2 groups)",
+            "row_0": "Smoker", "row_1": "Non-smoker",
+            "col_0": "Lung Cancer", "col_1": "No Lung Cancer",
+            "cell_0_0": 84, "cell_0_1": 2916, "cell_1_0": 14, "cell_1_1": 2986,
+            "description": (
+                "**Scenario:** A prospective cohort follows 6,000 adults over 10 years. "
+                "Smokers develop lung cancer at a substantially higher rate than non-smokers. "
+                "*Adapted from Doll & Hill (1950), British Doctors Study.*"
+            )
+        },
+        "Case-Control: H. pylori & Gastric Ulcer": {
+            "design": "Case-Control", "outcome_type": "Binary", "exposure_type": "Binary (2 groups)",
+            "row_0": "H. pylori positive", "row_1": "H. pylori negative",
+            "col_0": "Gastric Ulcer (Case)", "col_1": "No Ulcer (Control)",
+            "cell_0_0": 118, "cell_0_1": 62, "cell_1_0": 32, "cell_1_1": 138,
+            "description": (
+                "**Scenario:** A hospital-based case-control study recruits 150 patients with confirmed "
+                "gastric ulcer and 200 controls. Past H. pylori infection assessed via serology. "
+                "*Adapted from Marshall & Warren (1984).*"
+            )
+        },
+        "Cross-sectional: Obesity & Hypertension": {
+            "design": "Cross-sectional", "outcome_type": "Binary", "exposure_type": "Binary (2 groups)",
+            "row_0": "Obese (BMI ≥ 30)", "row_1": "Non-obese (BMI < 30)",
+            "col_0": "Hypertension", "col_1": "No Hypertension",
+            "cell_0_0": 210, "cell_0_1": 290, "cell_1_0": 120, "cell_1_1": 880,
+            "description": (
+                "**Scenario:** A one-time cross-sectional health survey of 1,500 adults measures "
+                "current BMI and blood pressure simultaneously. *Adapted from NHANES survey data.*"
+            )
+        },
+        "Cohort: Asbestos Exposure & Mesothelioma (Rate)": {
+            "design": "Cohort", "outcome_type": "Rate (person-time)", "exposure_type": "Binary (2 groups)",
+            "exposed_label": "Asbestos-exposed workers", "unexposed_label": "Unexposed controls",
+            "cases1": 32, "py1": 8500, "cases2": 4, "py2": 9200,
+            "description": (
+                "**Scenario:** A retrospective cohort of shipyard workers followed using employment records. "
+                "Person-time varies because workers joined and left at different times. "
+                "*Adapted from Selikoff et al. (1980).*"
+            )
+        },
+    }
+
+    st.markdown("#### 💡 Load a Preset Scenario")
+    st.caption("Choose a preset to pre-fill all fields with realistic data, or select \'I\'ll enter my own data\' to start from scratch.")
+
+    preset_choice = st.selectbox("Select a scenario:", list(PRESETS.keys()), key="preset_choice")
+    preset = PRESETS[preset_choice]
+
+    if preset:
+        st.info(preset["description"])
+
+    st.divider()
+
+    def pval(key, default):
+        return preset[key] if preset and key in preset else default
 
     st.subheader("Step 1️⃣: Study Design")
 
+    design_options = ["Cohort", "Case-Control", "Cross-sectional"]
     design = st.selectbox(
         "Select study design:",
-        ["Cohort", "Case-Control", "Cross-sectional"],
+        design_options,
+        index=design_options.index(pval("design", "Cohort")),
         help=(
             "Cohort: Follow exposed and unexposed groups forward in time to compare new cases (incidence). "
             "Produces a Risk Ratio (RR) or Rate Ratio.\n\n"
@@ -91,14 +158,11 @@ with tab1:
 
     st.subheader("Step 2️⃣: Outcome Variable Type")
 
+    outcome_options = ["Binary", "Categorical (Nominal >2 levels)", "Ordinal", "Rate (person-time)"]
     outcome_type = st.selectbox(
         "Select outcome type:",
-        [
-            "Binary",
-            "Categorical (Nominal >2 levels)",
-            "Ordinal",
-            "Rate (person-time)"
-        ],
+        outcome_options,
+        index=outcome_options.index(pval("outcome_type", "Binary")),
         help=(
             "Binary: The outcome has exactly two categories (e.g., disease: Yes/No). "
             "Produces a 2x2 table and allows RR and OR calculation.\n\n"
@@ -113,12 +177,11 @@ with tab1:
 
     st.subheader("Step 3️⃣: Exposure Variable Type")
 
+    exposure_options = ["Binary (2 groups)", "Categorical (>2 groups)"]
     exposure_type = st.selectbox(
         "Select exposure type:",
-        [
-            "Binary (2 groups)",
-            "Categorical (>2 groups)"
-        ],
+        exposure_options,
+        index=exposure_options.index(pval("exposure_type", "Binary (2 groups)")),
         help=(
             "Binary (2 groups): Exposed vs. unexposed — the most common setup. "
             "Enables a standard 2x2 table and full RR/OR analysis.\n\n"
@@ -143,16 +206,16 @@ with tab1:
             "The **Incidence Rate Ratio (IRR)** compares the rate of new cases between the two groups."
         )
 
-        exposed_label = st.text_input("Label for Exposed Group", "Exposed")
-        unexposed_label = st.text_input("Label for Unexposed Group", "Unexposed")
+        exposed_label = st.text_input("Label for Exposed Group", pval("exposed_label", "Exposed"))
+        unexposed_label = st.text_input("Label for Unexposed Group", pval("unexposed_label", "Unexposed"))
 
         col1, col2 = st.columns(2)
         with col1:
-            cases1 = st.number_input(f"Cases ({exposed_label})", min_value=0)
-            py1 = st.number_input(f"Person-Time ({exposed_label})", min_value=1)
+            cases1 = st.number_input(f"Cases ({exposed_label})", min_value=0, value=pval("cases1", 0))
+            py1 = st.number_input(f"Person-Time ({exposed_label})", min_value=1, value=pval("py1", 1))
         with col2:
-            cases2 = st.number_input(f"Cases ({unexposed_label})", min_value=0)
-            py2 = st.number_input(f"Person-Time ({unexposed_label})", min_value=1)
+            cases2 = st.number_input(f"Cases ({unexposed_label})", min_value=0, value=pval("cases2", 0))
+            py2 = st.number_input(f"Person-Time ({unexposed_label})", min_value=1, value=pval("py2", 1))
 
         if st.button("Run Statistical Analysis"):
             if cases1 > 0 and cases2 > 0:
@@ -215,7 +278,7 @@ with tab1:
         )
         row_names = [
             st.text_input(
-                f"Exposure Group {i+1}", f"Group {i+1}", key=f"row_{i}",
+                f"Exposure Group {i+1}", pval(f"row_{i}", f"Group {i+1}"), key=f"row_{i}",
                 help="Examples: Exposed, Unexposed, Vaccinated, Smoker, Received Treatment, Control group."
             )
             for i in range(num_rows)
@@ -229,7 +292,7 @@ with tab1:
         )
         col_names = [
             st.text_input(
-                f"Outcome Level {j+1}", f"Level {j+1}", key=f"col_{j}",
+                f"Outcome Level {j+1}", pval(f"col_{j}", f"Level {j+1}"), key=f"col_{j}",
                 help="Examples: Disease, No disease, Outcome present, Outcome absent, Mild, Moderate, Severe."
             )
             for j in range(num_cols)
@@ -247,6 +310,7 @@ with tab1:
                     value = st.number_input(
                         f"{row_names[i]} - {col_names[j]}",
                         min_value=0,
+                        value=pval(f"cell_{i}_{j}", 0),
                         key=f"cell_{i}_{j}"
                     )
                     row.append(value)
@@ -338,7 +402,6 @@ with tab1:
                                     "an RR or OR of 1 means no difference between groups."
                                 )
 
-                                # Risk Ratio
                                 rr = (a/(a+b)) / (c/(c+d))
                                 se_log_rr = math.sqrt((1/a)-(1/(a+b))+(1/c)-(1/(c+d)))
                                 ci_low_rr = math.exp(math.log(rr)-1.96*se_log_rr)
@@ -368,7 +431,6 @@ with tab1:
 
                                 draw_ci("RR", rr, ci_low_rr, ci_high_rr)
 
-                                # Odds Ratio
                                 or_val = (a*d)/(b*c)
                                 se_log_or = math.sqrt(1/a+1/b+1/c+1/d)
                                 ci_low_or = math.exp(math.log(or_val)-1.96*se_log_or)
@@ -408,7 +470,6 @@ with tab1:
     st.markdown("Strong epidemiologists think structurally before computing.")
 
 
-# ==========================================================
 # TAB 2: ADVANCED EPI MEASURES
 # ==========================================================
 
