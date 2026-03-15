@@ -1798,6 +1798,249 @@ with tab4:
                 "that would be categorical with more than 2 groups."
             ),
         },
+        {
+            "id": "scenario_7",
+            "title": "Scenario 7: Alcohol Consumption & Liver Cirrhosis",
+            "description": (
+                "Researchers recruit 520 patients newly diagnosed with liver cirrhosis from "
+                "three urban hospitals and 520 patients admitted for non-liver conditions "
+                "(controls), matched on age and sex. A structured interview is used to assess "
+                "each participant's lifetime alcohol consumption, classified as: non-drinker, "
+                "light drinker (<1 drink/day), moderate drinker (1–3 drinks/day), or heavy "
+                "drinker (>3 drinks/day). The goal is to determine whether heavier alcohol "
+                "consumption is associated with cirrhosis diagnosis."
+            ),
+            "correct_design": "Case-Control",
+            "correct_outcome": "Binary",
+            "correct_exposure": "Categorical (>2 groups)",
+            "data": {
+                "type": "contingency_wide",
+                "context": (
+                    "Here is the case-control data organized by alcohol consumption level. "
+                    "Run the chi-square test to assess whether alcohol consumption level is "
+                    "associated with liver cirrhosis diagnosis."
+                ),
+                "row_names": ["Non-drinker", "Light (<1/day)", "Moderate (1–3/day)", "Heavy (>3/day)"],
+                "col_names": ["Cirrhosis (Case)", "No Cirrhosis (Control)"],
+                "cells": [
+                    [38,  142],
+                    [72,  168],
+                    [148, 122],
+                    [262,  88],
+                ],
+            },
+            "design_hint": (
+                "The researchers started with people who already had liver cirrhosis (cases) "
+                "and those who did not (controls), then looked back at past alcohol use. "
+                "Starting with outcome status and looking backward at exposure history is the "
+                "hallmark of a case-control study. A cohort study would have enrolled people "
+                "by drinking level and followed them forward to see who developed cirrhosis."
+            ),
+            "outcome_hint": (
+                "The outcome is cirrhosis diagnosis — present or absent. That is two categories, "
+                "so it is binary. In a case-control study, the outcome is what defines cases vs. "
+                "controls and is always determined before the study begins."
+            ),
+            "exposure_hint": (
+                "Alcohol consumption is classified into four ordered levels: non-drinker, light, "
+                "moderate, and heavy. Four groups means categorical with more than 2 levels. "
+                "If the only comparison were drinker vs. non-drinker, the exposure would be binary."
+            ),
+        },
+        {
+            "id": "scenario_8",
+            "title": "Scenario 8: Breastfeeding & Childhood Ear Infections",
+            "description": (
+                "A pediatric research team follows 1,800 infants from birth to age 2. At "
+                "enrollment, mothers report whether they plan to breastfeed exclusively for at "
+                "least 6 months (yes/no). Medical records are reviewed at 12 and 24 months to "
+                "record any new diagnoses of acute otitis media (middle ear infection). "
+                "Because some infants are lost to follow-up and others move away, each infant "
+                "contributes a different amount of observation time. Researchers want to compare "
+                "the incidence rate of ear infections between breastfed and non-breastfed infants."
+            ),
+            "correct_design": "Cohort",
+            "correct_outcome": "Rate (person-time)",
+            "correct_exposure": "Binary (2 groups)",
+            "data": {
+                "type": "rate",
+                "context": (
+                    "Here is the person-time data from the 2-year follow-up. Some infants were "
+                    "lost to follow-up, so person-months are used instead of a simple count. "
+                    "Calculate the Incidence Rate Ratio (IRR) to compare ear infection rates."
+                ),
+                "row_names": ["Exclusively breastfed ≥6 months", "Not exclusively breastfed"],
+                "cases": [94, 218],
+                "person_time": [9800, 10200],
+            },
+            "design_hint": (
+                "Infants were classified by feeding practice at enrollment (the exposure) and "
+                "then followed forward for 2 years to record new ear infection diagnoses. "
+                "Moving forward in time from exposure to outcome is the defining feature of "
+                "a cohort study. The fact that follow-up time varies affects how the outcome "
+                "is measured, but not the study design."
+            ),
+            "outcome_hint": (
+                "The clue is that 'each infant contributes a different amount of observation time.' "
+                "When follow-up varies, you cannot simply count who got sick — you must account "
+                "for how long each infant was observed. This calls for a rate outcome using "
+                "person-time. Binary outcome would apply only if all infants were observed for "
+                "exactly the same period."
+            ),
+            "exposure_hint": (
+                "Breastfeeding is classified as exclusively breastfed for at least 6 months vs. "
+                "not — two groups, so binary. If the study had compared three or more feeding "
+                "categories (e.g., exclusive, partial, formula-only), that would be categorical "
+                "with more than 2 groups."
+            ),
+        },
+        {
+            "id": "scenario_9",
+            "title": "Scenario 9: Neighborhood Poverty & Hypertension",
+            "description": (
+                "A county health department conducts a community health needs assessment by "
+                "surveying 4,200 adult residents across neighborhoods classified by poverty level: "
+                "low poverty (<10% below poverty line), moderate poverty (10–20%), and high "
+                "poverty (>20%). At the time of the survey, each resident's blood pressure is "
+                "measured and hypertension status (yes/no) is recorded. The health department "
+                "wants to examine whether neighborhood poverty level is associated with current "
+                "hypertension prevalence."
+            ),
+            "correct_design": "Cross-sectional",
+            "correct_outcome": "Binary",
+            "correct_exposure": "Categorical (>2 groups)",
+            "data": {
+                "type": "contingency_wide",
+                "context": (
+                    "Here is the survey data organized by neighborhood poverty level and "
+                    "hypertension status. Run the chi-square test to assess whether the "
+                    "association is statistically significant."
+                ),
+                "row_names": ["Low poverty (<10%)", "Moderate poverty (10–20%)", "High poverty (>20%)"],
+                "col_names": ["Hypertension", "No Hypertension"],
+                "cells": [
+                    [218, 982],
+                    [341, 859],
+                    [489, 711],
+                ],
+            },
+            "design_hint": (
+                "Both neighborhood poverty level (exposure) and hypertension status (outcome) "
+                "are measured at the same point in time during a single survey. There is no "
+                "follow-up period and no looking backward at past conditions. Measuring exposure "
+                "and outcome simultaneously in a snapshot is cross-sectional. A cohort study "
+                "would follow residents over time to see who develops hypertension."
+            ),
+            "outcome_hint": (
+                "Hypertension status is either present or absent — yes or no. That is binary. "
+                "If the outcome had been blood pressure classified as normal, elevated, stage 1, "
+                "and stage 2 hypertension, that would be categorical with more than 2 levels."
+            ),
+            "exposure_hint": (
+                "Neighborhood poverty is classified into three levels: low, moderate, and high. "
+                "Three groups means categorical with more than 2 levels. If the comparison were "
+                "only high-poverty vs. low-poverty neighborhoods, the exposure would be binary."
+            ),
+        },
+        {
+            "id": "scenario_10",
+            "title": "Scenario 10: Pesticide Exposure & Parkinson's Disease",
+            "description": (
+                "Neurologists at a regional medical center identify 310 patients with newly "
+                "diagnosed Parkinson's disease. For each case, two controls without Parkinson's "
+                "are recruited from the same neurology clinic, matched on age (within 5 years) "
+                "and sex, yielding 620 controls. Participants are interviewed about occupational "
+                "history, and pesticide exposure is classified as yes or no based on whether "
+                "they ever worked in agriculture or pesticide manufacturing for more than 1 year. "
+                "Researchers want to determine whether pesticide exposure is associated with "
+                "Parkinson's disease."
+            ),
+            "correct_design": "Case-Control",
+            "correct_outcome": "Binary",
+            "correct_exposure": "Binary (2 groups)",
+            "data": {
+                "type": "contingency",
+                "context": (
+                    "Here is the matched case-control data. The Odds Ratio is the appropriate "
+                    "measure of association for a case-control study — you cannot calculate a "
+                    "true Risk Ratio because you selected cases and controls by disease status, "
+                    "not by exposure."
+                ),
+                "row_names": ["Pesticide-exposed", "Not exposed"],
+                "col_names": ["Parkinson's (Case)", "No Parkinson's (Control)"],
+                "cells": [[168, 192], [142, 428]],
+            },
+            "design_hint": (
+                "Researchers started by identifying people with Parkinson's disease (cases) and "
+                "people without it (controls), then looked back at occupational pesticide exposure. "
+                "This backward-looking design — starting with the outcome and assessing past "
+                "exposure — is case-control. A cohort study would have enrolled agricultural "
+                "workers and non-agricultural workers and followed them forward to see who "
+                "developed Parkinson's, which would take decades."
+            ),
+            "outcome_hint": (
+                "The outcome is Parkinson's disease diagnosis — present or absent. Two categories "
+                "means binary. In a case-control study, having or not having the disease is what "
+                "defines cases vs. controls, so the outcome is always binary."
+            ),
+            "exposure_hint": (
+                "Pesticide exposure is classified as ever exposed vs. never exposed — two groups, "
+                "so binary. If the researchers had classified exposure as never, low-level, and "
+                "high-level, that would be categorical with more than 2 groups."
+            ),
+        },
+        {
+            "id": "scenario_11",
+            "title": "Scenario 11: Social Media Use & Adolescent Depression",
+            "description": (
+                "A school-based survey is administered to 3,600 high school students across "
+                "12 schools in one district. Each student reports their average daily social "
+                "media use: less than 1 hour, 1–3 hours, or more than 3 hours per day. "
+                "At the same time, students complete a validated depression screening "
+                "instrument (PHQ-8). Those scoring 10 or above are classified as having "
+                "probable depression (yes/no). The survey is conducted once during the school "
+                "year. Researchers want to describe the current association between social "
+                "media use and depression screening status."
+            ),
+            "correct_design": "Cross-sectional",
+            "correct_outcome": "Binary",
+            "correct_exposure": "Categorical (>2 groups)",
+            "data": {
+                "type": "contingency_wide",
+                "context": (
+                    "Here is the survey data organized by daily social media use and depression "
+                    "screening status. Run the chi-square test to assess whether the association "
+                    "between social media use and probable depression is statistically significant."
+                ),
+                "row_names": ["<1 hour/day", "1–3 hours/day", ">3 hours/day"],
+                "col_names": ["Probable Depression", "No Depression"],
+                "cells": [
+                    [98,  902],
+                    [284, 1116],
+                    [412, 788],
+                ],
+            },
+            "design_hint": (
+                "Social media use (exposure) and depression screening status (outcome) are both "
+                "measured at the same point in time during a single school survey. There is no "
+                "follow-up and no looking back at past behavior — it is a snapshot. That is "
+                "a cross-sectional study. An important limitation: because both are measured "
+                "simultaneously, you cannot determine whether social media use preceded depression "
+                "or vice versa."
+            ),
+            "outcome_hint": (
+                "Depression status is classified as probable depression (PHQ-8 ≥ 10) vs. no "
+                "depression — two categories, so binary. If the outcome were PHQ-8 score "
+                "classified into severity levels (minimal, mild, moderate, severe), that would "
+                "be categorical with more than 2 levels."
+            ),
+            "exposure_hint": (
+                "Social media use is classified into three categories: less than 1 hour, 1–3 "
+                "hours, and more than 3 hours per day. Three groups means categorical with more "
+                "than 2 levels. If the only comparison were high use vs. low use, the exposure "
+                "would be binary."
+            ),
+        },
     ]
 
     design_options   = ["— Select —", "Cohort", "Case-Control", "Cross-sectional"]
