@@ -443,6 +443,46 @@ with tab1:
                                 f"We **fail to reject the null hypothesis**."
                             )
 
+                        # ---- SHOW THE MATH: CHI-SQUARE ----
+                        with st.expander("🔢 Show me the math — Chi-Square Test"):
+                            st.markdown(f"""
+**The chi-square test compares observed cell counts to what we would expect if there were no association.**
+
+**Step 1: Your observed counts (O)**
+""")
+                            obs_df = pd.DataFrame(
+                                table_array,
+                                columns=col_names,
+                                index=row_names
+                            )
+                            st.table(obs_df)
+                            st.markdown(f"""
+**Step 2: Expected counts (E) — calculated from row and column totals**
+
+E = (Row Total × Column Total) ÷ Grand Total
+
+Expected counts assuming no association:
+""")
+                            exp_df = pd.DataFrame(
+                                [[round(expected[i][j], 2) for j in range(num_cols)] for i in range(num_rows)],
+                                columns=col_names,
+                                index=row_names
+                            )
+                            st.table(exp_df)
+                            st.markdown(f"""
+**Step 3: Calculate χ² = Σ [(O − E)² ÷ E]**
+
+For each cell: subtract expected from observed, square it, divide by expected. Sum all cells.
+
+χ²({dof}) = **{round(chi2, 3)}**
+
+**Step 4: Interpret the p-value**
+
+With {dof} degree(s) of freedom, a χ² of {round(chi2,3)} gives p = **{round(p,4) if p >= 0.0001 else "< 0.0001"}**
+
+{'✅ p < 0.05 → We reject the null hypothesis. The association is statistically significant.' if p < 0.05 else '⚠️ p ≥ 0.05 → We fail to reject the null hypothesis. Insufficient evidence of an association.'}
+                            """)
+
                         if num_rows == 2 and num_cols == 2:
 
                             a, b = table_array[0]
@@ -450,53 +490,96 @@ with tab1:
 
                             if all(v > 0 for v in [a, b, c, d]):
 
+                                # --- Determine correct measure label based on study design ---
+                                is_cross_sectional = (design == "Cross-sectional")
+                                primary_label = "Prevalence Ratio (PR)" if is_cross_sectional else "Risk Ratio (RR)"
+                                primary_abbrev = "PR" if is_cross_sectional else "RR"
+
                                 st.info(
-                                    "Because you have a 2×2 table, we can also calculate the **Risk Ratio (RR)** "
-                                    "and **Odds Ratio (OR)**. The **95% confidence interval (CI)** gives the range of "
-                                    "plausible values for the true measure. "
-                                    "If the CI includes 1, the association is **not statistically significant** — "
-                                    "an RR or OR of 1 means no difference between groups."
+                                    f"Because you have a 2×2 table, we can calculate the "
+                                    f"**{primary_label}** and **Odds Ratio (OR)**. "
+                                    f"The **95% confidence interval (CI)** gives the range of "
+                                    f"plausible values for the true measure. "
+                                    f"If the CI includes 1, the association is **not statistically significant** — "
+                                    f"a {primary_abbrev} or OR of 1 means no difference between groups."
                                 )
 
+                                # --- Calculation (same formula, different label) ---
                                 rr = (a/(a+b)) / (c/(c+d))
                                 se_log_rr = math.sqrt((1/a)-(1/(a+b))+(1/c)-(1/(c+d)))
                                 ci_low_rr = math.exp(math.log(rr)-1.96*se_log_rr)
                                 ci_high_rr = math.exp(math.log(rr)+1.96*se_log_rr)
 
-                                st.subheader("Risk Ratio (RR)")
-                                st.caption(
-                                    "RR = risk in exposed ÷ risk in unexposed. "
-                                    "RR = 1: no difference. RR > 1: higher risk in exposed group. RR < 1: lower risk in exposed group. "
-                                    "Most appropriate for cohort studies."
-                                )
-
-                                if ci_low_rr <= 1 <= ci_high_rr:
-                                    st.warning(
-                                        f"RR = {round(rr,2)} (95% CI: {round(ci_low_rr,2)}–{round(ci_high_rr,2)}). "
-                                        f"The CI includes 1 → **not statistically significant**. "
-                                        f"We cannot conclude that {row_names[0]} has a different risk of {col_names[0]} than {row_names[1]}."
-                                    )
-                                else:
-                                    direction = "higher" if rr > 1 else "lower"
-                                    st.success(
-                                        f"RR = {round(rr,2)} (95% CI: {round(ci_low_rr,2)}–{round(ci_high_rr,2)}). "
-                                        f"The risk of {col_names[0]} among {row_names[0]} is {round(rr,2)} times "
-                                        f"{direction} than among {row_names[1]}. "
-                                        f"The CI does not include 1 → **statistically significant**."
-                                    )
-
-                                draw_ci("RR", rr, ci_low_rr, ci_high_rr)
-
+                                risk_a = a/(a+b)
+                                risk_c = c/(c+d)
+                                odds_a = a/b
+                                odds_c = c/d
                                 or_val = (a*d)/(b*c)
                                 se_log_or = math.sqrt(1/a+1/b+1/c+1/d)
                                 ci_low_or = math.exp(math.log(or_val)-1.96*se_log_or)
                                 ci_high_or = math.exp(math.log(or_val)+1.96*se_log_or)
 
+                                # ---- PRIMARY RATIO (RR or PR) ----
+                                st.subheader(primary_label)
+                                if is_cross_sectional:
+                                    st.caption(
+                                        "PR = prevalence in exposed ÷ prevalence in unexposed. "
+                                        "PR = 1: no difference. PR > 1: higher prevalence in exposed group. PR < 1: lower prevalence in exposed group. "
+                                        "The appropriate measure for cross-sectional studies comparing prevalence between groups."
+                                    )
+                                else:
+                                    st.caption(
+                                        "RR = risk in exposed ÷ risk in unexposed. "
+                                        "RR = 1: no difference. RR > 1: higher risk in exposed group. RR < 1: lower risk in exposed group. "
+                                        "Most appropriate for cohort studies."
+                                    )
+
+                                if ci_low_rr <= 1 <= ci_high_rr:
+                                    st.warning(
+                                        f"{primary_abbrev} = {round(rr,2)} (95% CI: {round(ci_low_rr,2)}–{round(ci_high_rr,2)}). "
+                                        f"The CI includes 1 → **not statistically significant**. "
+                                        f"We cannot conclude that {row_names[0]} has a different {'prevalence' if is_cross_sectional else 'risk'} of {col_names[0]} than {row_names[1]}."
+                                    )
+                                else:
+                                    direction = "higher" if rr > 1 else "lower"
+                                    st.success(
+                                        f"{primary_abbrev} = {round(rr,2)} (95% CI: {round(ci_low_rr,2)}–{round(ci_high_rr,2)}). "
+                                        f"The {'prevalence' if is_cross_sectional else 'risk'} of {col_names[0]} among {row_names[0]} is {round(rr,2)} times "
+                                        f"{direction} than among {row_names[1]}. "
+                                        f"The CI does not include 1 → **statistically significant**."
+                                    )
+
+                                draw_ci(primary_abbrev, rr, ci_low_rr, ci_high_rr)
+
+                                # ---- SHOW THE MATH: RR/PR ----
+                                with st.expander(f"🔢 Show me the math — {primary_label}"):
+                                    st.markdown(f"""
+**Step 1: Calculate {'prevalence' if is_cross_sectional else 'risk'} in each group**
+
+- {'Prevalence' if is_cross_sectional else 'Risk'} in {row_names[0]}: a ÷ (a+b) = {a} ÷ {a+b} = **{round(risk_a, 4)}** ({round(risk_a*100,1)}%)
+- {'Prevalence' if is_cross_sectional else 'Risk'} in {row_names[1]}: c ÷ (c+d) = {c} ÷ {c+d} = **{round(risk_c, 4)}** ({round(risk_c*100,1)}%)
+
+**Step 2: Divide to get the {primary_abbrev}**
+
+{primary_abbrev} = {round(risk_a,4)} ÷ {round(risk_c,4)} = **{round(rr, 4)}**
+
+**Step 3: Calculate the 95% CI using the log method**
+
+SE(log {primary_abbrev}) = √[(1/a − 1/(a+b)) + (1/c − 1/(c+d))]
+= √[(1/{a} − 1/{a+b}) + (1/{c} − 1/{c+d})]
+= **{round(se_log_rr, 4)}**
+
+95% CI = e^(log({round(rr,4)}) ± 1.96 × {round(se_log_rr,4)})
+= (**{round(ci_low_rr,3)}**, **{round(ci_high_rr,3)}**)
+                                    """)
+
+                                # ---- ODDS RATIO ----
                                 st.subheader("Odds Ratio (OR)")
                                 st.caption(
                                     "OR = odds of outcome in exposed ÷ odds of outcome in unexposed. "
                                     "OR = 1: no difference. OR > 1: higher odds in exposed group. OR < 1: lower odds in exposed group. "
-                                    "Most appropriate for case-control studies. Note: the OR is always farther from 1 than the RR."
+                                    f"Most appropriate for case-control studies. "
+                                    f"Note: the OR is always farther from 1 than the {primary_abbrev}."
                                 )
 
                                 if ci_low_or <= 1 <= ci_high_or:
@@ -516,9 +599,48 @@ with tab1:
 
                                 draw_ci("OR", or_val, ci_low_or, ci_high_or)
 
+                                # ---- SHOW THE MATH: OR ----
+                                with st.expander("🔢 Show me the math — Odds Ratio"):
+                                    st.markdown(f"""
+**Step 1: Calculate odds in each group**
+
+- Odds in {row_names[0]}: a ÷ b = {a} ÷ {b} = **{round(odds_a, 4)}**
+- Odds in {row_names[1]}: c ÷ d = {c} ÷ {d} = **{round(odds_c, 4)}**
+
+**Step 2: Divide to get the OR** *(or use the cross-product shortcut)*
+
+OR = (a × d) ÷ (b × c) = ({a} × {d}) ÷ ({b} × {c}) = {a*d} ÷ {b*c} = **{round(or_val, 4)}**
+
+**Step 3: Calculate the 95% CI using the log method**
+
+SE(log OR) = √(1/a + 1/b + 1/c + 1/d)
+= √(1/{a} + 1/{b} + 1/{c} + 1/{d})
+= **{round(se_log_or, 4)}**
+
+95% CI = e^(log({round(or_val,4)}) ± 1.96 × {round(se_log_or,4)})
+= (**{round(ci_low_or,3)}**, **{round(ci_high_or,3)}**)
+                                    """)
+
+                                # ---- WHY OR > RR ----
+                                with st.expander(f"❓ Why is the OR farther from 1 than the {primary_abbrev}?"):
+                                    st.markdown(f"""
+The OR and {primary_abbrev} both measure association, but they use different denominators:
+
+- **{primary_abbrev}** compares *risks* (or prevalences): proportion of the **whole group** with the outcome
+- **OR** compares *odds*: ratio of those **with** to those **without** the outcome
+
+Because the OR's denominator (those without the outcome) is smaller than the {primary_abbrev}'s denominator (the whole group), the OR always produces a more extreme value than the {primary_abbrev} when the outcome is common.
+
+**With your data:**
+- {primary_abbrev} = {round(rr, 2)} → the {'prevalence' if is_cross_sectional else 'risk'} in {row_names[0]} is {round(rr,2)}x the {'prevalence' if is_cross_sectional else 'risk'} in {row_names[1]}
+- OR = {round(or_val, 2)} → the *odds* in {row_names[0]} are {round(or_val,2)}x the *odds* in {row_names[1]}
+
+**The rule of thumb:** When the outcome is rare (<10%), the OR closely approximates the {primary_abbrev}. As the outcome becomes more common, the OR diverges further from 1. This is why using an OR to estimate a {primary_abbrev} in a cross-sectional or cohort study can be misleading when the outcome is common.
+                                    """)
+
                             else:
                                 st.info(
-                                    "⚠️ RR and OR require all four cells (a, b, c, d) to be greater than zero. "
+                                    f"⚠️ {primary_abbrev if 'primary_abbrev' in dir() else 'RR'} and OR require all four cells (a, b, c, d) to be greater than zero. "
                                     "At least one cell is currently 0, so these measures cannot be calculated."
                                 )
 
