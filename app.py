@@ -2047,18 +2047,34 @@ with tab4:
     outcome_options  = ["— Select —", "Binary", "Categorical (Nominal >2 levels)", "Ordinal", "Rate (person-time)"]
     exposure_options = ["— Select —", "Binary (2 groups)", "Categorical (>2 groups)"]
 
+    # Randomize scenario order — shuffle once per session, reshuffle on reset
+    import random
+    if "prac_scenario_order" not in st.session_state:
+        order = list(range(len(PRACTICE_SCENARIOS)))
+        random.shuffle(order)
+        st.session_state["prac_scenario_order"] = order
+
+    SHUFFLED_PRACTICE = [PRACTICE_SCENARIOS[i] for i in st.session_state["prac_scenario_order"]]
+
     # Reset button
     col_hdr, col_rst = st.columns([5, 1])
+    with col_hdr:
+        st.caption(
+            f"**{len(PRACTICE_SCENARIOS)} scenarios** presented in a randomized order. "
+            "Hit Reset to get a new shuffle and start fresh."
+        )
     with col_rst:
-        if st.button("🔄 Reset", key="reset_tab4", help="Clear all answers"):
+        if st.button("🔄 Reset", key="reset_tab4", help="Clear all answers and reshuffle"):
             for sc in PRACTICE_SCENARIOS:
                 for field in ["design", "outcome", "exposure"]:
                     k = f"prac_{sc['id']}_{field}"
                     if k in st.session_state:
                         del st.session_state[k]
+            if "prac_scenario_order" in st.session_state:
+                del st.session_state["prac_scenario_order"]
             st.rerun()
 
-    for sc in PRACTICE_SCENARIOS:
+    for sc in SHUFFLED_PRACTICE:
 
         st.divider()
         st.subheader(sc["title"])
