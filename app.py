@@ -64,7 +64,7 @@ def draw_ci(label, estimate, ci_low, ci_high):
 # ==========================================================
 
 st.title("🧭 Epidemiology Decision Simulator")
-st.markdown("Study Design → Outcome Type → Exposure Type → Table → Run Analysis → Interpretation")
+st.markdown("An interactive epidemiology learning suite — measures of association, advanced epi measures, standardization, hypothesis testing, and practice scenarios.")
 
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 Measures of Association", "📐 Advanced Epi Measures", "📏 Standardization", "🎯 Practice: Measures of Association", "🎯 Practice: Advanced Epi Measures", "🧪 Hypothesis Testing"])
 
@@ -3445,6 +3445,188 @@ Failing to find evidence of an effect is not the same as proving no effect exist
                     "This is worth remembering: in epi, most association tests (chi-square, Fisher's exact) "
                     "are two-tailed by default. One-tailed tests are more common in clinical trials "
                     "with strong directional hypotheses."
+                ),
+            },
+            {
+                "id": "h5",
+                "title": "Scenario E: Opioid Prescribing Guidelines & Overdose Deaths",
+                "description": (
+                    "A state health department implemented stricter opioid prescribing guidelines "
+                    "in 2020. Researchers want to test whether the rate of opioid overdose deaths "
+                    "changed after the policy was implemented, comparing the 2-year period before "
+                    "vs. the 2-year period after. They have no prior evidence about whether the "
+                    "policy would increase or decrease overdose deaths — some research suggests "
+                    "stricter prescribing can push patients to illicit opioids."
+                ),
+                "correct_null": "no difference",
+                "correct_alt_direction": "two-tailed",
+                "null_options": [
+                    "The opioid overdose death rate did not change after the policy (rate_before = rate_after)",
+                    "The policy reduced opioid overdose deaths (rate_before > rate_after)",
+                    "The opioid overdose death rate changed after the policy (rate_before ≠ rate_after)",
+                ],
+                "alt_options": [
+                    "The opioid overdose death rate changed after the policy (rate_before ≠ rate_after)",
+                    "The policy reduced opioid overdose deaths (rate_before > rate_after)",
+                    "The policy increased opioid overdose deaths (rate_after > rate_before)",
+                ],
+                "correct_null_idx": 0,
+                "correct_alt_idx": 0,
+                "null_feedback": "✅ Correct. The null states no change — overdose rates before and after the policy are equal.",
+                "null_wrong_feedback": "❌ The null must state no effect. Under H₀, the policy had no impact — death rates before and after are equal.",
+                "alt_feedback": "✅ Correct. Because researchers explicitly stated they have no prior prediction about direction — the policy could increase or decrease deaths — the alternative is two-tailed (≠).",
+                "alt_wrong_feedback": "❌ The scenario states they have no prior evidence about direction. The policy might reduce deaths by limiting prescriptions, or increase them by pushing patients to illicit drugs. No predicted direction = two-tailed.",
+                "tails_explanation": (
+                    "**Why two-tailed?** The researchers acknowledged genuine uncertainty about direction. "
+                    "This is common in policy evaluation — real-world interventions can have unintended "
+                    "consequences. When plausible mechanisms exist for effects in both directions, "
+                    "a two-tailed test is the honest choice."
+                ),
+            },
+            {
+                "id": "h6",
+                "title": "Scenario F: Antibiotic Treatment Duration & Cure Rate",
+                "description": (
+                    "An infectious disease physician is testing whether a 5-day course of antibiotics "
+                    "is as effective as the standard 10-day course for treating uncomplicated urinary "
+                    "tract infections. Based on pharmacokinetic data, she hypothesizes the shorter "
+                    "course will achieve equivalent cure rates — meaning she expects no difference "
+                    "between the two groups. This is a non-inferiority trial design."
+                ),
+                "correct_null": "difference exists",
+                "correct_alt_direction": "two-tailed",
+                "null_options": [
+                    "The 5-day and 10-day courses have different cure rates (p_5day ≠ p_10day)",
+                    "The 5-day and 10-day courses have the same cure rate (p_5day = p_10day)",
+                    "The 5-day course has a lower cure rate than the 10-day course (p_5day < p_10day)",
+                ],
+                "alt_options": [
+                    "The 5-day and 10-day courses have the same cure rate (p_5day = p_10day)",
+                    "The 5-day course has a lower cure rate (p_5day < p_10day)",
+                    "The 5-day course has a different cure rate (p_5day ≠ p_10day)",
+                ],
+                "correct_null_idx": 1,
+                "correct_alt_idx": 0,
+                "null_feedback": "✅ Correct — and this is the twist. In most studies, H₀ states no difference. But here the researcher *expects* equivalence, so she is trying to find evidence *against* a difference. The null is still the default assumption — in a non-inferiority trial, H₀ states a difference exists.",
+                "null_wrong_feedback": "❌ This scenario has a twist. Usually H₀ states no difference, but this is a non-inferiority trial — the researcher wants to prove equivalence. Here, H₀ states the treatments ARE different (the status quo assumption before evidence of equivalence is shown).",
+                "alt_feedback": "✅ Correct. The researcher wants to show the two treatments are equivalent — so the alternative she is trying to establish is that they have the same cure rate.",
+                "alt_wrong_feedback": "❌ The researcher's goal is to show equivalence. In a non-inferiority trial, the alternative hypothesis is that the new treatment performs as well as the standard. She is trying to find evidence FOR equivalence, not against it.",
+                "tails_explanation": (
+                    "**The non-inferiority twist:** This scenario illustrates an important exception to the rule. "
+                    "Most hypothesis tests try to find evidence of a difference. "
+                    "Non-inferiority and equivalence trials flip this — they try to find evidence of equivalence. "
+                    "H₀ becomes 'the treatments differ' and H₁ becomes 'they are equivalent.' "
+                    "This matters in clinical settings where a cheaper, shorter, or less toxic "
+                    "treatment needs to be shown as equivalent to the current standard."
+                ),
+            },
+            {
+                "id": "h7",
+                "title": "Scenario G: Food Desert & Fruit/Vegetable Intake",
+                "description": (
+                    "A nutritional epidemiologist surveys 800 adults in food desert neighborhoods "
+                    "and 800 adults in food-secure neighborhoods. She measures daily fruit and "
+                    "vegetable servings (a continuous measure) and wants to test whether adults "
+                    "in food deserts consume fewer servings per day than adults in food-secure areas. "
+                    "Prior research consistently shows food deserts are associated with lower "
+                    "produce intake."
+                ),
+                "correct_null": "no difference",
+                "correct_alt_direction": "one-tailed",
+                "null_options": [
+                    "Adults in food deserts and food-secure areas consume the same number of daily servings (μ_desert = μ_secure)",
+                    "Adults in food deserts consume fewer servings than those in food-secure areas (μ_desert < μ_secure)",
+                    "Adults in food deserts consume a different number of servings than those in food-secure areas (μ_desert ≠ μ_secure)",
+                ],
+                "alt_options": [
+                    "Adults in food deserts consume fewer daily fruit and vegetable servings than those in food-secure areas (μ_desert < μ_secure)",
+                    "Adults in food deserts consume a different number of servings than food-secure adults (μ_desert ≠ μ_secure)",
+                    "Adults in food deserts consume more servings than food-secure adults (μ_desert > μ_secure)",
+                ],
+                "correct_null_idx": 0,
+                "correct_alt_idx": 0,
+                "null_feedback": "✅ Correct. H₀ states no difference in fruit and vegetable consumption between the two neighborhood types.",
+                "null_wrong_feedback": "❌ H₀ must state no difference. Under the null, food desert and food-secure residents consume equal amounts — any observed difference is due to chance.",
+                "alt_feedback": "✅ Correct. The researcher has a specific directional prediction based on prior research — food desert residents consume *fewer* servings. A specific direction = one-tailed (μ_desert < μ_secure).",
+                "alt_wrong_feedback": "❌ The researcher stated prior research consistently shows lower intake in food deserts. That existing evidence justifies a directional hypothesis — she predicts fewer servings, not just a difference in either direction. Specific direction = one-tailed.",
+                "tails_explanation": (
+                    "**Why one-tailed?** Prior research consistently points in one direction — "
+                    "food deserts are associated with lower produce intake. When there is strong "
+                    "existing evidence supporting a specific direction, a one-tailed test is "
+                    "justified. It concentrates all 5% in the lower tail, making it more powerful "
+                    "at detecting the expected effect."
+                ),
+            },
+            {
+                "id": "h8",
+                "title": "Scenario H: Telehealth & Patient Satisfaction",
+                "description": (
+                    "A hospital system launched telehealth services during the pandemic and wants "
+                    "to know whether patient satisfaction scores differ between telehealth and "
+                    "in-person visits. Satisfaction is rated on a 10-point scale. The administration "
+                    "has seen mixed reports — some patients love telehealth, others strongly prefer "
+                    "in-person care. They want to detect any difference, regardless of direction."
+                ),
+                "correct_null": "no difference",
+                "correct_alt_direction": "two-tailed",
+                "null_options": [
+                    "Telehealth and in-person visits produce the same mean satisfaction score (μ_telehealth = μ_in-person)",
+                    "Telehealth visits produce lower satisfaction than in-person visits (μ_telehealth < μ_in-person)",
+                    "Telehealth visits produce higher satisfaction than in-person visits (μ_telehealth > μ_in-person)",
+                ],
+                "alt_options": [
+                    "Telehealth and in-person visits produce different mean satisfaction scores (μ_telehealth ≠ μ_in-person)",
+                    "Telehealth visits produce lower satisfaction than in-person visits (μ_telehealth < μ_in-person)",
+                    "Telehealth visits produce higher satisfaction than in-person visits (μ_telehealth > μ_in-person)",
+                ],
+                "correct_null_idx": 0,
+                "correct_alt_idx": 0,
+                "null_feedback": "✅ Correct. H₀ states no difference — telehealth and in-person visits produce equal mean satisfaction.",
+                "null_wrong_feedback": "❌ H₀ must state no difference. Under the null, satisfaction is equal between visit types — any observed gap is due to chance.",
+                "alt_feedback": "✅ Correct. The administration wants to detect any difference in either direction — they have seen mixed reports suggesting telehealth could be better or worse. No predicted direction = two-tailed (≠).",
+                "alt_wrong_feedback": "❌ The scenario states mixed reports — some patients prefer telehealth, some prefer in-person. There is no clear directional prediction. When you genuinely don't know which direction the effect will go, use two-tailed (≠).",
+                "tails_explanation": (
+                    "**Why two-tailed?** The evidence is mixed — no strong prior rationale exists "
+                    "for predicting which visit type produces higher satisfaction. "
+                    "Two-tailed is appropriate when you want to detect a difference in either "
+                    "direction and have no strong theoretical basis for choosing one side. "
+                    "This is the most defensible and common choice in clinical and health services research."
+                ),
+            },
+            {
+                "id": "h9",
+                "title": "Scenario I: Water Fluoridation & Dental Caries in Children",
+                "description": (
+                    "A dental public health researcher is studying communities that recently "
+                    "added fluoride to their water supply. She will compare the mean number of "
+                    "dental caries (cavities) in children aged 6–12 before and after fluoridation. "
+                    "Decades of prior research consistently show fluoridation reduces cavities. "
+                    "She wants to test whether fluoridation reduces caries in this community."
+                ),
+                "correct_null": "no difference",
+                "correct_alt_direction": "one-tailed",
+                "null_options": [
+                    "Water fluoridation has no effect on the mean number of dental caries (μ_before = μ_after)",
+                    "Water fluoridation reduces the mean number of dental caries (μ_before > μ_after)",
+                    "Water fluoridation changes the mean number of dental caries (μ_before ≠ μ_after)",
+                ],
+                "alt_options": [
+                    "Water fluoridation reduces the mean number of dental caries (μ_before > μ_after)",
+                    "Water fluoridation changes the mean number of dental caries in either direction (μ_before ≠ μ_after)",
+                    "Water fluoridation increases dental caries (μ_after > μ_before)",
+                ],
+                "correct_null_idx": 0,
+                "correct_alt_idx": 0,
+                "null_feedback": "✅ Correct. H₀ states no effect — fluoridation does not change the mean number of cavities.",
+                "null_wrong_feedback": "❌ H₀ must state no effect. Under the null, fluoridation changes nothing — mean caries before equals mean caries after.",
+                "alt_feedback": "✅ Correct. Decades of research support a specific directional effect — fluoridation reduces cavities (μ_before > μ_after). Strong prior evidence justifies a one-tailed test.",
+                "alt_wrong_feedback": "❌ The researcher cited decades of consistent prior research showing fluoridation reduces cavities. That level of prior evidence justifies a specific directional hypothesis — she predicts fewer cavities after, not just any change.",
+                "tails_explanation": (
+                    "**Why one-tailed?** The scientific consensus on water fluoridation and dental "
+                    "caries is exceptionally strong — this is one of the clearest cases where a "
+                    "directional hypothesis is justified. When prior evidence is extensive and "
+                    "consistently points one way, a one-tailed test is appropriate and more powerful. "
+                    "Contrast this with Scenario E (opioid policy), where direction was genuinely uncertain."
                 ),
             },
         ]
