@@ -125,8 +125,23 @@ with tab1:
         },
     }
 
-    st.markdown("#### 💡 Load a Preset Scenario")
-    st.caption("Choose a preset to pre-fill all fields with realistic data, or select \'I\'ll enter my own data\' to start from scratch.")
+    col_title, col_reset = st.columns([5, 1])
+    with col_title:
+        st.markdown("#### 💡 Load a Preset Scenario")
+        st.caption("Choose a preset to pre-fill all fields with realistic data, or select \'I\'ll enter my own data\' to start from scratch.")
+    with col_reset:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🔄 Reset", key="reset_tab1", help="Clear all fields and return to defaults"):
+            keys_to_clear = [
+                "preset_choice", "last_preset", "design", "outcome_type", "exposure_type",
+                "row_0", "row_1", "col_0", "col_1",
+                "cell_0_0", "cell_0_1", "cell_1_0", "cell_1_1",
+                "exposed_label", "unexposed_label", "cases1", "cases2", "py1", "py2"
+            ]
+            for k in keys_to_clear:
+                if k in st.session_state:
+                    del st.session_state[k]
+            st.rerun()
 
     # Track the last loaded preset so we only inject session state once per change
     if "last_preset" not in st.session_state:
@@ -516,6 +531,16 @@ with tab1:
 
 with tab3:
 
+    col_title3, col_reset3 = st.columns([5, 1])
+    with col_reset3:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🔄 Reset", key="reset_tab3", help="Clear all fields and return to defaults"):
+            keys_to_clear3 = ["std_preset_choice"]
+            for k in keys_to_clear3:
+                if k in st.session_state:
+                    del st.session_state[k]
+            st.rerun()
+
     st.markdown("""
     **Standardization** allows fair comparison of rates between populations that differ in age structure.
     Without it, a population with more elderly people will always appear sicker — even if age-specific
@@ -835,10 +860,23 @@ with tab3:
 
     with tab2:
 
-        st.markdown(
-            "Calculate advanced epidemiologic measures using **preset realistic scenarios** "
-            "or enter your own data manually."
-        )
+        col_title2, col_reset2 = st.columns([5, 1])
+        with col_title2:
+            st.markdown(
+                "Calculate advanced epidemiologic measures using **preset realistic scenarios** "
+                "or enter your own data manually."
+            )
+        with col_reset2:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("🔄 Reset", key="reset_tab2", help="Clear all fields and return to defaults"):
+                keys_to_clear2 = [
+                    "smr_mode", "smr_scenario", "ar_mode", "ar_scenario",
+                    "nnt_mode", "nnt_scenario", "hr_mode", "hr_scenario"
+                ]
+                for k in keys_to_clear2:
+                    if k in st.session_state:
+                        del st.session_state[k]
+                st.rerun()
 
         measure = st.selectbox(
             "Select measure to calculate:",
