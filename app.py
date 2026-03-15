@@ -66,7 +66,7 @@ def draw_ci(label, estimate, ci_low, ci_high):
 st.title("🧭 Epidemiology Decision Simulator")
 st.markdown("Study Design → Outcome Type → Exposure Type → Table → Run Analysis → Interpretation")
 
-tab1, tab2 = st.tabs(["📊 Measures of Association", "📐 Advanced Epi Measures"])
+tab1, tab2, tab3 = st.tabs(["📊 Measures of Association", "📐 Advanced Epi Measures", "📏 Standardization"])
 
 # ==========================================================
 # TAB 1: MEASURES OF ASSOCIATION (original app)
@@ -506,6 +506,320 @@ with tab1:
                                     "⚠️ RR and OR require all four cells (a, b, c, d) to be greater than zero. "
                                     "At least one cell is currently 0, so these measures cannot be calculated."
                                 )
+
+    st.markdown("---")
+    st.markdown("Strong epidemiologists think structurally before computing.")
+
+# ==========================================================
+# TAB 3: STANDARDIZATION
+# ==========================================================
+
+with tab3:
+
+    st.markdown("""
+    **Standardization** allows fair comparison of rates between populations that differ in age structure.
+    Without it, a population with more elderly people will always appear sicker — even if age-specific
+    rates are identical to a younger population.
+
+    There are two methods:
+    - **Direct standardization** applies each population's age-specific rates to a single standard population structure.
+    - **Indirect standardization** applies a reference population's rates to your study population, producing an **SMR**.
+    """)
+
+    st.divider()
+
+    # ----------------------------------------------------------
+    # PRESET SCENARIOS
+    # ----------------------------------------------------------
+
+    STD_PRESETS = {
+        "None — I'll enter my own data": None,
+        "Urban vs. Rural CVD Mortality": {
+            "description": (
+                "**Scenario:** Compare cardiovascular disease (CVD) mortality between an urban county "
+                "(younger population) and a rural county (older population). Without standardization, "
+                "the rural county appears to have higher CVD mortality — but is this real or just "
+                "because it has more elderly residents? *Adapted from CDC WONDER mortality data.*"
+            ),
+            "age_groups": ["0–44", "45–54", "55–64", "65–74", "75+"],
+            "std_pop":    [150000, 40000, 35000, 25000, 15000],
+            "pop_a":      [80000,  15000, 12000,  8000,  4000],
+            "deaths_a":   [12,     45,    120,    280,   310],
+            "pop_b":      [30000,  18000, 22000,  20000, 14000],
+            "deaths_b":   [5,      55,    145,    430,   580],
+            "label_a": "Urban County",
+            "label_b": "Rural County",
+            "outcome": "CVD deaths",
+            "ref_label": "State population"
+        },
+        "Miners vs. Office Workers (Lung Disease)": {
+            "description": (
+                "**Scenario:** Compare lung disease mortality between coal miners and office workers. "
+                "Miners are older on average due to longer tenure requirements. "
+                "Standardization reveals whether excess mortality is due to age or occupational exposure. "
+                "*Adapted from NIOSH occupational cohort data.*"
+            ),
+            "age_groups": ["20–34", "35–44", "45–54", "55–64", "65–74"],
+            "std_pop":    [5000,    6000,    5500,    4000,    2000],
+            "pop_a":      [800,     1800,    2100,    1600,    900],
+            "deaths_a":   [1,       6,       18,      38,      32],
+            "pop_b":      [2000,    2200,    1800,    1200,    600],
+            "deaths_b":   [0,       2,       5,       10,      8],
+            "label_a": "Coal Miners",
+            "label_b": "Office Workers",
+            "outcome": "lung disease deaths",
+            "ref_label": "Workforce population"
+        },
+        "Country A vs. Country B (Breast Cancer)": {
+            "description": (
+                "**Scenario:** Compare breast cancer mortality between two countries with very different "
+                "age distributions. Country A has a younger population (developing nation); "
+                "Country B has an older population (developed nation). "
+                "*Adapted from WHO Global Cancer Observatory data.*"
+            ),
+            "age_groups": ["0–34", "35–44", "45–54", "55–64", "65+"],
+            "std_pop":    [100000, 30000,  25000,  20000,  25000],
+            "pop_a":      [60000,  12000,   8000,   5000,   3000],
+            "deaths_a":   [2,      18,      35,     42,     38],
+            "pop_b":      [20000,  18000,  22000,  20000,  25000],
+            "deaths_b":   [1,      22,      58,     95,    142],
+            "label_a": "Country A",
+            "label_b": "Country B",
+            "outcome": "breast cancer deaths",
+            "ref_label": "World standard population"
+        },
+    }
+
+    std_preset_choice = st.selectbox(
+        "Load a preset scenario:",
+        list(STD_PRESETS.keys()),
+        key="std_preset_choice"
+    )
+    std_preset = STD_PRESETS[std_preset_choice]
+
+    if std_preset:
+        st.info(std_preset["description"])
+
+    st.divider()
+
+    # ----------------------------------------------------------
+    # DATA ENTRY
+    # ----------------------------------------------------------
+
+    if std_preset:
+        age_groups  = std_preset["age_groups"]
+        std_pop     = std_preset["std_pop"]
+        pop_a       = std_preset["pop_a"]
+        deaths_a    = std_preset["deaths_a"]
+        pop_b       = std_preset["pop_b"]
+        deaths_b    = std_preset["deaths_b"]
+        label_a     = std_preset["label_a"]
+        label_b     = std_preset["label_b"]
+        outcome_lbl = std_preset["outcome"]
+        ref_label   = std_preset["ref_label"]
+        n_groups    = len(age_groups)
+    else:
+        st.subheader("Set Up Your Data")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            label_a = st.text_input("Population A name", "Population A")
+            label_b = st.text_input("Population B name", "Population B")
+        with col2:
+            ref_label   = st.text_input("Standard/reference population name", "Standard Population")
+            outcome_lbl = st.text_input("Outcome label", "deaths")
+
+        n_groups = st.number_input("Number of age groups", min_value=2, max_value=10, value=5)
+        age_groups, std_pop, pop_a, deaths_a, pop_b, deaths_b = [], [], [], [], [], []
+
+        st.markdown("Enter data for each age group:")
+        header_cols = st.columns([2, 2, 2, 2, 2, 2])
+        header_cols[0].markdown("**Age Group**")
+        header_cols[1].markdown(f"**{ref_label} size**")
+        header_cols[2].markdown(f"**{label_a} pop.**")
+        header_cols[3].markdown(f"**{label_a} {outcome_lbl}**")
+        header_cols[4].markdown(f"**{label_b} pop.**")
+        header_cols[5].markdown(f"**{label_b} {outcome_lbl}**")
+
+        for i in range(int(n_groups)):
+            cols = st.columns([2, 2, 2, 2, 2, 2])
+            age_groups.append(cols[0].text_input("", f"Group {i+1}", key=f"ag_{i}", label_visibility="collapsed"))
+            std_pop.append(cols[1].number_input("", min_value=1, value=10000, key=f"sp_{i}", label_visibility="collapsed"))
+            pop_a.append(cols[2].number_input("", min_value=1, value=1000, key=f"pa_{i}", label_visibility="collapsed"))
+            deaths_a.append(cols[3].number_input("", min_value=0, value=0, key=f"da_{i}", label_visibility="collapsed"))
+            pop_b.append(cols[4].number_input("", min_value=1, value=1000, key=f"pb_{i}", label_visibility="collapsed"))
+            deaths_b.append(cols[5].number_input("", min_value=0, value=0, key=f"db_{i}", label_visibility="collapsed"))
+
+    # ----------------------------------------------------------
+    # SHOW DATA TABLE
+    # ----------------------------------------------------------
+
+    import numpy as np
+
+    rate_a = [deaths_a[i] / pop_a[i] * 100000 for i in range(n_groups)]
+    rate_b = [deaths_b[i] / pop_b[i] * 100000 for i in range(n_groups)]
+    ref_rate = [(deaths_a[i] + deaths_b[i]) / (pop_a[i] + pop_b[i]) * 100000 for i in range(n_groups)]
+
+    display_df = pd.DataFrame({
+        "Age Group": age_groups,
+        f"{ref_label} (std pop)": std_pop,
+        f"{label_a} — Population": pop_a,
+        f"{label_a} — {outcome_lbl.capitalize()}": deaths_a,
+        f"{label_a} — Rate per 100k": [round(r, 1) for r in rate_a],
+        f"{label_b} — Population": pop_b,
+        f"{label_b} — {outcome_lbl.capitalize()}": deaths_b,
+        f"{label_b} — Rate per 100k": [round(r, 1) for r in rate_b],
+    })
+
+    with st.expander("📋 View age-stratified data table", expanded=True):
+        st.dataframe(display_df, use_container_width=True)
+
+    st.divider()
+
+    # ----------------------------------------------------------
+    # CALCULATIONS
+    # ----------------------------------------------------------
+
+    # DIRECT STANDARDIZATION
+    # Apply each population's age-specific rates to the standard population
+    expected_a_direct = [rate_a[i] / 100000 * std_pop[i] for i in range(n_groups)]
+    expected_b_direct = [rate_b[i] / 100000 * std_pop[i] for i in range(n_groups)]
+    total_std_pop = sum(std_pop)
+    age_adj_rate_a = sum(expected_a_direct) / total_std_pop * 100000
+    age_adj_rate_b = sum(expected_b_direct) / total_std_pop * 100000
+
+    # INDIRECT STANDARDIZATION (SMR)
+    # Apply reference rates to each population's age structure
+    expected_a_indirect = [ref_rate[i] / 100000 * pop_a[i] for i in range(n_groups)]
+    expected_b_indirect = [ref_rate[i] / 100000 * pop_b[i] for i in range(n_groups)]
+    total_obs_a = sum(deaths_a)
+    total_obs_b = sum(deaths_b)
+    total_exp_a = sum(expected_a_indirect)
+    total_exp_b = sum(expected_b_indirect)
+    smr_a = total_obs_a / total_exp_a if total_exp_a > 0 else None
+    smr_b = total_obs_b / total_exp_b if total_exp_b > 0 else None
+
+    # Crude rates (unadjusted)
+    crude_rate_a = sum(deaths_a) / sum(pop_a) * 100000
+    crude_rate_b = sum(deaths_b) / sum(pop_b) * 100000
+
+    # ----------------------------------------------------------
+    # RESULTS: SIDE BY SIDE
+    # ----------------------------------------------------------
+
+    st.subheader("📊 Results: Side-by-Side Comparison")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown(f"### {label_a}")
+        st.metric("Crude Rate (per 100,000)", round(crude_rate_a, 1))
+        st.metric("Age-Adjusted Rate — Direct (per 100,000)", round(age_adj_rate_a, 1))
+        if smr_a:
+            st.metric("SMR — Indirect", round(smr_a, 3))
+
+    with col2:
+        st.markdown(f"### {label_b}")
+        st.metric("Crude Rate (per 100,000)", round(crude_rate_b, 1))
+        st.metric("Age-Adjusted Rate — Direct (per 100,000)", round(age_adj_rate_b, 1))
+        if smr_b:
+            st.metric("SMR — Indirect", round(smr_b, 3))
+
+    st.divider()
+
+    # ----------------------------------------------------------
+    # INTERPRETATION
+    # ----------------------------------------------------------
+
+    st.subheader("🔍 Interpretation")
+
+    # Crude comparison
+    crude_higher = label_a if crude_rate_a > crude_rate_b else label_b
+    crude_lower  = label_b if crude_rate_a > crude_rate_b else label_a
+    crude_diff   = abs(crude_rate_a - crude_rate_b)
+
+    # Direct comparison
+    adj_higher = label_a if age_adj_rate_a > age_adj_rate_b else label_b
+    adj_lower  = label_b if age_adj_rate_a > age_adj_rate_b else label_a
+    adj_diff   = abs(age_adj_rate_a - age_adj_rate_b)
+
+    st.markdown(f"""
+**Crude rates (unadjusted):**
+{label_a} has a crude rate of {round(crude_rate_a,1)} per 100,000; {label_b} has {round(crude_rate_b,1)} per 100,000.
+{crude_higher} appears to have higher {outcome_lbl} by {round(crude_diff,1)} per 100,000 before accounting for age.
+    """)
+
+    st.markdown(f"""
+**After direct standardization (age-adjusted rates):**
+Applying both populations' rates to the same standard population ({ref_label}):
+{label_a} age-adjusted rate = {round(age_adj_rate_a,1)} per 100,000;
+{label_b} age-adjusted rate = {round(age_adj_rate_b,1)} per 100,000.
+{adj_higher} has a higher age-adjusted rate by {round(adj_diff,1)} per 100,000.
+    """)
+
+    if crude_higher != adj_higher:
+        st.error(
+            f"⚠️ **Confounding by age detected!** The crude rates suggested {crude_higher} had "
+            f"higher {outcome_lbl}, but after age adjustment, {adj_higher} actually has the higher rate. "
+            f"This reversal indicates that age was confounding the crude comparison — "
+            f"the apparent difference was largely due to differences in age structure, not true disease burden."
+        )
+    else:
+        diff_pct = abs(crude_rate_a - crude_rate_b) / max(crude_rate_a, crude_rate_b) * 100
+        adj_pct  = abs(age_adj_rate_a - age_adj_rate_b) / max(age_adj_rate_a, age_adj_rate_b) * 100
+        if abs(diff_pct - adj_pct) > 10:
+            st.warning(
+                f"⚠️ Age partially confounded this comparison. The gap between populations "
+                f"changed after adjustment, suggesting age structure was inflating or deflating the crude difference. "
+                f"The age-adjusted rates give a fairer comparison."
+            )
+        else:
+            st.success(
+                f"✅ Age structure had minimal impact here. The crude and age-adjusted rates tell "
+                f"a similar story, suggesting age is not a major confounder in this comparison."
+            )
+
+    if smr_a and smr_b:
+        st.markdown(f"""
+**Indirect standardization (SMR):**
+- {label_a} SMR = {round(smr_a,3)}: observed {outcome_lbl} were {round(smr_a,3)}x the number expected based on reference rates.
+{"  → Excess mortality compared to reference population." if smr_a > 1 else "  → Lower mortality than reference population (possible healthy worker effect)."}
+- {label_b} SMR = {round(smr_b,3)}: observed {outcome_lbl} were {round(smr_b,3)}x the number expected.
+{"  → Excess mortality compared to reference population." if smr_b > 1 else "  → Lower mortality than reference population."}
+        """)
+
+    st.divider()
+
+    # ----------------------------------------------------------
+    # EXPLAINER
+    # ----------------------------------------------------------
+
+    with st.expander("📖 When to use direct vs. indirect standardization"):
+        st.markdown("""
+**Direct standardization:**
+- Apply each study population's age-specific rates to one shared standard population
+- Produces an **age-adjusted rate** (comparable across populations)
+- Requires knowing age-specific rates in both populations
+- Best when you want to compare two or more populations fairly
+- Result depends on choice of standard population (WHO world standard, US 2000 standard, etc.)
+
+**Indirect standardization (SMR):**
+- Apply a reference population's age-specific rates to your study population's age structure
+- Produces an **SMR** (ratio of observed to expected events)
+- Use when your study population is small and age-specific rates are unstable
+- Best for comparing one group against a well-established reference (e.g., national rates)
+- Watch for the **healthy worker effect**: workers are often healthier than the general population,
+  producing SMR < 1 even without a true protective exposure
+
+**Key difference:**
+| | Direct | Indirect |
+|---|---|---|
+| What you apply | Study pop's rates → standard pop structure | Reference rates → study pop structure |
+| Output | Age-adjusted rate (per 100,000) | SMR (ratio) |
+| Best use | Comparing multiple populations | Comparing one group vs. a reference |
+| Requires | Age-specific rates in study populations | Reference population age-specific rates |
+| Sensitive to | Choice of standard population | Size/stability of reference rates |
+        """)
 
     st.markdown("---")
     st.markdown("Strong epidemiologists think structurally before computing.")
