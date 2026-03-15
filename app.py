@@ -1545,6 +1545,16 @@ with tab4:
             "correct_design": "Cohort",
             "correct_outcome": "Binary",
             "correct_exposure": "Binary (2 groups)",
+            "data": {
+                "type": "contingency",
+                "context": (
+                    "Here is the data collected from the 3-year follow-up. "
+                    "Enter these counts into the analysis to calculate the Risk Ratio, Odds Ratio, and p-value."
+                ),
+                "row_names": ["Lead-exposed", "Unexposed"],
+                "col_names": ["Learning Disability", "No Learning Disability"],
+                "cells": [[52, 348], [21, 379]],
+            },
             "design_hint": (
                 "Think about the timeline. Researchers identified exposed and unexposed children "
                 "at the start, then followed them forward to see who developed a new diagnosis. "
@@ -1575,6 +1585,21 @@ with tab4:
             "correct_design": "Cross-sectional",
             "correct_outcome": "Binary",
             "correct_exposure": "Categorical (>2 groups)",
+            "data": {
+                "type": "contingency_wide",
+                "context": (
+                    "Here is the survey data organized by fast food frequency and obesity status. "
+                    "Run the chi-square test to see whether the association is statistically significant."
+                ),
+                "row_names": ["Never", "1–2x/week", "3–4x/week", "5+x/week"],
+                "col_names": ["Obese", "Not Obese"],
+                "cells": [
+                    [62,  538],
+                    [118, 682],
+                    [189, 561],
+                    [141, 209],
+                ],
+            },
             "design_hint": (
                 "The key phrase is 'one-time survey' and 'as it exists right now.' Both exposure "
                 "(fast food frequency) and outcome (obesity status) are measured at the same point in time — "
@@ -1608,6 +1633,16 @@ with tab4:
             "correct_design": "Case-Control",
             "correct_outcome": "Binary",
             "correct_exposure": "Binary (2 groups)",
+            "data": {
+                "type": "contingency",
+                "context": (
+                    "Here is the case-control data from medical records and interviews. "
+                    "Because this is a case-control study, the Odds Ratio is the appropriate measure of association."
+                ),
+                "row_names": ["Unvaccinated", "Vaccinated"],
+                "col_names": ["Cervical Cancer (Case)", "No Cancer (Control)"],
+                "cells": [[178, 182], [72, 318]],
+            },
             "design_hint": (
                 "The researchers started by identifying people who already have the disease (cases: cervical "
                 "cancer) and people who don't (controls), then looked back at past vaccination history. "
@@ -1641,6 +1676,20 @@ with tab4:
             "correct_design": "Cohort",
             "correct_outcome": "Binary",
             "correct_exposure": "Categorical (>2 groups)",
+            "data": {
+                "type": "contingency_wide",
+                "context": (
+                    "Here is the 5-year follow-up data for the 1,200 hospital employees by shift type. "
+                    "Run the chi-square test to assess whether shift type is associated with metabolic syndrome."
+                ),
+                "row_names": ["Day shift only", "Rotating shift", "Permanent night shift"],
+                "col_names": ["Metabolic Syndrome", "No Metabolic Syndrome"],
+                "cells": [
+                    [62,  338],
+                    [98,  302],
+                    [121, 279],
+                ],
+            },
             "design_hint": (
                 "Employees were classified by exposure (shift type) at the start, then followed "
                 "forward for 5 years to see who developed metabolic syndrome. Forward in time, "
@@ -1672,6 +1721,17 @@ with tab4:
             "correct_design": "Cohort",
             "correct_outcome": "Rate (person-time)",
             "correct_exposure": "Binary (2 groups)",
+            "data": {
+                "type": "rate",
+                "context": (
+                    "Here is the person-time data from the 2-year follow-up. Because participants "
+                    "contributed different amounts of follow-up time, we use person-years rather than "
+                    "simple counts. Calculate the Incidence Rate Ratio (IRR) to compare the two groups."
+                ),
+                "row_names": ["High PM2.5 exposure", "Low PM2.5 exposure"],
+                "cases": [187, 64],
+                "person_time": [4200, 5100],
+            },
             "design_hint": (
                 "Participants are followed forward over time from a defined exposure to see who "
                 "develops new ED visits — a cohort study. The important clue here is that follow-up "
@@ -1706,6 +1766,19 @@ with tab4:
             "correct_design": "Cross-sectional",
             "correct_outcome": "Categorical (Nominal >2 levels)",
             "correct_exposure": "Binary (2 groups)",
+            "data": {
+                "type": "contingency_wide",
+                "context": (
+                    "Here is the survey data showing depression severity by food insecurity status. "
+                    "Run the chi-square test to assess whether the association is statistically significant."
+                ),
+                "row_names": ["Food Insecure", "Food Secure"],
+                "col_names": ["No Depression", "Mild", "Moderate", "Severe"],
+                "cells": [
+                    [312, 284, 198, 106],
+                    [2180, 980, 412, 28],
+                ],
+            },
             "design_hint": (
                 "Both food insecurity and depression are measured at the same point in time — "
                 "a single telephone survey. There is no follow-up period and no looking backward "
@@ -1790,19 +1863,154 @@ with tab4:
                 st.error(f"❌ Not quite. Think about this: " + sc["exposure_hint"])
 
         # Score summary for this scenario
-        if all(
+        all_answered = all(
             st.session_state.get(f"prac_{sid}_{f}") not in [None, "— Select —"]
             for f in ["design", "outcome", "exposure"]
-        ):
+        )
+        all_correct = (
+            st.session_state.get(f"prac_{sid}_design") == sc["correct_design"] and
+            st.session_state.get(f"prac_{sid}_outcome") == sc["correct_outcome"] and
+            st.session_state.get(f"prac_{sid}_exposure") == sc["correct_exposure"]
+        )
+
+        if all_answered:
             correct_count = sum([
                 st.session_state.get(f"prac_{sid}_design") == sc["correct_design"],
                 st.session_state.get(f"prac_{sid}_outcome") == sc["correct_outcome"],
                 st.session_state.get(f"prac_{sid}_exposure") == sc["correct_exposure"],
             ])
-            if correct_count == 3:
+            if all_correct:
                 st.info("🎯 Perfect score on this scenario — all three decisions correct!")
             else:
                 st.info(f"📊 {correct_count}/3 correct on this scenario. Review the feedback above and try again.")
+
+        # --- DATA TABLE & ANALYSIS (only shown when all correct) ---
+        if all_correct and "data" in sc:
+            st.markdown("---")
+            st.markdown("### 📋 Now run the analysis")
+            st.markdown(sc["data"]["context"])
+
+            d = sc["data"]
+
+            if d["type"] == "contingency":
+                df_display = pd.DataFrame(
+                    d["cells"],
+                    columns=d["col_names"],
+                    index=d["row_names"]
+                )
+                df_display["Row Total"] = df_display.sum(axis=1)
+                total_row = df_display.sum()
+                total_row.name = "Column Total"
+                df_display = pd.concat([df_display, total_row.to_frame().T])
+                st.table(df_display)
+
+                if st.button("Run Statistical Analysis", key=f"run_{sid}"):
+                    table = np.array(d["cells"])
+                    a, b = table[0]
+                    c, dd = table[1]
+
+                    chi2_val, p_val, dof, _ = chi2_contingency(table)
+
+                    st.subheader("Chi-Square Test")
+                    st.write(f"χ²({dof}) = {round(chi2_val, 3)}")
+                    if p_val < 0.0001:
+                        st.write("p-value < 0.0001")
+                    else:
+                        st.write(f"p-value = {round(p_val, 4)}")
+
+                    if p_val < 0.05:
+                        st.success(f"The distribution of {d['col_names'][0]} differs significantly across groups. We reject the null hypothesis.")
+                    else:
+                        st.warning("Insufficient evidence to conclude an association exists. We fail to reject the null hypothesis.")
+
+                    if all(v > 0 for v in [a, b, c, dd]):
+                        rr = (a/(a+b)) / (c/(c+dd))
+                        se_log_rr = math.sqrt((1/a)-(1/(a+b))+(1/c)-(1/(c+dd)))
+                        ci_low_rr = math.exp(math.log(rr)-1.96*se_log_rr)
+                        ci_high_rr = math.exp(math.log(rr)+1.96*se_log_rr)
+
+                        or_val = (a*dd)/(b*c)
+                        se_log_or = math.sqrt(1/a+1/b+1/c+1/dd)
+                        ci_low_or = math.exp(math.log(or_val)-1.96*se_log_or)
+                        ci_high_or = math.exp(math.log(or_val)+1.96*se_log_or)
+
+                        st.subheader("Risk Ratio (RR)")
+                        st.caption("Most appropriate for cohort studies. RR = risk in exposed ÷ risk in unexposed.")
+                        if ci_low_rr <= 1 <= ci_high_rr:
+                            st.warning(f"RR = {round(rr,2)} (95% CI: {round(ci_low_rr,2)}–{round(ci_high_rr,2)}). CI includes 1 → not statistically significant.")
+                        else:
+                            direction = "higher" if rr > 1 else "lower"
+                            st.success(f"RR = {round(rr,2)} (95% CI: {round(ci_low_rr,2)}–{round(ci_high_rr,2)}). The risk of {d['col_names'][0]} among {d['row_names'][0]} is {round(rr,2)} times {direction} than among {d['row_names'][1]}.")
+                        draw_ci("RR", rr, ci_low_rr, ci_high_rr)
+
+                        st.subheader("Odds Ratio (OR)")
+                        st.caption("Most appropriate for case-control studies. OR = odds of outcome in exposed ÷ odds in unexposed.")
+                        if ci_low_or <= 1 <= ci_high_or:
+                            st.warning(f"OR = {round(or_val,2)} (95% CI: {round(ci_low_or,2)}–{round(ci_high_or,2)}). CI includes 1 → not statistically significant.")
+                        else:
+                            direction = "higher" if or_val > 1 else "lower"
+                            st.success(f"OR = {round(or_val,2)} (95% CI: {round(ci_low_or,2)}–{round(ci_high_or,2)}). The odds of {d['col_names'][0]} among {d['row_names'][0]} are {round(or_val,2)} times {direction} than among {d['row_names'][1]}.")
+                        draw_ci("OR", or_val, ci_low_or, ci_high_or)
+
+            elif d["type"] == "contingency_wide":
+                # Categorical exposure or outcome (larger table)
+                df_display = pd.DataFrame(
+                    d["cells"],
+                    columns=d["col_names"],
+                    index=d["row_names"]
+                )
+                df_display["Row Total"] = df_display.sum(axis=1)
+                total_row = df_display.sum()
+                total_row.name = "Column Total"
+                df_display = pd.concat([df_display, total_row.to_frame().T])
+                st.table(df_display)
+
+                if st.button("Run Statistical Analysis", key=f"run_{sid}"):
+                    table = np.array(d["cells"])
+                    chi2_val, p_val, dof, _ = chi2_contingency(table)
+
+                    st.subheader("Chi-Square Test of Independence")
+                    st.write(f"χ²({dof}) = {round(chi2_val, 3)}")
+                    if p_val < 0.0001:
+                        st.write("p-value < 0.0001")
+                    else:
+                        st.write(f"p-value = {round(p_val, 4)}")
+
+                    if p_val < 0.05:
+                        st.success(f"There is a statistically significant association between exposure and outcome (p = {round(p_val,4)}). We reject the null hypothesis of independence.")
+                    else:
+                        st.warning(f"Insufficient evidence to conclude an association exists (p = {round(p_val,4)}). We fail to reject the null hypothesis.")
+
+                    st.info("Note: With more than 2 exposure or outcome categories, RR and OR cannot be calculated directly from a single 2×2 table. Chi-square is the appropriate test here.")
+
+            elif d["type"] == "rate":
+                df_display = pd.DataFrame({
+                    "Group": d["row_names"],
+                    "Cases": d["cases"],
+                    "Person-Time": d["person_time"],
+                    "Rate per 100,000": [round(d["cases"][i]/d["person_time"][i]*100000, 1) for i in range(len(d["cases"]))]
+                })
+                st.table(df_display)
+
+                if st.button("Run Statistical Analysis", key=f"run_{sid}"):
+                    c1, c2 = d["cases"]
+                    pt1, pt2 = d["person_time"]
+                    ir1 = c1 / pt1
+                    ir2 = c2 / pt2
+                    irr = ir1 / ir2
+                    se_log_irr = math.sqrt((1/c1) + (1/c2))
+                    ci_low_irr = math.exp(math.log(irr) - 1.96*se_log_irr)
+                    ci_high_irr = math.exp(math.log(irr) + 1.96*se_log_irr)
+
+                    st.subheader("Incidence Rate Ratio (IRR)")
+                    st.write(f"IRR = {round(irr, 3)}")
+                    st.write(f"95% CI: ({round(ci_low_irr,3)}, {round(ci_high_irr,3)})")
+                    if ci_low_irr <= 1 <= ci_high_irr:
+                        st.warning(f"IRR = {round(irr,2)} (95% CI: {round(ci_low_irr,2)}–{round(ci_high_irr,2)}). CI includes 1 → not statistically significant.")
+                    else:
+                        direction = "higher" if irr > 1 else "lower"
+                        st.success(f"IRR = {round(irr,2)} (95% CI: {round(ci_low_irr,2)}–{round(ci_high_irr,2)}). The incidence rate among {d['row_names'][0]} is {round(irr,2)} times {direction} than among {d['row_names'][1]}.")
+                    draw_ci("IRR", irr, ci_low_irr, ci_high_irr)
 
     st.divider()
 
