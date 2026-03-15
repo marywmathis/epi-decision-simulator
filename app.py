@@ -3597,16 +3597,16 @@ Failing to find evidence of an effect is not the same as proving no effect exist
 
             # Critical value line
             crit_line = f'<line x1="{round(px(crit_x),1)}" y1="{margin_t}" x2="{round(px(crit_x),1)}" y2="{h-margin_b}" stroke="{reject_color}" stroke-width="2" stroke-dasharray="5,3"/>'
-            # Label positioned to the right of the dashed line, near the bottom, clear of legend
-            lbl_x = round(min(px(crit_x) + 6, w - margin_r - 45), 1)
-            lbl_y = h - margin_b - 8
-            lbl_text = f"χ²={round(chi2_input,2)}"
-            lbl_w = max(len(lbl_text) * 7 + 10, 64)
+            # Label sits clearly to the right of the dashed line, vertically centred on chart
+            lbl_text = f"χ² = {round(chi2_input, 2)}"
+            lbl_w = max(len(lbl_text) * 7 + 12, 70)
+            lbl_x = round(min(px(crit_x) + 10, w - margin_r - lbl_w - 4), 1)
+            lbl_y = round((margin_t + h - margin_b) / 2, 1)
             crit_label = (
-                f'<rect x="{lbl_x}" y="{lbl_y - 14}" width="{lbl_w}" height="18" ' +
-                f'fill="white" stroke="{reject_color}" stroke-width="1.2" rx="3" opacity="0.95"/>' +
-                f'<text x="{lbl_x + lbl_w//2}" y="{lbl_y}" text-anchor="middle" font-size="11.5" ' +
-                f'fill="{reject_color}" font-weight="bold">{lbl_text}</text>'
+                f'<rect x="{lbl_x}" y="{lbl_y - 14}" width="{lbl_w}" height="19" ' +
+                f'fill="white" stroke="{reject_color}" stroke-width="1.5" rx="3"/>' +
+                f'<text x="{lbl_x + lbl_w // 2}" y="{lbl_y}" text-anchor="middle" ' +
+                f'font-size="12" fill="{reject_color}" font-weight="bold">{lbl_text}</text>'
             )
 
             # p-value annotation
