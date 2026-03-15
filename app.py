@@ -66,7 +66,7 @@ def draw_ci(label, estimate, ci_low, ci_high):
 st.title("🧭 Epidemiology Decision Simulator")
 st.markdown("Study Design → Outcome Type → Exposure Type → Table → Run Analysis → Interpretation")
 
-tab1, tab2, tab3 = st.tabs(["📊 Measures of Association", "📐 Advanced Epi Measures", "📏 Standardization"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Measures of Association", "📐 Advanced Epi Measures", "📏 Standardization", "🎯 Practice on Your Own"])
 
 # ==========================================================
 # TAB 1: MEASURES OF ASSOCIATION (original app)
@@ -1515,6 +1515,326 @@ with tab3:
                         )
 
                     draw_ci("HR", hr, ci_low_hr, ci_high_hr)
+
+    st.markdown("---")
+    st.markdown("Strong epidemiologists think structurally before computing.")
+
+# ==========================================================
+# TAB 4: PRACTICE ON YOUR OWN
+# ==========================================================
+
+with tab4:
+
+    st.markdown("""
+    Read each scenario carefully, then make your decisions about study design,
+    outcome variable type, and exposure variable type. You'll get immediate feedback
+    on each choice explaining why it is or isn't correct.
+    """)
+
+    PRACTICE_SCENARIOS = [
+        {
+            "id": "scenario_1",
+            "title": "Scenario 1: Lead Exposure & Cognitive Development",
+            "description": (
+                "Investigators recruit 400 children aged 6–12 from neighborhoods near a former "
+                "lead smelting plant and 400 children from neighborhoods with no known lead exposure. "
+                "Blood lead levels are measured at baseline. Children are followed for 3 years, "
+                "and new diagnoses of learning disabilities are recorded. Researchers want to compare "
+                "the rate of new learning disability diagnoses between the two groups."
+            ),
+            "correct_design": "Cohort",
+            "correct_outcome": "Binary",
+            "correct_exposure": "Binary (2 groups)",
+            "design_hint": (
+                "Think about the timeline. Researchers identified exposed and unexposed children "
+                "at the start, then followed them forward to see who developed a new diagnosis. "
+                "This forward-looking approach — from exposure to outcome — is the defining feature "
+                "of a cohort study. Case-control studies start with people who already have the disease."
+            ),
+            "outcome_hint": (
+                "The outcome is a learning disability diagnosis — either a child receives one or they don't. "
+                "That's a yes/no outcome, which is binary. If the outcome had multiple unordered categories "
+                "(e.g., mild, moderate, severe, none) it would be categorical."
+            ),
+            "exposure_hint": (
+                "There are two exposure groups: children near the smelting plant vs. children with no known "
+                "lead exposure. Two groups = binary exposure. If the researchers had compared low, medium, "
+                "and high lead neighborhoods, that would be categorical (>2 groups)."
+            ),
+        },
+        {
+            "id": "scenario_2",
+            "title": "Scenario 2: Fast Food Consumption & Obesity",
+            "description": (
+                "A public health team conducts a one-time survey of 2,500 adults at community health fairs "
+                "across three cities. At the time of the survey, each participant reports how many times "
+                "per week they eat fast food, and their height and weight are measured to determine "
+                "current obesity status (BMI ≥ 30 vs. BMI < 30). The team wants to examine the "
+                "relationship between fast food frequency and obesity as it exists right now."
+            ),
+            "correct_design": "Cross-sectional",
+            "correct_outcome": "Binary",
+            "correct_exposure": "Categorical (>2 groups)",
+            "design_hint": (
+                "The key phrase is 'one-time survey' and 'as it exists right now.' Both exposure "
+                "(fast food frequency) and outcome (obesity status) are measured at the same point in time — "
+                "a snapshot. That's a cross-sectional study. In a cohort study, you would follow people "
+                "over time to see who becomes obese. In a case-control study, you would start with obese "
+                "and non-obese people and ask about past eating habits."
+            ),
+            "outcome_hint": (
+                "Obesity status is BMI ≥ 30 vs. BMI < 30 — two categories, so it's binary. "
+                "If the researchers had categorized BMI into underweight, normal, overweight, and obese, "
+                "that would be categorical with more than 2 levels."
+            ),
+            "exposure_hint": (
+                "Fast food frequency has more than two levels — for example: never, 1–2 times/week, "
+                "3–4 times/week, 5+ times/week. That's categorical with more than 2 groups. "
+                "If the only comparison were 'eats fast food' vs. 'does not eat fast food,' "
+                "that would be binary."
+            ),
+        },
+        {
+            "id": "scenario_3",
+            "title": "Scenario 3: HPV Vaccine & Cervical Cancer",
+            "description": (
+                "Researchers identify 250 women aged 25–45 with confirmed cervical cancer diagnoses "
+                "from a hospital registry. They also recruit 500 women without cervical cancer from "
+                "the same hospital system, matched on age and clinic location. Medical records and "
+                "patient interviews are used to determine whether each woman received the HPV vaccine "
+                "during adolescence. The researchers want to know whether unvaccinated women are more "
+                "likely to develop cervical cancer."
+            ),
+            "correct_design": "Case-Control",
+            "correct_outcome": "Binary",
+            "correct_exposure": "Binary (2 groups)",
+            "design_hint": (
+                "The researchers started by identifying people who already have the disease (cases: cervical "
+                "cancer) and people who don't (controls), then looked back at past vaccination history. "
+                "Starting with outcome status and looking backward is the hallmark of a case-control study. "
+                "A cohort study would have enrolled women in adolescence and followed them forward to see "
+                "who developed cancer — which would take decades."
+            ),
+            "outcome_hint": (
+                "In a case-control study, the 'outcome' is what defines your cases vs. controls — here, "
+                "cervical cancer: yes or no. That's binary. The outcome was already determined before "
+                "the study began, which is why you're looking backward at exposure."
+            ),
+            "exposure_hint": (
+                "HPV vaccination status is received the vaccine vs. did not receive the vaccine — "
+                "two groups, so it's binary. If the researchers had compared unvaccinated, partially "
+                "vaccinated (1–2 doses), and fully vaccinated (3 doses), that would be categorical "
+                "with more than 2 groups."
+            ),
+        },
+        {
+            "id": "scenario_4",
+            "title": "Scenario 4: Shift Work & Metabolic Syndrome",
+            "description": (
+                "An occupational health study enrolls 1,200 hospital employees and classifies them "
+                "into three groups based on their work schedule: day shift only, rotating shift "
+                "(alternates between day and night), and permanent night shift. Employees are "
+                "followed for 5 years. At the end of follow-up, researchers assess whether each "
+                "employee has developed metabolic syndrome (yes/no), a cluster of conditions "
+                "including high blood pressure, high blood sugar, and excess abdominal fat."
+            ),
+            "correct_design": "Cohort",
+            "correct_outcome": "Binary",
+            "correct_exposure": "Categorical (>2 groups)",
+            "design_hint": (
+                "Employees were classified by exposure (shift type) at the start, then followed "
+                "forward for 5 years to see who developed metabolic syndrome. Forward in time, "
+                "from exposure to outcome — that's a cohort study. The fact that there are three "
+                "exposure groups doesn't change the study design."
+            ),
+            "outcome_hint": (
+                "Metabolic syndrome is either present or absent — yes or no. That's binary. "
+                "Even though metabolic syndrome involves multiple components, the outcome being "
+                "measured here is a single yes/no classification."
+            ),
+            "exposure_hint": (
+                "There are three exposure groups: day shift, rotating shift, and night shift. "
+                "Three groups means categorical with more than 2 levels. If the only comparison "
+                "were 'shift worker' vs. 'non-shift worker,' that would be binary."
+            ),
+        },
+        {
+            "id": "scenario_5",
+            "title": "Scenario 5: Air Pollution & Emergency Department Visits",
+            "description": (
+                "Researchers want to study the effect of fine particulate matter (PM2.5) air pollution "
+                "on respiratory health in a city. They enroll 3,000 adults and monitor their daily "
+                "PM2.5 exposure using neighborhood air quality sensors over a 2-year period. "
+                "Because participants move, change jobs, and vary in time spent outdoors, each person "
+                "contributes a different total amount of time at risk. The outcome of interest is "
+                "new emergency department (ED) visits for respiratory illness."
+            ),
+            "correct_design": "Cohort",
+            "correct_outcome": "Rate (person-time)",
+            "correct_exposure": "Binary (2 groups)",
+            "design_hint": (
+                "Participants are followed forward over time from a defined exposure to see who "
+                "develops new ED visits — a cohort study. The important clue here is that follow-up "
+                "time varies across participants, which affects how the outcome is measured "
+                "(but not the study design itself)."
+            ),
+            "outcome_hint": (
+                "The key phrase is 'each person contributes a different total amount of time at risk.' "
+                "When follow-up time varies, you can't simply count who got sick — you need to account "
+                "for how long each person was observed. This requires a rate outcome using person-time "
+                "(e.g., ED visits per 100 person-years). Binary outcome would be appropriate only "
+                "if everyone was followed for the same fixed period."
+            ),
+            "exposure_hint": (
+                "PM2.5 exposure is being compared as high vs. low (or exposed vs. unexposed to elevated levels) "
+                "— two groups, so binary. If researchers had used three or more pollution categories "
+                "(e.g., low, moderate, high, very high), that would be categorical with more than 2 groups."
+            ),
+        },
+        {
+            "id": "scenario_6",
+            "title": "Scenario 6: Food Insecurity & Mental Health",
+            "description": (
+                "A state health department conducts a telephone survey of 5,000 randomly selected "
+                "households. Each respondent is asked about current food insecurity status "
+                "(food secure vs. food insecure) and completes a validated depression screening "
+                "instrument (PHQ-9). Based on their score, respondents are classified as: "
+                "no depression, mild depression, moderate depression, or severe depression. "
+                "The survey is conducted once, and researchers want to describe the association "
+                "between food insecurity and depression severity as it exists at the time of the survey."
+            ),
+            "correct_design": "Cross-sectional",
+            "correct_outcome": "Categorical (Nominal >2 levels)",
+            "correct_exposure": "Binary (2 groups)",
+            "design_hint": (
+                "Both food insecurity and depression are measured at the same point in time — "
+                "a single telephone survey. There is no follow-up period and no looking backward "
+                "at past exposures. Measuring exposure and outcome simultaneously in a snapshot "
+                "is the defining feature of a cross-sectional study."
+            ),
+            "outcome_hint": (
+                "The PHQ-9 produces four categories: no depression, mild, moderate, and severe. "
+                "That's more than two categories, so it's categorical (nominal with >2 levels). "
+                "If the researchers had only classified respondents as depressed vs. not depressed, "
+                "the outcome would be binary."
+            ),
+            "exposure_hint": (
+                "Food insecurity is classified as food secure vs. food insecure — two groups, so binary. "
+                "If the study had used multiple levels of food insecurity (e.g., food secure, "
+                "marginally food insecure, food insecure, severely food insecure), "
+                "that would be categorical with more than 2 groups."
+            ),
+        },
+    ]
+
+    design_options   = ["— Select —", "Cohort", "Case-Control", "Cross-sectional"]
+    outcome_options  = ["— Select —", "Binary", "Categorical (Nominal >2 levels)", "Ordinal", "Rate (person-time)"]
+    exposure_options = ["— Select —", "Binary (2 groups)", "Categorical (>2 groups)"]
+
+    # Reset button
+    col_hdr, col_rst = st.columns([5, 1])
+    with col_rst:
+        if st.button("🔄 Reset", key="reset_tab4", help="Clear all answers"):
+            for sc in PRACTICE_SCENARIOS:
+                for field in ["design", "outcome", "exposure"]:
+                    k = f"prac_{sc['id']}_{field}"
+                    if k in st.session_state:
+                        del st.session_state[k]
+            st.rerun()
+
+    for sc in PRACTICE_SCENARIOS:
+
+        st.divider()
+        st.subheader(sc["title"])
+        st.markdown(sc["description"])
+
+        sid = sc["id"]
+
+        # --- STUDY DESIGN ---
+        st.markdown("**What is the study design?**")
+        design_choice = st.selectbox(
+            "Study design:", design_options,
+            key=f"prac_{sid}_design", label_visibility="collapsed"
+        )
+
+        if design_choice != "— Select —":
+            if design_choice == sc["correct_design"]:
+                st.success(f"✅ Correct! This is a **{sc['correct_design']}** study. " + sc["design_hint"])
+            else:
+                st.error(f"❌ Not quite. Think about this: " + sc["design_hint"])
+
+        # --- OUTCOME TYPE ---
+        st.markdown("**What is the outcome variable type?**")
+        outcome_choice = st.selectbox(
+            "Outcome type:", outcome_options,
+            key=f"prac_{sid}_outcome", label_visibility="collapsed"
+        )
+
+        if outcome_choice != "— Select —":
+            if outcome_choice == sc["correct_outcome"]:
+                st.success(f"✅ Correct! The outcome is **{sc['correct_outcome']}**. " + sc["outcome_hint"])
+            else:
+                st.error(f"❌ Not quite. Think about this: " + sc["outcome_hint"])
+
+        # --- EXPOSURE TYPE ---
+        st.markdown("**What is the exposure variable type?**")
+        exposure_choice = st.selectbox(
+            "Exposure type:", exposure_options,
+            key=f"prac_{sid}_exposure", label_visibility="collapsed"
+        )
+
+        if exposure_choice != "— Select —":
+            if exposure_choice == sc["correct_exposure"]:
+                st.success(f"✅ Correct! The exposure is **{sc['correct_exposure']}**. " + sc["exposure_hint"])
+            else:
+                st.error(f"❌ Not quite. Think about this: " + sc["exposure_hint"])
+
+        # Score summary for this scenario
+        if all(
+            st.session_state.get(f"prac_{sid}_{f}") not in [None, "— Select —"]
+            for f in ["design", "outcome", "exposure"]
+        ):
+            correct_count = sum([
+                st.session_state.get(f"prac_{sid}_design") == sc["correct_design"],
+                st.session_state.get(f"prac_{sid}_outcome") == sc["correct_outcome"],
+                st.session_state.get(f"prac_{sid}_exposure") == sc["correct_exposure"],
+            ])
+            if correct_count == 3:
+                st.info("🎯 Perfect score on this scenario — all three decisions correct!")
+            else:
+                st.info(f"📊 {correct_count}/3 correct on this scenario. Review the feedback above and try again.")
+
+    st.divider()
+
+    # Overall score
+    total_correct = 0
+    total_possible = len(PRACTICE_SCENARIOS) * 3
+    for sc in PRACTICE_SCENARIOS:
+        sid = sc["id"]
+        total_correct += sum([
+            st.session_state.get(f"prac_{sid}_design") == sc["correct_design"],
+            st.session_state.get(f"prac_{sid}_outcome") == sc["correct_outcome"],
+            st.session_state.get(f"prac_{sid}_exposure") == sc["correct_exposure"],
+        ])
+
+    answered = sum(
+        1 for sc in PRACTICE_SCENARIOS
+        for f in ["design", "outcome", "exposure"]
+        if st.session_state.get(f"prac_{sc['id']}_{f}") not in [None, "— Select —"]
+    )
+
+    if answered > 0:
+        st.subheader(f"📊 Overall Score: {total_correct} / {total_possible}")
+        pct = round(total_correct / total_possible * 100)
+        st.progress(pct / 100)
+        if pct == 100:
+            st.success("🏆 Perfect score! You have a strong grasp of study design and variable classification.")
+        elif pct >= 75:
+            st.info("Good work! Review any scenarios where you got feedback and make sure the reasoning clicks.")
+        elif pct >= 50:
+            st.warning("Keep going — re-read the scenarios you missed and pay attention to the timeline clues.")
+        else:
+            st.error("Review the core concepts of study design and variable types, then try again.")
 
     st.markdown("---")
     st.markdown("Strong epidemiologists think structurally before computing.")
