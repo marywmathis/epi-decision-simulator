@@ -416,22 +416,131 @@ with tab1:
                             "A **p-value ≥ 0.05** means we do not have enough evidence to conclude an association exists."
                         )
 
+                        # --- ONE vs TWO TAILED SELECTOR ---
+                        tail_sel = st.radio(
+                            "Tail type:",
+                            ["Two-tailed (standard for chi-square)", "One-tailed (divide p by 2)"],
+                            horizontal=True,
+                            key="tab1_tail_sel",
+                            help=(
+                                "Chi-square tests are almost always two-tailed in epidemiology. "
+                                "One-tailed divides the p-value by 2 and is only appropriate when "
+                                "you have a strong directional hypothesis established before seeing the data. "
+                                "See the Hypothesis Testing tab for a full explanation."
+                            )
+                        )
+                        p_display = p if "Two-tailed" in tail_sel else p / 2
+                        tail_note = "" if "Two-tailed" in tail_sel else " (one-tailed)"
+
                         st.write(f"χ²({dof}) = {round(chi2, 3)}")
-                        if p < 0.0001:
-                            st.write("p-value < 0.0001")
-                        elif p < 0.001:
-                            st.write(f"p-value = {round(p, 5)}")
+                        if p_display < 0.0001:
+                            st.write(f"p-value < 0.0001{tail_note}")
+                        elif p_display < 0.001:
+                            st.write(f"p-value = {round(p_display, 5)}{tail_note}")
                         else:
-                            st.write(f"p-value = {round(p, 4)}")
+                            st.write(f"p-value = {round(p_display, 4)}{tail_note}")
+
+                        # --- CHI-SQUARE DISTRIBUTION VISUALIZATION ---
+                        from scipy.stats import chi2 as chi2_dist_tab1
+                        x_vals_t1 = [i * 0.1 for i in range(1, 200)]
+                        y_vals_t1 = [float(chi2_dist_tab1.pdf(x, dof)) for x in x_vals_t1]
+                        max_y_t1 = max(y_vals_t1) if y_vals_t1 else 1
+                        x_max_t1 = max(chi2 * 2.5, 10.0)
+
+                        wt, ht = 560, 160
+                        ml, mr, mb, mt2 = 35, 15, 35, 15
+                        pw_t1 = wt - ml - mr
+                        ph_t1 = ht - mb - mt2
+
+                        def t1_px(v):
+                            return ml + (v / x_max_t1) * pw_t1
+
+                        def t1_py(v):
+                            return mt2 + ph_t1 - (v / (max_y_t1 * 1.15)) * ph_t1
+
+                        # Curve path
+                        pts_t1 = []
+                        for i, (xv, yv) in enumerate(zip(x_vals_t1, y_vals_t1)):
+                            if xv > x_max_t1:
+                                break
+                            pts_t1.append(f"{'M' if i==0 else 'L'}{round(t1_px(xv),1)},{round(t1_py(yv),1)}")
+                        curve_t1 = " ".join(pts_t1)
+
+                        # Shaded rejection region (right of chi2 value)
+                        rc = "#c0392b"
+                        fill_t1 = []
+                        for xv, yv in zip(x_vals_t1, y_vals_t1):
+                            if xv < chi2 or xv > x_max_t1:
+                                continue
+                            fill_t1.append(f"{round(t1_px(xv),1)},{round(t1_py(yv),1)}")
+                        fill_path_t1 = ""
+                        if fill_t1:
+                            fill_path_t1 = (
+                                f"M{round(t1_px(chi2),1)},{round(t1_py(0),1)} " +
+                                " ".join(f"L{pt}" for pt in fill_t1) +
+                                f" L{round(t1_px(min(x_max_t1, x_vals_t1[-1])),1)},{round(t1_py(0),1)} Z"
+                            )
+
+                        # X ticks
+                        tick_count = 6
+                        ticks_t1 = [round(x_max_t1 * i / tick_count, 1) for i in range(tick_count + 1)]
+                        ticks_svg_t1 = "".join(
+                            f'<text x="{round(t1_px(xt),1)}" y="{ht-6}" text-anchor="middle" font-size="10" fill="#555">{xt}</text>'
+                            f'<line x1="{round(t1_px(xt),1)}" y1="{ht-mb}" x2="{round(t1_px(xt),1)}" y2="{ht-mb+3}" stroke="#555" stroke-width="1"/>'
+                            for xt in ticks_t1
+                        )
+
+                        # Observed chi2 line
+                        obs_x = round(t1_px(chi2), 1)
+                        obs_line = f'<line x1="{obs_x}" y1="{mt2}" x2="{obs_x}" y2="{ht-mb}" stroke="{rc}" stroke-width="2" stroke-dasharray="5,3"/>'
+
+                        # Label box to the right of the line
+                        lbl = f"χ²={round(chi2,2)}"
+                        lbl_w2 = max(len(lbl) * 7 + 10, 60)
+                        lbl_bx = round(min(obs_x + 6, wt - mr - lbl_w2 - 2), 1)
+                        lbl_by = round((mt2 + ht - mb) / 2, 1)
+                        lbl_box = (
+                            f'<rect x="{lbl_bx}" y="{lbl_by-13}" width="{lbl_w2}" height="17" fill="white" stroke="{rc}" stroke-width="1.2" rx="3"/>'
+                            f'<text x="{lbl_bx + lbl_w2//2}" y="{lbl_by}" text-anchor="middle" font-size="11" fill="{rc}" font-weight="bold">{lbl}</text>'
+                        )
+
+                        # p-value annotation in shaded area
+                        p_ann_x = round(min(t1_px(chi2) + (pw_t1 - t1_px(chi2) + ml) * 0.4, wt - mr - 30), 1)
+                        p_str = f"p={'<0.0001' if p_display < 0.0001 else round(p_display,4)}"
+                        p_color = rc if p_display < 0.05 else "#2e7d32"
+                        p_ann = f'<text x="{p_ann_x}" y="{mt2+22}" text-anchor="middle" font-size="11" fill="{p_color}" font-weight="bold">{p_str}</text>'
+
+                        # Axes
+                        axes_t1 = (
+                            f'<line x1="{ml}" y1="{ht-mb}" x2="{wt-mr}" y2="{ht-mb}" stroke="#333" stroke-width="1.5"/>'
+                            f'<line x1="{ml}" y1="{mt2}" x2="{ml}" y2="{ht-mb}" stroke="#333" stroke-width="1.5"/>'
+                        )
+                        title_t1 = f'<text x="{wt//2}" y="{mt2-2}" text-anchor="middle" font-size="12" fill="#333" font-weight="bold">χ² Distribution (df={dof}) — Your result: χ²={round(chi2,2)}</text>'
+                        xlabel_t1 = f'<text x="{wt//2}" y="{ht-1}" text-anchor="middle" font-size="10" fill="#555">χ² value</text>'
+                        reject_legend = f'<rect x="{ml}" y="{mt2+3}" width="10" height="10" fill="{rc}" opacity="0.45"/><text x="{ml+13}" y="{mt2+12}" font-size="10" fill="{rc}">Rejection region (your p-value)</text>'
+
+                        svg_t1 = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{wt}" height="{ht}" style="font-family:sans-serif;background:#f9f9f9;border-radius:6px;margin:6px 0;">
+  {axes_t1}
+  {f'<path d="{fill_path_t1}" fill="{rc}" opacity="0.4"/>' if fill_path_t1 else ''}
+  <path d="{curve_t1}" fill="none" stroke="#2c3e50" stroke-width="2"/>
+  {obs_line}
+  {lbl_box}
+  {p_ann}
+  {ticks_svg_t1}
+  {title_t1}
+  {xlabel_t1}
+  {reject_legend}
+</svg>"""
+                        st.markdown(svg_t1, unsafe_allow_html=True)
 
                         exposure_label_string = ", ".join(row_names)
                         outcome_label_string = ", ".join(col_names)
 
-                        if p < alpha:
+                        if p_display < alpha:
                             st.success(
                                 f"**Result:** In this {design.lower()} study, the distribution of "
                                 f"{outcome_label_string} differs significantly across exposure groups "
-                                f"({exposure_label_string}) (χ²({dof}) = {round(chi2,3)}, p = {round(p,4)}). "
+                                f"({exposure_label_string}) (χ²({dof}) = {round(chi2,3)}, p = {round(p_display,4)}{tail_note}). "
                                 f"We **reject the null hypothesis** of independence."
                             )
                         else:
@@ -439,7 +548,7 @@ with tab1:
                                 f"**Result:** In this {design.lower()} study, there is insufficient "
                                 f"evidence to conclude that {outcome_label_string} differs across "
                                 f"exposure groups ({exposure_label_string}) "
-                                f"(χ²({dof}) = {round(chi2,3)}, p = {round(p,4)}). "
+                                f"(χ²({dof}) = {round(chi2,3)}, p = {round(p_display,4)}{tail_note}). "
                                 f"We **fail to reject the null hypothesis**."
                             )
 
