@@ -2583,6 +2583,286 @@ with tab5:
                 "outcome_label": "cognitive decline",
             },
         },
+        {
+            "id": "adv_9",
+            "title": "Scenario 9: Sedentary Behavior & Type 2 Diabetes",
+            "description": (
+                "A behavioral epidemiologist wants to estimate how much of the Type 2 diabetes "
+                "burden in the United States is attributable to sedentary behavior — defined as "
+                "fewer than 150 minutes of moderate physical activity per week. National data "
+                "show that 53% of US adults do not meet physical activity guidelines. A large "
+                "cohort study found that sedentary adults have 1.6 times the risk of developing "
+                "Type 2 diabetes compared to active adults. The researcher wants to know what "
+                "fraction of all diabetes cases in the population could be prevented if everyone "
+                "met physical activity guidelines."
+            ),
+            "correct_measure": "Population Attributable Risk (PAR)",
+            "measure_hint": (
+                "The question asks what fraction of all diabetes cases in the total population "
+                "are due to sedentary behavior — combining how common the exposure is with how "
+                "strongly it causes disease. That is PAR. AR% only addresses the fraction within "
+                "the exposed group. NNT requires a specific intervention. SMR compares to a "
+                "reference population. PAR is always the right measure when the question is "
+                "about population-level preventable burden."
+            ),
+            "data": {
+                "type": "par",
+                "context": (
+                    "Use the population data to calculate PAR% — the fraction of all Type 2 "
+                    "diabetes cases in the US that are attributable to sedentary behavior."
+                ),
+                "Pe": 0.53,
+                "RR": 1.6,
+                "Pe_label": "Prevalence of sedentary behavior in US adults",
+                "RR_label": "Risk Ratio for Type 2 diabetes (sedentary vs. active)",
+            },
+        },
+        {
+            "id": "adv_10",
+            "title": "Scenario 10: Healthcare Workers & Infectious Disease Mortality",
+            "description": (
+                "During a regional outbreak of a novel respiratory pathogen, an infection "
+                "control team studies a cohort of 2,400 frontline healthcare workers over "
+                "18 months. During this period, 22 workers died from the respiratory illness. "
+                "Applying age- and sex-specific mortality rates from the general population "
+                "to the workforce age-sex structure, the team calculated that 14.8 deaths "
+                "would be expected if healthcare workers had the same mortality risk as the "
+                "general public. The team wants to quantify whether working in direct patient "
+                "care confers excess mortality risk compared to the general population."
+            ),
+            "correct_measure": "Standardized Mortality Ratio (SMR)",
+            "measure_hint": (
+                "You have an occupational cohort, observed deaths, and expected deaths calculated "
+                "by applying general population rates to the cohort's demographic structure — "
+                "that is indirect standardization, and the result is an SMR. The key question "
+                "is always: 'does this group experience more or fewer deaths than expected based "
+                "on a reference population?' If yes, use SMR. PAR requires population exposure "
+                "prevalence. NNT applies to interventions. HR requires a Cox model with "
+                "time-to-event data."
+            ),
+            "data": {
+                "type": "smr",
+                "context": (
+                    "Calculate the SMR to determine whether frontline healthcare workers "
+                    "experienced excess mortality compared to the general population during "
+                    "the outbreak."
+                ),
+                "observed": 22,
+                "expected": 14.8,
+                "group_label": "Frontline healthcare workers",
+                "outcome_label": "respiratory illness mortality",
+            },
+        },
+        {
+            "id": "adv_11",
+            "title": "Scenario 11: Smoking & Chronic Obstructive Pulmonary Disease",
+            "description": (
+                "A pulmonologist wants to counsel a patient who has smoked for 20 years about "
+                "their personal excess risk of developing COPD due to smoking. A 20-year cohort "
+                "study found that 31% of long-term smokers developed COPD, compared to 7% of "
+                "never-smokers. The pulmonologist wants two numbers: (1) the absolute excess "
+                "risk smokers carry compared to non-smokers, and (2) the proportion of COPD "
+                "cases among smokers that would be eliminated if they had never smoked."
+            ),
+            "correct_measure": "Attributable Risk & AR%",
+            "measure_hint": (
+                "The two numbers requested are exactly what AR and AR% provide: "
+                "AR = the absolute excess risk in the exposed group (smokers vs. non-smokers), "
+                "and AR% = the proportion of disease in the exposed group attributable to "
+                "the exposure. PAR would answer a population-level question, not a question "
+                "specific to smokers. NNT applies to interventions. SMR compares to a reference "
+                "population. When the question focuses on excess burden within the exposed group, "
+                "AR and AR% are the right measures."
+            ),
+            "data": {
+                "type": "ar",
+                "context": (
+                    "Use the cohort data to calculate the Attributable Risk (AR) and "
+                    "Attributable Risk Percent (AR%) for COPD among long-term smokers."
+                ),
+                "r_exposed": 0.31,
+                "r_unexposed": 0.07,
+                "exposed_label": "Long-term smokers",
+                "unexposed_label": "Never-smokers",
+                "outcome_label": "COPD",
+            },
+        },
+        {
+            "id": "adv_12",
+            "title": "Scenario 12: Aspirin Therapy & Colorectal Cancer Prevention",
+            "description": (
+                "A gastroenterology team is evaluating whether to recommend low-dose daily aspirin "
+                "for colorectal cancer (CRC) prevention in high-risk patients. In a 10-year RCT, "
+                "2.8% of patients taking daily aspirin developed colorectal cancer, compared to "
+                "4.6% of patients in the placebo group. The team wants to present findings to "
+                "a hospital committee by answering: how many high-risk patients would need to "
+                "take daily aspirin for 10 years to prevent one additional colorectal cancer case?"
+            ),
+            "correct_measure": "Number Needed to Harm / Treat (NNH/NNT)",
+            "measure_hint": (
+                "The question 'how many patients need to be treated to prevent one additional "
+                "case' is the definition of NNT. This is the most intuitive way to present "
+                "RCT benefit data to clinicians and hospital committees. PAR% is a population "
+                "measure requiring exposure prevalence. AR% tells you the fraction of disease "
+                "in the exposed group. SMR compares to a reference population. Whenever the "
+                "goal is communicating individual-level treatment benefit or harm in practical "
+                "terms, NNT or NNH is appropriate."
+            ),
+            "data": {
+                "type": "nnt",
+                "context": (
+                    "Use the RCT data to calculate the NNT for aspirin therapy in preventing "
+                    "colorectal cancer over 10 years."
+                ),
+                "r_treatment": 0.028,
+                "r_control": 0.046,
+                "treatment_label": "Daily aspirin",
+                "control_label": "Placebo",
+                "outcome_label": "colorectal cancer",
+            },
+        },
+        {
+            "id": "adv_13",
+            "title": "Scenario 13: Diabetes & Time to End-Stage Renal Disease",
+            "description": (
+                "A nephrology research group follows 4,100 adults with newly diagnosed Type 2 "
+                "diabetes for up to 15 years. Participants are classified as having well-controlled "
+                "diabetes (HbA1c < 7%) or poorly-controlled diabetes (HbA1c ≥ 7%) at baseline. "
+                "Because participants die from other causes, receive kidney transplants, or are "
+                "lost to follow-up at different times, follow-up length varies substantially. "
+                "A Cox proportional hazards model yields HR = 2.43 (95% CI: 1.89–3.12). "
+                "Researchers want to know whether poor glycemic control significantly accelerates "
+                "progression to end-stage renal disease."
+            ),
+            "correct_measure": "Hazard Ratio (HR)",
+            "measure_hint": (
+                "Multiple clues point to HR: (1) follow-up varies substantially across participants, "
+                "(2) participants are censored for multiple reasons (death, transplant, loss to "
+                "follow-up), (3) a Cox proportional hazards model was explicitly used, and "
+                "(4) the question is about whether an exposure accelerates time to an event. "
+                "HR is always the output of a Cox model. A simple RR cannot handle censoring "
+                "or varying follow-up. NNT requires complete follow-up at a fixed time point."
+            ),
+            "data": {
+                "type": "hr",
+                "context": (
+                    "The Cox model produced the following results. Interpret the HR and "
+                    "confidence interval to determine whether poor glycemic control "
+                    "significantly accelerates time to end-stage renal disease."
+                ),
+                "hr": 2.43,
+                "ci_low": 1.89,
+                "ci_high": 3.12,
+                "exposed_label": "Poorly-controlled diabetes (HbA1c ≥ 7%)",
+                "unexposed_label": "Well-controlled diabetes (HbA1c < 7%)",
+                "outcome_label": "end-stage renal disease",
+            },
+        },
+        {
+            "id": "adv_14",
+            "title": "Scenario 14: Secondhand Smoke Exposure & Childhood Asthma",
+            "description": (
+                "A pediatric epidemiologist wants to estimate how much of the childhood asthma "
+                "burden in a southeastern US state could be prevented if secondhand smoke (SHS) "
+                "exposure were eliminated from homes with children. State survey data show that "
+                "28% of children in the state are regularly exposed to secondhand smoke at home. "
+                "A meta-analysis of cohort studies estimates that children exposed to household "
+                "SHS have 1.9 times the risk of developing asthma compared to unexposed children. "
+                "The epidemiologist is preparing a report for the state legislature on the "
+                "preventable burden of asthma attributable to SHS."
+            ),
+            "correct_measure": "Population Attributable Risk (PAR)",
+            "measure_hint": (
+                "A report on the 'preventable burden' of a disease in a population due to a "
+                "specific exposure is always a PAR question. PAR combines the prevalence of "
+                "exposure in the population (Pe = 28%) with the strength of the association "
+                "(RR = 1.9) to estimate the fraction of all cases that could be prevented by "
+                "eliminating the exposure. AR% would only tell you the fraction within exposed "
+                "children. NNT requires an intervention. SMR compares to a reference population."
+            ),
+            "data": {
+                "type": "par",
+                "context": (
+                    "Use the state data to calculate PAR% — the fraction of all childhood "
+                    "asthma cases in the state attributable to secondhand smoke exposure."
+                ),
+                "Pe": 0.28,
+                "RR": 1.9,
+                "Pe_label": "Prevalence of household SHS exposure in children",
+                "RR_label": "Risk Ratio for asthma (SHS-exposed vs. unexposed)",
+            },
+        },
+        {
+            "id": "adv_15",
+            "title": "Scenario 15: Firefighters & Cancer Mortality",
+            "description": (
+                "An occupational health researcher examines cancer mortality in a cohort of "
+                "5,200 career firefighters followed for 20 years. During this period, 89 "
+                "firefighters died from cancer. Applying age- and sex-specific cancer mortality "
+                "rates from the general population to the firefighter cohort's demographic "
+                "structure, 102.4 cancer deaths would be expected if firefighters had the same "
+                "mortality as the general public. The researcher wants to determine whether "
+                "cancer mortality among career firefighters differs from what would be expected "
+                "in the general population."
+            ),
+            "correct_measure": "Standardized Mortality Ratio (SMR)",
+            "measure_hint": (
+                "An occupational cohort with observed deaths being compared to expected deaths "
+                "calculated from reference population rates is always an SMR scenario. "
+                "The question 'does mortality in this group differ from what would be expected?' "
+                "is the defining SMR question. Note that when observed < expected, SMR < 1, "
+                "which may reflect the healthy worker effect — workers must be healthy enough "
+                "to be employed, making them inherently healthier than the general population "
+                "which includes people too ill to work."
+            ),
+            "data": {
+                "type": "smr",
+                "context": (
+                    "Calculate the SMR and interpret whether cancer mortality among career "
+                    "firefighters is higher or lower than expected. Consider whether the "
+                    "healthy worker effect might explain any difference."
+                ),
+                "observed": 89,
+                "expected": 102.4,
+                "group_label": "Career firefighters",
+                "outcome_label": "cancer",
+            },
+        },
+        {
+            "id": "adv_16",
+            "title": "Scenario 16: Sun Exposure & Melanoma Risk",
+            "description": (
+                "A dermatology researcher wants to quantify the excess melanoma risk specifically "
+                "among people with high lifetime sun exposure — defined as more than 10 years of "
+                "outdoor occupational work without sun protection. A 15-year cohort study found "
+                "that 4.8% of high-exposure workers developed melanoma, compared to 1.2% of "
+                "low-exposure workers. The researcher wants to counsel high-exposure patients "
+                "by telling them what proportion of their melanoma risk is directly attributable "
+                "to their sun exposure history — and how much absolute excess risk they carry."
+            ),
+            "correct_measure": "Attributable Risk & AR%",
+            "measure_hint": (
+                "The question has two parts: (1) the absolute excess risk in the exposed group "
+                "(AR = risk difference), and (2) the proportion of disease in the exposed group "
+                "attributable to the exposure (AR%). Both are about the exposed group specifically, "
+                "not the whole population. PAR would require population-level exposure prevalence "
+                "and answers a different question. NNT applies to interventions. Whenever a "
+                "clinician wants to counsel an exposed patient about their personal excess risk, "
+                "AR and AR% are the right measures."
+            ),
+            "data": {
+                "type": "ar",
+                "context": (
+                    "Use the cohort data to calculate the Attributable Risk (AR) and "
+                    "Attributable Risk Percent (AR%) for melanoma among high sun-exposure workers."
+                ),
+                "r_exposed": 0.048,
+                "r_unexposed": 0.012,
+                "exposed_label": "High sun-exposure workers",
+                "unexposed_label": "Low sun-exposure workers",
+                "outcome_label": "melanoma",
+            },
+        },
     ]
 
     measure_options = [
@@ -2594,17 +2874,33 @@ with tab5:
         "Hazard Ratio (HR)",
     ]
 
+    # Randomize scenario order — shuffle once per session, reshuffle on reset
+    import random
+    if "adv_scenario_order" not in st.session_state:
+        order = list(range(len(ADV_SCENARIOS)))
+        random.shuffle(order)
+        st.session_state["adv_scenario_order"] = order
+
+    SHUFFLED_SCENARIOS = [ADV_SCENARIOS[i] for i in st.session_state["adv_scenario_order"]]
+
     # Reset button
     col_hdr5, col_rst5 = st.columns([5, 1])
+    with col_hdr5:
+        st.caption(
+            f"**{len(ADV_SCENARIOS)} scenarios** presented in a randomized order. "
+            "Hit Reset to get a new shuffle and start fresh."
+        )
     with col_rst5:
-        if st.button("🔄 Reset", key="reset_tab5", help="Clear all answers"):
+        if st.button("🔄 Reset", key="reset_tab5", help="Clear all answers and reshuffle"):
             for sc in ADV_SCENARIOS:
                 k = f"adv_measure_{sc['id']}"
                 if k in st.session_state:
                     del st.session_state[k]
+            if "adv_scenario_order" in st.session_state:
+                del st.session_state["adv_scenario_order"]
             st.rerun()
 
-    for sc in ADV_SCENARIOS:
+    for sc in SHUFFLED_SCENARIOS:
 
         st.divider()
         st.subheader(sc["title"])
