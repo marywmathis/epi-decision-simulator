@@ -635,7 +635,20 @@ Because the OR's denominator (those without the outcome) is smaller than the {pr
 - {primary_abbrev} = {round(rr, 2)} → the {'prevalence' if is_cross_sectional else 'risk'} in {row_names[0]} is {round(rr,2)}x the {'prevalence' if is_cross_sectional else 'risk'} in {row_names[1]}
 - OR = {round(or_val, 2)} → the *odds* in {row_names[0]} are {round(or_val,2)}x the *odds* in {row_names[1]}
 
-**The rule of thumb:** When the outcome is rare (<10%), the OR closely approximates the {primary_abbrev}. As the outcome becomes more common, the OR diverges further from 1. This is why using an OR to estimate a {primary_abbrev} in a cross-sectional or cohort study can be misleading when the outcome is common.
+**The rule of thumb:** When the outcome is rare (<10%), the OR closely approximates the {primary_abbrev}. As the outcome becomes more common, the OR diverges further from 1.
+
+**Why?** It comes down to what each measure divides by:
+
+- {primary_abbrev} = [a/(a+b)] ÷ [c/(c+d)] — divides cases by the **entire group** (cases + non-cases)
+- OR = [a/b] ÷ [c/d] — divides cases by **only the non-cases**
+
+When the outcome is rare, almost everyone is a non-case, so b ≈ (a+b) and d ≈ (c+d). The two denominators are nearly identical, and OR ≈ {primary_abbrev}.
+
+But when the outcome is common — say 40% of the exposed group has it — b is much smaller than (a+b). Dividing by a smaller number produces a larger ratio, pushing the OR further from 1 than the {primary_abbrev}.
+
+**With your data:** The outcome prevalence in {row_names[0]} is {round(risk_a*100,1)}%. {'Since this is above 10%, the OR ({:.2f}) and {} ({:.2f}) diverge noticeably — the OR overstates the association.'.format(or_val, primary_abbrev, rr) if risk_a > 0.10 else 'Since this is below 10%, the OR ({:.2f}) and {} ({:.2f}) are close — the rare disease assumption holds.'.format(or_val, primary_abbrev, rr)}
+
+This is why reporting an OR as if it were a {primary_abbrev} in a cohort or cross-sectional study overstates the association when the outcome is common.
                                     """)
 
                             else:
