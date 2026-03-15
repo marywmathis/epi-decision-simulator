@@ -66,7 +66,7 @@ def draw_ci(label, estimate, ci_low, ci_high):
 st.title("🧭 Epidemiology Decision Simulator")
 st.markdown("Study Design → Outcome Type → Exposure Type → Table → Run Analysis → Interpretation")
 
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Measures of Association", "📐 Advanced Epi Measures", "📏 Standardization", "🎯 Practice on Your Own"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Measures of Association", "📐 Advanced Epi Measures", "📏 Standardization", "🎯 Practice: Measures of Association", "🎯 Practice: Advanced Epi Measures"])
 
 # ==========================================================
 # TAB 1: MEASURES OF ASSOCIATION (original app)
@@ -2286,6 +2286,409 @@ with tab4:
             st.warning("Keep going — re-read the scenarios you missed and pay attention to the timeline clues.")
         else:
             st.error("Review the core concepts of study design and variable types, then try again.")
+
+    st.markdown("---")
+    st.markdown("Strong epidemiologists think structurally before computing.")
+
+# ==========================================================
+# TAB 5: PRACTICE — ADVANCED EPI MEASURES
+# ==========================================================
+
+with tab5:
+
+    st.markdown("""
+    Read each scenario carefully, then decide which advanced epidemiologic measure is most
+    appropriate. You'll get immediate feedback on your choice, then work through the
+    calculation with supplied data.
+    """)
+
+    ADV_SCENARIOS = [
+        {
+            "id": "adv_1",
+            "title": "Scenario 1: Obesity & Coronary Heart Disease in the US",
+            "description": (
+                "A public health analyst wants to estimate how much of the coronary heart disease (CHD) "
+                "burden in the United States could theoretically be eliminated if obesity were eradicated. "
+                "National surveillance data show that approximately 42% of US adults have obesity (BMI ≥ 30). "
+                "A large prospective cohort study found that adults with obesity have 1.8 times the risk "
+                "of developing CHD compared to adults with healthy weight. The analyst wants a single "
+                "number that communicates the population-level impact of this exposure."
+            ),
+            "correct_measure": "Population Attributable Risk (PAR)",
+            "measure_hint": (
+                "The question is about population-level impact — specifically, what fraction of all CHD cases "
+                "in the US could be prevented by eliminating obesity. When you need to quantify the proportion "
+                "of disease in the total population attributable to a specific exposure, accounting for both "
+                "how common the exposure is AND how strongly it causes disease, that is PAR. "
+                "AR% only addresses the exposed group. SMR compares observed to expected deaths. "
+                "NNT describes individual-level treatment benefit."
+            ),
+            "data": {
+                "type": "par",
+                "context": (
+                    "Use the following population data to calculate the Population Attributable Risk Percent (PAR%). "
+                    "This will tell you what fraction of all CHD cases in the US are attributable to obesity."
+                ),
+                "Pe": 0.42,
+                "RR": 1.8,
+                "Pe_label": "Prevalence of obesity in US adults",
+                "RR_label": "Risk Ratio for CHD (obese vs. healthy weight)",
+            },
+        },
+        {
+            "id": "adv_2",
+            "title": "Scenario 2: Rubber Manufacturing Workers & Bladder Cancer",
+            "description": (
+                "An occupational epidemiologist is studying a cohort of 4,200 workers at a rubber "
+                "manufacturing plant. Over a 15-year follow-up period, 38 workers developed bladder cancer. "
+                "Based on age-specific bladder cancer rates from the general population applied to the "
+                "age structure of the worker cohort, only 18.4 bladder cancer cases would be expected "
+                "if these workers had the same risk as the general population. The epidemiologist wants "
+                "to determine whether mortality in this occupational group exceeds what would be expected."
+            ),
+            "correct_measure": "Standardized Mortality Ratio (SMR)",
+            "measure_hint": (
+                "The key features here are: (1) you have an occupational cohort being compared to a "
+                "reference population, (2) you know how many cases were observed, and (3) you calculated "
+                "how many were expected by applying reference rates to the cohort's age structure. "
+                "Observed ÷ Expected = SMR. This is indirect standardization. PAR would require knowing "
+                "exposure prevalence in the population. AR% compares risk between exposed and unexposed "
+                "within a study. NNT applies to treatment interventions."
+            ),
+            "data": {
+                "type": "smr",
+                "context": (
+                    "Use the observed and expected counts to calculate the SMR and interpret "
+                    "whether bladder cancer risk in these workers exceeds what is expected "
+                    "based on general population rates."
+                ),
+                "observed": 38,
+                "expected": 18.4,
+                "group_label": "Rubber manufacturing workers",
+                "outcome_label": "bladder cancer",
+            },
+        },
+        {
+            "id": "adv_3",
+            "title": "Scenario 3: Hypertension Treatment & Stroke Risk",
+            "description": (
+                "A clinical researcher wants to quantify the excess stroke risk specifically within "
+                "the group of patients who have untreated hypertension, compared to those whose "
+                "hypertension is controlled with medication. A 10-year cohort study found that "
+                "14% of patients with uncontrolled hypertension experienced a stroke, compared to "
+                "4% of patients with controlled hypertension. The researcher wants to know: of all "
+                "the strokes occurring among uncontrolled hypertension patients, what fraction is "
+                "directly due to their uncontrolled blood pressure?"
+            ),
+            "correct_measure": "Attributable Risk & AR%",
+            "measure_hint": (
+                "The question asks what fraction of strokes among the exposed group (uncontrolled "
+                "hypertension) is attributable to the exposure itself. AR% answers exactly this — "
+                "it measures the proportion of disease in the exposed group that would be eliminated "
+                "if the exposure were removed. PAR looks at the whole population, not just the exposed "
+                "group. NNT describes how many need treatment to prevent one event. SMR compares "
+                "to a reference population."
+            ),
+            "data": {
+                "type": "ar",
+                "context": (
+                    "Use the risk data from the 10-year cohort study to calculate the Attributable "
+                    "Risk (AR) and Attributable Risk Percent (AR%). This will show the absolute excess "
+                    "risk and what fraction of strokes among uncontrolled patients is attributable "
+                    "to their uncontrolled blood pressure."
+                ),
+                "r_exposed": 0.14,
+                "r_unexposed": 0.04,
+                "exposed_label": "Uncontrolled hypertension",
+                "unexposed_label": "Controlled hypertension",
+                "outcome_label": "stroke",
+            },
+        },
+        {
+            "id": "adv_4",
+            "title": "Scenario 4: Naloxone Distribution & Opioid Overdose Death",
+            "description": (
+                "A county health department is evaluating a community naloxone distribution program. "
+                "In a randomized trial, 3% of participants in communities with the naloxone program "
+                "died from opioid overdose over 2 years, compared to 7% in communities without the "
+                "program. A health official wants to present the findings to the county commission "
+                "in the most clinically intuitive way — specifically, how many communities would "
+                "need to implement the program to prevent one additional overdose death."
+            ),
+            "correct_measure": "Number Needed to Harm / Treat (NNH/NNT)",
+            "measure_hint": (
+                "When you want to express a treatment or intervention benefit in terms of 'how many "
+                "people need to receive the intervention to prevent one additional bad outcome,' "
+                "that is NNT. It's the most intuitive way to communicate absolute benefit to "
+                "policymakers and clinicians. PAR% is a population-level measure. AR% tells you "
+                "the fraction of disease attributable to exposure. SMR compares to a reference "
+                "population. NNT = 1 / Risk Difference."
+            ),
+            "data": {
+                "type": "nnt",
+                "context": (
+                    "Use the trial data to calculate the Number Needed to Treat (NNT). "
+                    "This tells the county commission how many communities need to implement "
+                    "the naloxone program to prevent one additional overdose death."
+                ),
+                "r_treatment": 0.03,
+                "r_control": 0.07,
+                "treatment_label": "Naloxone program",
+                "control_label": "No program",
+                "outcome_label": "opioid overdose death",
+            },
+        },
+        {
+            "id": "adv_5",
+            "title": "Scenario 5: Physical Activity & Time to Hip Fracture in Older Adults",
+            "description": (
+                "A 10-year longitudinal study follows 2,800 adults aged 65 and older. Participants "
+                "are classified as physically active or sedentary at enrollment. Because participants "
+                "enter the study at different ages, move to assisted living at different times, and "
+                "some die before experiencing a hip fracture, each participant contributes a different "
+                "amount of follow-up time. The researchers fit a Cox proportional hazards model to "
+                "account for varying follow-up and censoring. They want to compare the instantaneous "
+                "rate at which hip fractures occur over time between active and sedentary participants."
+            ),
+            "correct_measure": "Hazard Ratio (HR)",
+            "measure_hint": (
+                "Several clues point to the Hazard Ratio: (1) follow-up time varies across participants, "
+                "(2) some participants are censored (die or leave before fracture), (3) the researchers "
+                "used a Cox proportional hazards model, and (4) they want to compare the rate at which "
+                "events occur over time — not just whether they occurred. HR is the output of Cox "
+                "regression and is appropriate when time-to-event matters. A simple RR would ignore "
+                "when the fracture happened and the varying follow-up. NNT requires a fixed time point. "
+                "AR% doesn't account for censoring."
+            ),
+            "data": {
+                "type": "hr",
+                "context": (
+                    "The Cox model produced the following results. Interpret the Hazard Ratio "
+                    "and confidence interval to determine whether physical activity is significantly "
+                    "associated with time to hip fracture."
+                ),
+                "hr": 0.61,
+                "ci_low": 0.48,
+                "ci_high": 0.78,
+                "exposed_label": "Physically active",
+                "unexposed_label": "Sedentary",
+                "outcome_label": "hip fracture",
+            },
+        },
+    ]
+
+    measure_options = [
+        "— Select —",
+        "Population Attributable Risk (PAR)",
+        "Standardized Mortality Ratio (SMR)",
+        "Attributable Risk & AR%",
+        "Number Needed to Harm / Treat (NNH/NNT)",
+        "Hazard Ratio (HR)",
+    ]
+
+    # Reset button
+    col_hdr5, col_rst5 = st.columns([5, 1])
+    with col_rst5:
+        if st.button("🔄 Reset", key="reset_tab5", help="Clear all answers"):
+            for sc in ADV_SCENARIOS:
+                k = f"adv_measure_{sc['id']}"
+                if k in st.session_state:
+                    del st.session_state[k]
+            st.rerun()
+
+    for sc in ADV_SCENARIOS:
+
+        st.divider()
+        st.subheader(sc["title"])
+        st.markdown(sc["description"])
+
+        sid = sc["id"]
+
+        # --- MEASURE SELECTION ---
+        st.markdown("**Which advanced epidemiologic measure is most appropriate for this scenario?**")
+        measure_choice = st.selectbox(
+            "Select measure:", measure_options,
+            key=f"adv_measure_{sid}", label_visibility="collapsed"
+        )
+
+        correct = measure_choice == sc["correct_measure"]
+
+        if measure_choice != "— Select —":
+            if correct:
+                st.success(f"✅ Correct! **{sc['correct_measure']}** is the right measure here. " + sc["measure_hint"])
+            else:
+                st.error("❌ Not quite. Think about this: " + sc["measure_hint"])
+
+        # --- DATA & ANALYSIS (only when correct) ---
+        if correct:
+            st.markdown("---")
+            st.markdown("### 📋 Now run the analysis")
+            st.markdown(sc["data"]["context"])
+
+            d = sc["data"]
+
+            if d["type"] == "par":
+                col1, col2 = st.columns(2)
+                col1.metric(d["Pe_label"], f"{round(d['Pe']*100,1)}%")
+                col2.metric(d["RR_label"], d["RR"])
+
+                if st.button("Calculate PAR%", key=f"run_{sid}"):
+                    PAR_pct = (d["Pe"] * (d["RR"] - 1)) / (1 + d["Pe"] * (d["RR"] - 1)) * 100
+                    st.subheader("📈 Results")
+                    st.metric("PAR%", f"{round(PAR_pct,1)}%")
+                    st.success(
+                        f"**Interpretation:** {round(PAR_pct,1)}% of cases in the total population "
+                        f"are attributable to this exposure. If the exposure were completely eliminated, "
+                        f"approximately {round(PAR_pct,1)}% of all cases could theoretically be prevented. "
+                        f"This assumes the association is causal."
+                    )
+
+            elif d["type"] == "smr":
+                col1, col2 = st.columns(2)
+                col1.metric("Observed cases", d["observed"])
+                col2.metric("Expected cases", d["expected"])
+
+                if st.button("Calculate SMR", key=f"run_{sid}"):
+                    smr = d["observed"] / d["expected"]
+                    ci_low_s = max(0, smr - 1.96 * (smr / math.sqrt(d["observed"])))
+                    ci_high_s = smr + 1.96 * (smr / math.sqrt(d["observed"]))
+
+                    st.subheader("📈 Results")
+                    st.metric("SMR", round(smr, 3))
+                    st.write(f"95% CI: ({round(ci_low_s,3)}, {round(ci_high_s,3)})")
+
+                    if ci_low_s <= 1 <= ci_high_s:
+                        st.warning(
+                            f"SMR = {round(smr,2)} (95% CI: {round(ci_low_s,2)}–{round(ci_high_s,2)}). "
+                            f"The CI includes 1.0 — we cannot conclude that {d['outcome_label']} risk "
+                            f"in {d['group_label']} differs significantly from the reference population."
+                        )
+                    elif smr > 1:
+                        st.error(
+                            f"SMR = {round(smr,2)} (95% CI: {round(ci_low_s,2)}–{round(ci_high_s,2)}). "
+                            f"There were {d['observed']} observed cases vs. {d['expected']} expected. "
+                            f"{d['group_label']} have {round(smr,2)}x the {d['outcome_label']} rate "
+                            f"of the reference population — a statistically significant excess."
+                        )
+                    else:
+                        st.success(
+                            f"SMR = {round(smr,2)} (95% CI: {round(ci_low_s,2)}–{round(ci_high_s,2)}). "
+                            f"Mortality is lower than expected — this may reflect the healthy worker effect."
+                        )
+                    draw_ci("SMR", smr, ci_low_s, ci_high_s)
+
+            elif d["type"] == "ar":
+                col1, col2 = st.columns(2)
+                col1.metric(f"Risk in {d['exposed_label']}", f"{round(d['r_exposed']*100,1)}%")
+                col2.metric(f"Risk in {d['unexposed_label']}", f"{round(d['r_unexposed']*100,1)}%")
+
+                if st.button("Calculate AR & AR%", key=f"run_{sid}"):
+                    ar = d["r_exposed"] - d["r_unexposed"]
+                    rr = d["r_exposed"] / d["r_unexposed"]
+                    ar_pct = (ar / d["r_exposed"]) * 100
+
+                    st.subheader("📈 Results")
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("AR (Risk Difference)", f"{round(ar*100,1)}%")
+                    col2.metric("AR%", f"{round(ar_pct,1)}%")
+                    col3.metric("RR (for reference)", round(rr,2))
+
+                    st.success(
+                        f"**AR = {round(ar*100,1)}%:** The {d['exposed_label']} group has "
+                        f"{round(ar*100,1)} additional {d['outcome_label']} cases per 100 people "
+                        f"compared to the {d['unexposed_label']} group. This is the absolute excess risk."
+                    )
+                    st.success(
+                        f"**AR% = {round(ar_pct,1)}%:** Of all {d['outcome_label']} cases occurring "
+                        f"in the {d['exposed_label']} group, {round(ar_pct,1)}% are attributable to "
+                        f"the exposure. Removing the exposure could theoretically prevent "
+                        f"{round(ar_pct,1)}% of cases in that group."
+                    )
+
+            elif d["type"] == "nnt":
+                col1, col2 = st.columns(2)
+                col1.metric(f"Risk ({d['treatment_label']})", f"{round(d['r_treatment']*100,1)}%")
+                col2.metric(f"Risk ({d['control_label']})", f"{round(d['r_control']*100,1)}%")
+
+                if st.button("Calculate NNT", key=f"run_{sid}"):
+                    risk_diff = abs(d["r_treatment"] - d["r_control"])
+                    nnt = round(1 / risk_diff, 1)
+
+                    st.subheader("📈 Results")
+                    col1, col2 = st.columns(2)
+                    col1.metric("Risk Difference (AR)", f"{round(risk_diff*100,1)}%")
+                    col2.metric("NNT", nnt)
+
+                    st.success(
+                        f"**NNT = {nnt}:** You would need to implement the {d['treatment_label']} "
+                        f"in **{nnt} communities** to prevent one additional {d['outcome_label']} "
+                        f"compared to {d['control_label']}."
+                    )
+                    st.info(
+                        f"**Interpretation benchmark:** An NNT of {nnt} for a serious outcome like "
+                        f"{d['outcome_label']} is considered a meaningful public health benefit, "
+                        f"especially if the intervention is low-cost and scalable."
+                    )
+
+            elif d["type"] == "hr":
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Hazard Ratio (HR)", d["hr"])
+                col2.metric("95% CI Lower", d["ci_low"])
+                col3.metric("95% CI Upper", d["ci_high"])
+
+                if st.button("Interpret HR", key=f"run_{sid}"):
+                    st.subheader("📈 Results")
+
+                    if d["ci_low"] <= 1 <= d["ci_high"]:
+                        st.warning(
+                            f"HR = {d['hr']} (95% CI: {d['ci_low']}–{d['ci_high']}). "
+                            f"The CI includes 1 → not statistically significant. We cannot conclude "
+                            f"that the rate of {d['outcome_label']} differs between groups."
+                        )
+                    elif d["hr"] < 1:
+                        st.success(
+                            f"HR = {d['hr']} (95% CI: {d['ci_low']}–{d['ci_high']}). "
+                            f"At any point in time, {d['exposed_label']} adults had "
+                            f"{round((1-d['hr'])*100,1)}% lower hazard of {d['outcome_label']} "
+                            f"compared to {d['unexposed_label']} adults. "
+                            f"The CI does not include 1 → statistically significant."
+                        )
+                    else:
+                        st.error(
+                            f"HR = {d['hr']} (95% CI: {d['ci_low']}–{d['ci_high']}). "
+                            f"{d['exposed_label']} adults had {round((d['hr']-1)*100,1)}% higher "
+                            f"hazard of {d['outcome_label']} compared to {d['unexposed_label']} adults. "
+                            f"The CI does not include 1 → statistically significant."
+                        )
+
+                    draw_ci("HR", d["hr"], d["ci_low"], d["ci_high"])
+                    st.info(
+                        "**Remember:** The HR differs from the RR. The RR compares cumulative risk "
+                        "at a fixed time point. The HR compares the instantaneous rate of events at "
+                        "any moment in time, accounting for when events occur and varying follow-up."
+                    )
+
+    st.divider()
+
+    # Overall score
+    adv_total_correct = sum(
+        st.session_state.get(f"adv_measure_{sc['id']}") == sc["correct_measure"]
+        for sc in ADV_SCENARIOS
+    )
+    adv_answered = sum(
+        st.session_state.get(f"adv_measure_{sc['id']}") not in [None, "— Select —"]
+        for sc in ADV_SCENARIOS
+    )
+
+    if adv_answered > 0:
+        st.subheader(f"📊 Overall Score: {adv_total_correct} / {len(ADV_SCENARIOS)}")
+        st.progress(adv_total_correct / len(ADV_SCENARIOS))
+        if adv_total_correct == len(ADV_SCENARIOS):
+            st.success("🏆 Perfect score! You can correctly identify the right measure for any scenario.")
+        elif adv_total_correct >= 3:
+            st.info("Good work! Review any scenarios where you got feedback and make sure the reasoning clicks.")
+        else:
+            st.warning("Review the advanced epi measures and think carefully about what each one measures and when it applies.")
 
     st.markdown("---")
     st.markdown("Strong epidemiologists think structurally before computing.")
