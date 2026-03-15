@@ -654,799 +654,768 @@ with tab3:
     # SHOW DATA TABLE
     # ----------------------------------------------------------
 
-    import numpy as np
 
-    rate_a = [deaths_a[i] / pop_a[i] * 100000 for i in range(n_groups)]
-    rate_b = [deaths_b[i] / pop_b[i] * 100000 for i in range(n_groups)]
-    ref_rate = [(deaths_a[i] + deaths_b[i]) / (pop_a[i] + pop_b[i]) * 100000 for i in range(n_groups)]
+    if st.button("Run Standardization Analysis"):
 
-    display_df = pd.DataFrame({
-        "Age Group": age_groups,
-        f"{ref_label} (std pop)": std_pop,
-        f"{label_a} — Population": pop_a,
-        f"{label_a} — {outcome_lbl.capitalize()}": deaths_a,
-        f"{label_a} — Rate per 100k": [round(r, 1) for r in rate_a],
-        f"{label_b} — Population": pop_b,
-        f"{label_b} — {outcome_lbl.capitalize()}": deaths_b,
-        f"{label_b} — Rate per 100k": [round(r, 1) for r in rate_b],
-    })
+      if sum(pop_a) == 0 or sum(pop_b) == 0 or sum(std_pop) == 0:
+        st.warning("⚠️ Population sizes cannot be zero. Please check your data.")
+      else:
 
-    with st.expander("📋 View age-stratified data table", expanded=True):
-        st.dataframe(display_df, use_container_width=True)
+        rate_a = [deaths_a[i] / max(pop_a[i], 1) * 100000 for i in range(n_groups)]
+        rate_b = [deaths_b[i] / max(pop_b[i], 1) * 100000 for i in range(n_groups)]
+        ref_rate = [(deaths_a[i] + deaths_b[i]) / max(pop_a[i] + pop_b[i], 1) * 100000 for i in range(n_groups)]
 
-    st.divider()
+        display_df = pd.DataFrame({
+            "Age Group": age_groups,
+            f"{ref_label} (std pop)": std_pop,
+            f"{label_a} — Population": pop_a,
+            f"{label_a} — {outcome_lbl.capitalize()}": deaths_a,
+            f"{label_a} — Rate per 100k": [round(r, 1) for r in rate_a],
+            f"{label_b} — Population": pop_b,
+            f"{label_b} — {outcome_lbl.capitalize()}": deaths_b,
+            f"{label_b} — Rate per 100k": [round(r, 1) for r in rate_b],
+        })
 
-    # ----------------------------------------------------------
-    # CALCULATIONS
-    # ----------------------------------------------------------
+        with st.expander("📋 View age-stratified data table", expanded=True):
+            st.dataframe(display_df, use_container_width=True)
 
-    # DIRECT STANDARDIZATION
-    # Apply each population's age-specific rates to the standard population
-    expected_a_direct = [rate_a[i] / 100000 * std_pop[i] for i in range(n_groups)]
-    expected_b_direct = [rate_b[i] / 100000 * std_pop[i] for i in range(n_groups)]
-    total_std_pop = sum(std_pop)
-    age_adj_rate_a = sum(expected_a_direct) / total_std_pop * 100000
-    age_adj_rate_b = sum(expected_b_direct) / total_std_pop * 100000
+        st.divider()
 
-    # INDIRECT STANDARDIZATION (SMR)
-    # Apply reference rates to each population's age structure
-    expected_a_indirect = [ref_rate[i] / 100000 * pop_a[i] for i in range(n_groups)]
-    expected_b_indirect = [ref_rate[i] / 100000 * pop_b[i] for i in range(n_groups)]
-    total_obs_a = sum(deaths_a)
-    total_obs_b = sum(deaths_b)
-    total_exp_a = sum(expected_a_indirect)
-    total_exp_b = sum(expected_b_indirect)
-    smr_a = total_obs_a / total_exp_a if total_exp_a > 0 else None
-    smr_b = total_obs_b / total_exp_b if total_exp_b > 0 else None
+        # ----------------------------------------------------------
+        # CALCULATIONS
+        # ----------------------------------------------------------
 
-    # Crude rates (unadjusted)
-    crude_rate_a = sum(deaths_a) / sum(pop_a) * 100000
-    crude_rate_b = sum(deaths_b) / sum(pop_b) * 100000
+        # DIRECT STANDARDIZATION
+        # Apply each population's age-specific rates to the standard population
+        expected_a_direct = [rate_a[i] / 100000 * std_pop[i] for i in range(n_groups)]
+        expected_b_direct = [rate_b[i] / 100000 * std_pop[i] for i in range(n_groups)]
+        total_std_pop = sum(std_pop)
+        age_adj_rate_a = sum(expected_a_direct) / total_std_pop * 100000
+        age_adj_rate_b = sum(expected_b_direct) / total_std_pop * 100000
 
-    # ----------------------------------------------------------
-    # RESULTS: SIDE BY SIDE
-    # ----------------------------------------------------------
+        # INDIRECT STANDARDIZATION (SMR)
+        # Apply reference rates to each population's age structure
+        expected_a_indirect = [ref_rate[i] / 100000 * pop_a[i] for i in range(n_groups)]
+        expected_b_indirect = [ref_rate[i] / 100000 * pop_b[i] for i in range(n_groups)]
+        total_obs_a = sum(deaths_a)
+        total_obs_b = sum(deaths_b)
+        total_exp_a = sum(expected_a_indirect)
+        total_exp_b = sum(expected_b_indirect)
+        smr_a = total_obs_a / total_exp_a if total_exp_a > 0 else None
+        smr_b = total_obs_b / total_exp_b if total_exp_b > 0 else None
 
-    st.subheader("📊 Results: Side-by-Side Comparison")
+        # Crude rates (unadjusted)
+        crude_rate_a = sum(deaths_a) / sum(pop_a) * 100000
+        crude_rate_b = sum(deaths_b) / sum(pop_b) * 100000
 
-    col1, col2 = st.columns(2)
+        # ----------------------------------------------------------
+        # RESULTS: SIDE BY SIDE
+        # ----------------------------------------------------------
 
-    with col1:
-        st.markdown(f"### {label_a}")
-        st.metric("Crude Rate (per 100,000)", round(crude_rate_a, 1))
-        st.metric("Age-Adjusted Rate — Direct (per 100,000)", round(age_adj_rate_a, 1))
-        if smr_a:
-            st.metric("SMR — Indirect", round(smr_a, 3))
+        st.subheader("📊 Results: Side-by-Side Comparison")
 
-    with col2:
-        st.markdown(f"### {label_b}")
-        st.metric("Crude Rate (per 100,000)", round(crude_rate_b, 1))
-        st.metric("Age-Adjusted Rate — Direct (per 100,000)", round(age_adj_rate_b, 1))
-        if smr_b:
-            st.metric("SMR — Indirect", round(smr_b, 3))
+        col1, col2 = st.columns(2)
 
-    st.divider()
+        with col1:
+            st.markdown(f"### {label_a}")
+            st.metric("Crude Rate (per 100,000)", round(crude_rate_a, 1))
+            st.metric("Age-Adjusted Rate — Direct (per 100,000)", round(age_adj_rate_a, 1))
+            if smr_a:
+                st.metric("SMR — Indirect", round(smr_a, 3))
 
-    # ----------------------------------------------------------
-    # INTERPRETATION
-    # ----------------------------------------------------------
+        with col2:
+            st.markdown(f"### {label_b}")
+            st.metric("Crude Rate (per 100,000)", round(crude_rate_b, 1))
+            st.metric("Age-Adjusted Rate — Direct (per 100,000)", round(age_adj_rate_b, 1))
+            if smr_b:
+                st.metric("SMR — Indirect", round(smr_b, 3))
 
-    st.subheader("🔍 Interpretation")
+        st.divider()
 
-    # Crude comparison
-    crude_higher = label_a if crude_rate_a > crude_rate_b else label_b
-    crude_lower  = label_b if crude_rate_a > crude_rate_b else label_a
-    crude_diff   = abs(crude_rate_a - crude_rate_b)
+        # ----------------------------------------------------------
+        # INTERPRETATION
+        # ----------------------------------------------------------
 
-    # Direct comparison
-    adj_higher = label_a if age_adj_rate_a > age_adj_rate_b else label_b
-    adj_lower  = label_b if age_adj_rate_a > age_adj_rate_b else label_a
-    adj_diff   = abs(age_adj_rate_a - age_adj_rate_b)
+        st.subheader("🔍 Interpretation")
 
-    st.markdown(f"""
-**Crude rates (unadjusted):**
-{label_a} has a crude rate of {round(crude_rate_a,1)} per 100,000; {label_b} has {round(crude_rate_b,1)} per 100,000.
-{crude_higher} appears to have higher {outcome_lbl} by {round(crude_diff,1)} per 100,000 before accounting for age.
-    """)
+        # Crude comparison
+        crude_higher = label_a if crude_rate_a > crude_rate_b else label_b
+        crude_lower  = label_b if crude_rate_a > crude_rate_b else label_a
+        crude_diff   = abs(crude_rate_a - crude_rate_b)
 
-    st.markdown(f"""
-**After direct standardization (age-adjusted rates):**
-Applying both populations' rates to the same standard population ({ref_label}):
-{label_a} age-adjusted rate = {round(age_adj_rate_a,1)} per 100,000;
-{label_b} age-adjusted rate = {round(age_adj_rate_b,1)} per 100,000.
-{adj_higher} has a higher age-adjusted rate by {round(adj_diff,1)} per 100,000.
-    """)
+        # Direct comparison
+        adj_higher = label_a if age_adj_rate_a > age_adj_rate_b else label_b
+        adj_lower  = label_b if age_adj_rate_a > age_adj_rate_b else label_a
+        adj_diff   = abs(age_adj_rate_a - age_adj_rate_b)
 
-    if crude_higher != adj_higher:
-        st.error(
-            f"⚠️ **Confounding by age detected!** The crude rates suggested {crude_higher} had "
-            f"higher {outcome_lbl}, but after age adjustment, {adj_higher} actually has the higher rate. "
-            f"This reversal indicates that age was confounding the crude comparison — "
-            f"the apparent difference was largely due to differences in age structure, not true disease burden."
-        )
-    else:
-        diff_pct = abs(crude_rate_a - crude_rate_b) / max(crude_rate_a, crude_rate_b) * 100
-        adj_pct  = abs(age_adj_rate_a - age_adj_rate_b) / max(age_adj_rate_a, age_adj_rate_b) * 100
-        if abs(diff_pct - adj_pct) > 10:
-            st.warning(
-                f"⚠️ Age partially confounded this comparison. The gap between populations "
-                f"changed after adjustment, suggesting age structure was inflating or deflating the crude difference. "
-                f"The age-adjusted rates give a fairer comparison."
-            )
-        else:
-            st.success(
-                f"✅ Age structure had minimal impact here. The crude and age-adjusted rates tell "
-                f"a similar story, suggesting age is not a major confounder in this comparison."
-            )
-
-    if smr_a and smr_b:
         st.markdown(f"""
-**Indirect standardization (SMR):**
-- {label_a} SMR = {round(smr_a,3)}: observed {outcome_lbl} were {round(smr_a,3)}x the number expected based on reference rates.
-{"  → Excess mortality compared to reference population." if smr_a > 1 else "  → Lower mortality than reference population (possible healthy worker effect)."}
-- {label_b} SMR = {round(smr_b,3)}: observed {outcome_lbl} were {round(smr_b,3)}x the number expected.
-{"  → Excess mortality compared to reference population." if smr_b > 1 else "  → Lower mortality than reference population."}
+    **Crude rates (unadjusted):**
+    {label_a} has a crude rate of {round(crude_rate_a,1)} per 100,000; {label_b} has {round(crude_rate_b,1)} per 100,000.
+    {crude_higher} appears to have higher {outcome_lbl} by {round(crude_diff,1)} per 100,000 before accounting for age.
         """)
 
-    st.divider()
-
-    # ----------------------------------------------------------
-    # EXPLAINER
-    # ----------------------------------------------------------
-
-    with st.expander("📖 When to use direct vs. indirect standardization"):
-        st.markdown("""
-**Direct standardization:**
-- Apply each study population's age-specific rates to one shared standard population
-- Produces an **age-adjusted rate** (comparable across populations)
-- Requires knowing age-specific rates in both populations
-- Best when you want to compare two or more populations fairly
-- Result depends on choice of standard population (WHO world standard, US 2000 standard, etc.)
-
-**Indirect standardization (SMR):**
-- Apply a reference population's age-specific rates to your study population's age structure
-- Produces an **SMR** (ratio of observed to expected events)
-- Use when your study population is small and age-specific rates are unstable
-- Best for comparing one group against a well-established reference (e.g., national rates)
-- Watch for the **healthy worker effect**: workers are often healthier than the general population,
-  producing SMR < 1 even without a true protective exposure
-
-**Key difference:**
-| | Direct | Indirect |
-|---|---|---|
-| What you apply | Study pop's rates → standard pop structure | Reference rates → study pop structure |
-| Output | Age-adjusted rate (per 100,000) | SMR (ratio) |
-| Best use | Comparing multiple populations | Comparing one group vs. a reference |
-| Requires | Age-specific rates in study populations | Reference population age-specific rates |
-| Sensitive to | Choice of standard population | Size/stability of reference rates |
+        st.markdown(f"""
+    **After direct standardization (age-adjusted rates):**
+    Applying both populations' rates to the same standard population ({ref_label}):
+    {label_a} age-adjusted rate = {round(age_adj_rate_a,1)} per 100,000;
+    {label_b} age-adjusted rate = {round(age_adj_rate_b,1)} per 100,000.
+    {adj_higher} has a higher age-adjusted rate by {round(adj_diff,1)} per 100,000.
         """)
 
-    st.markdown("---")
-    st.markdown("Strong epidemiologists think structurally before computing.")
+        if crude_higher != adj_higher:
+            st.error(
+                f"⚠️ **Confounding by age detected!** The crude rates suggested {crude_higher} had "
+                f"higher {outcome_lbl}, but after age adjustment, {adj_higher} actually has the higher rate. "
+                f"This reversal indicates that age was confounding the crude comparison — "
+                f"the apparent difference was largely due to differences in age structure, not true disease burden."
+            )
+        else:
+            diff_pct = abs(crude_rate_a - crude_rate_b) / max(crude_rate_a, crude_rate_b, 0.0001) * 100
+            adj_pct  = abs(age_adj_rate_a - age_adj_rate_b) / max(age_adj_rate_a, age_adj_rate_b, 0.0001) * 100
+            if abs(diff_pct - adj_pct) > 10:
+                st.warning(
+                    f"⚠️ Age partially confounded this comparison. The gap between populations "
+                    f"changed after adjustment, suggesting age structure was inflating or deflating the crude difference. "
+                    f"The age-adjusted rates give a fairer comparison."
+                )
+            else:
+                st.success(
+                    f"✅ Age structure had minimal impact here. The crude and age-adjusted rates tell "
+                    f"a similar story, suggesting age is not a major confounder in this comparison."
+                )
 
-
-# TAB 2: ADVANCED EPI MEASURES
-# ==========================================================
-
-with tab2:
-
-    st.markdown(
-        "Calculate advanced epidemiologic measures using **preset realistic scenarios** "
-        "or enter your own data manually."
-    )
-
-    measure = st.selectbox(
-        "Select measure to calculate:",
-        [
-            "Population Attributable Risk (PAR)",
-            "Standardized Mortality Ratio (SMR)",
-            "Attributable Risk & AR%",
-            "Number Needed to Harm / Treat (NNH/NNT)",
-            "Hazard Ratio (HR)"
-        ]
-    )
-
-    st.divider()
-
-    # ----------------------------------------------------------
-    # POPULATION ATTRIBUTABLE RISK (PAR)
-    # ----------------------------------------------------------
-
-    if measure == "Population Attributable Risk (PAR)":
-
-        st.subheader("Population Attributable Risk (PAR)")
-        st.info(
-            "**PAR** estimates the proportion of disease in the **total population** that is attributable to "
-            "a specific exposure — in other words, how much disease could theoretically be prevented "
-            "if the exposure were eliminated. It requires knowing both the **Risk Ratio** and the "
-            "**prevalence of the exposure in the population**."
-        )
-
-        with st.expander("📖 Formula"):
-            st.markdown("""
-            **PAR% = Pe × (RR − 1) / [1 + Pe × (RR − 1)] × 100**
-
-            Where:
-            - **Pe** = prevalence of exposure in the population
-            - **RR** = Risk Ratio (relative risk)
-
-            Also known as the **Population Attributable Fraction (PAF)**.
+        if smr_a and smr_b:
+            st.markdown(f"""
+    **Indirect standardization (SMR):**
+    - {label_a} SMR = {round(smr_a,3)}: observed {outcome_lbl} were {round(smr_a,3)}x the number expected based on reference rates.
+    {"  → Excess mortality compared to reference population." if smr_a > 1 else "  → Lower mortality than reference population (possible healthy worker effect)."}
+    - {label_b} SMR = {round(smr_b,3)}: observed {outcome_lbl} were {round(smr_b,3)}x the number expected.
+    {"  → Excess mortality compared to reference population." if smr_b > 1 else "  → Lower mortality than reference population."}
             """)
 
-        data_mode = st.radio("Data entry mode", ["Use preset scenario", "Enter my own data"], horizontal=True)
+        st.divider()
 
-        if data_mode == "Use preset scenario":
-            scenario = st.selectbox("Choose a scenario", [
-                "Smoking & Lung Cancer (US Adults)",
-                "Physical Inactivity & Type 2 Diabetes",
-                "Obesity & Cardiovascular Disease"
-            ])
+        # ----------------------------------------------------------
+        # EXPLAINER
+        # ----------------------------------------------------------
 
-            if scenario == "Smoking & Lung Cancer (US Adults)":
-                Pe, RR = 0.14, 15.0
-                st.markdown("""
-                **Scenario:** Approximately 14% of U.S. adults currently smoke cigarettes.
-                Smokers have roughly 15 times the risk of developing lung cancer compared to non-smokers.
-                *Sources: CDC (2023), IARC Monographs.*
-                """)
-            elif scenario == "Physical Inactivity & Type 2 Diabetes":
-                Pe, RR = 0.46, 1.5
-                st.markdown("""
-                **Scenario:** About 46% of U.S. adults do not meet physical activity guidelines.
-                Physically inactive individuals have approximately 1.5 times the risk of developing
-                Type 2 diabetes compared to those who are active.
-                *Sources: CDC BRFSS (2022), Jeon et al., Diabetes Care.*
-                """)
-            elif scenario == "Obesity & Cardiovascular Disease":
-                Pe, RR = 0.42, 2.0
-                st.markdown("""
-                **Scenario:** Approximately 42% of U.S. adults have obesity (BMI ≥ 30).
-                Individuals with obesity have about twice the risk of cardiovascular disease
-                compared to those with healthy weight.
-                *Sources: CDC NHANES (2022), American Heart Association.*
-                """)
-
-        else:
-            Pe = st.number_input(
-                "Prevalence of exposure in the population (Pe)",
-                min_value=0.001, max_value=0.999, value=0.30, step=0.01,
-                help="Enter as a proportion between 0 and 1. Example: 0.25 means 25% of the population is exposed."
-            )
-            RR = st.number_input(
-                "Risk Ratio (RR)",
-                min_value=0.01, value=2.0, step=0.1,
-                help="The relative risk of disease in the exposed group compared to the unexposed group."
-            )
-
-        if st.button("Calculate PAR"):
-            PAR_pct = (Pe * (RR - 1)) / (1 + Pe * (RR - 1)) * 100
-
-            st.subheader("📈 Results")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Exposure Prevalence (Pe)", f"{round(Pe*100,1)}%")
-            col2.metric("Risk Ratio (RR)", round(RR, 2))
-            col3.metric("PAR%", f"{round(PAR_pct, 1)}%")
-
-            st.success(
-                f"**Interpretation:** {round(PAR_pct,1)}% of cases in the total population are attributable "
-                f"to this exposure. If the exposure were completely eliminated, we would expect to prevent "
-                f"approximately {round(PAR_pct,1)}% of all cases of this disease in the population. "
-                f"This assumes the association is causal."
-            )
-
-            if PAR_pct > 50:
-                st.warning("⚠️ A PAR% above 50% suggests this exposure is a dominant driver of disease burden in the population.")
-
-    # ----------------------------------------------------------
-    # STANDARDIZED MORTALITY RATIO (SMR)
-    # ----------------------------------------------------------
-
-    elif measure == "Standardized Mortality Ratio (SMR)":
-
-        st.subheader("Standardized Mortality Ratio (SMR)")
-        st.info(
-            "The **SMR** compares the observed number of deaths (or cases) in a study population "
-            "to the number that would be **expected** based on the rates of a reference (standard) population. "
-            "It is used to assess whether a specific group — such as workers in a particular industry — "
-            "experiences more or fewer deaths than the general population."
-        )
-
-        with st.expander("📖 Formula"):
+        with st.expander("📖 When to use direct vs. indirect standardization"):
             st.markdown("""
-            **SMR = Observed Deaths / Expected Deaths**
+    **Direct standardization:**
+    - Apply each study population's age-specific rates to one shared standard population
+    - Produces an **age-adjusted rate** (comparable across populations)
+    - Requires knowing age-specific rates in both populations
+    - Best when you want to compare two or more populations fairly
+    - Result depends on choice of standard population (WHO world standard, US 2000 standard, etc.)
 
-            - **SMR = 1.0**: The study group has the same mortality as the reference population
-            - **SMR > 1.0**: Higher mortality than expected (excess deaths)
-            - **SMR < 1.0**: Lower mortality than expected (healthy worker effect)
+    **Indirect standardization (SMR):**
+    - Apply a reference population's age-specific rates to your study population's age structure
+    - Produces an **SMR** (ratio of observed to expected events)
+    - Use when your study population is small and age-specific rates are unstable
+    - Best for comparing one group against a well-established reference (e.g., national rates)
+    - Watch for the **healthy worker effect**: workers are often healthier than the general population,
+      producing SMR < 1 even without a true protective exposure
 
-            **Expected deaths** are calculated by applying the reference population's age-specific
-            death rates to the age distribution of the study population.
+    **Key difference:**
+    | | Direct | Indirect |
+    |---|---|---|
+    | What you apply | Study pop's rates → standard pop structure | Reference rates → study pop structure |
+    | Output | Age-adjusted rate (per 100,000) | SMR (ratio) |
+    | Best use | Comparing multiple populations | Comparing one group vs. a reference |
+    | Requires | Age-specific rates in study populations | Reference population age-specific rates |
+    | Sensitive to | Choice of standard population | Size/stability of reference rates |
             """)
 
-        data_mode = st.radio("Data entry mode", ["Use preset scenario", "Enter my own data"], horizontal=True, key="smr_mode")
+        st.markdown("---")
+        st.markdown("Strong epidemiologists think structurally before computing.")
 
-        if data_mode == "Use preset scenario":
-            scenario = st.selectbox("Choose a scenario", [
-                "Coal Miners & Respiratory Disease",
-                "Nuclear Plant Workers & All-Cause Mortality",
-                "Firefighters & Cancer Mortality"
-            ], key="smr_scenario")
 
-            if scenario == "Coal Miners & Respiratory Disease":
-                age_groups = ["20–34", "35–44", "45–54", "55–64", "65–74"]
-                observed =  [2,  8, 22, 41, 35]
-                ref_rates = [0.0003, 0.0010, 0.0038, 0.0092, 0.0198]
-                pop_sizes = [1200, 1800, 2100, 1600,  900]
+    # TAB 2: ADVANCED EPI MEASURES
+    # ==========================================================
+
+    with tab2:
+
+        st.markdown(
+            "Calculate advanced epidemiologic measures using **preset realistic scenarios** "
+            "or enter your own data manually."
+        )
+
+        measure = st.selectbox(
+            "Select measure to calculate:",
+            [
+                "Population Attributable Risk (PAR)",
+                "Standardized Mortality Ratio (SMR)",
+                "Attributable Risk & AR%",
+                "Number Needed to Harm / Treat (NNH/NNT)",
+                "Hazard Ratio (HR)"
+            ]
+        )
+
+        st.divider()
+
+        # ----------------------------------------------------------
+        # POPULATION ATTRIBUTABLE RISK (PAR)
+        # ----------------------------------------------------------
+
+        if measure == "Population Attributable Risk (PAR)":
+
+            st.subheader("Population Attributable Risk (PAR)")
+            st.info(
+                "**PAR** estimates the proportion of disease in the **total population** that is attributable to "
+                "a specific exposure — in other words, how much disease could theoretically be prevented "
+                "if the exposure were eliminated. It requires knowing both the **Risk Ratio** and the "
+                "**prevalence of the exposure in the population**."
+            )
+
+            with st.expander("📖 Formula"):
                 st.markdown("""
-                **Scenario:** A cohort of 7,600 underground coal miners is followed for 10 years.
-                Deaths from respiratory disease are compared to age-specific rates in the general
-                male working population. *Adapted from NIOSH occupational cohort studies.*
+                **PAR% = Pe × (RR − 1) / [1 + Pe × (RR − 1)] × 100**
+
+                Where:
+                - **Pe** = prevalence of exposure in the population
+                - **RR** = Risk Ratio (relative risk)
+
+                Also known as the **Population Attributable Fraction (PAF)**.
                 """)
 
-            elif scenario == "Nuclear Plant Workers & All-Cause Mortality":
-                age_groups = ["20–34", "35–44", "45–54", "55–64", "65–74"]
-                observed =  [3, 10, 18, 29, 22]
-                ref_rates = [0.0008, 0.0018, 0.0045, 0.0110, 0.0240]
-                pop_sizes = [2000, 2500, 1800, 1200,  600]
-                st.markdown("""
-                **Scenario:** A cohort of 8,100 nuclear power plant workers is followed for 10 years.
-                All-cause mortality is compared to age-specific rates in the general population.
-                This scenario often demonstrates the **healthy worker effect**.
-                *Adapted from published nuclear worker cohort studies.*
-                """)
+            data_mode = st.radio("Data entry mode", ["Use preset scenario", "Enter my own data"], horizontal=True)
 
-            elif scenario == "Firefighters & Cancer Mortality":
-                age_groups = ["20–34", "35–44", "45–54", "55–64", "65–74"]
-                observed =  [1, 6, 19, 38, 31]
-                ref_rates = [0.0001, 0.0006, 0.0024, 0.0068, 0.0160]
-                pop_sizes = [1500, 2000, 1900, 1400,  800]
-                st.markdown("""
-                **Scenario:** A cohort of 7,600 career firefighters is followed for 10 years.
-                Cancer mortality is compared to age-specific rates in the general male population.
-                *Adapted from Daniels et al. (2014) and IAFF mortality studies.*
-                """)
+            if data_mode == "Use preset scenario":
+                scenario = st.selectbox("Choose a scenario", [
+                    "Smoking & Lung Cancer (US Adults)",
+                    "Physical Inactivity & Type 2 Diabetes",
+                    "Obesity & Cardiovascular Disease"
+                ])
 
-            st.divider()
-            st.markdown("**Age-Stratified Data:**")
-            smr_df = pd.DataFrame({
-                "Age Group": age_groups,
-                "Study Population Size": pop_sizes,
-                "Observed Deaths": observed,
-                "Reference Rate (per person)": ref_rates,
-                "Expected Deaths": [round(pop_sizes[i] * ref_rates[i], 2) for i in range(len(age_groups))]
-            })
-            st.table(smr_df)
+                if scenario == "Smoking & Lung Cancer (US Adults)":
+                    Pe, RR = 0.14, 15.0
+                    st.markdown("""
+                    **Scenario:** Approximately 14% of U.S. adults currently smoke cigarettes.
+                    Smokers have roughly 15 times the risk of developing lung cancer compared to non-smokers.
+                    *Sources: CDC (2023), IARC Monographs.*
+                    """)
+                elif scenario == "Physical Inactivity & Type 2 Diabetes":
+                    Pe, RR = 0.46, 1.5
+                    st.markdown("""
+                    **Scenario:** About 46% of U.S. adults do not meet physical activity guidelines.
+                    Physically inactive individuals have approximately 1.5 times the risk of developing
+                    Type 2 diabetes compared to those who are active.
+                    *Sources: CDC BRFSS (2022), Jeon et al., Diabetes Care.*
+                    """)
+                elif scenario == "Obesity & Cardiovascular Disease":
+                    Pe, RR = 0.42, 2.0
+                    st.markdown("""
+                    **Scenario:** Approximately 42% of U.S. adults have obesity (BMI ≥ 30).
+                    Individuals with obesity have about twice the risk of cardiovascular disease
+                    compared to those with healthy weight.
+                    *Sources: CDC NHANES (2022), American Heart Association.*
+                    """)
 
-            total_observed = sum(observed)
-            total_expected = sum([pop_sizes[i] * ref_rates[i] for i in range(len(age_groups))])
+            else:
+                Pe = st.number_input(
+                    "Prevalence of exposure in the population (Pe)",
+                    min_value=0.001, max_value=0.999, value=0.30, step=0.01,
+                    help="Enter as a proportion between 0 and 1. Example: 0.25 means 25% of the population is exposed."
+                )
+                RR = st.number_input(
+                    "Risk Ratio (RR)",
+                    min_value=0.01, value=2.0, step=0.1,
+                    help="The relative risk of disease in the exposed group compared to the unexposed group."
+                )
 
-        else:
-            st.markdown("Enter observed and expected deaths by age group:")
-            n_groups = st.number_input("Number of age groups", min_value=1, max_value=10, value=3)
-            observed = []
-            expected_list = []
-            for i in range(n_groups):
-                c1, c2, c3 = st.columns(3)
-                with c1:
-                    ag = st.text_input(f"Age group {i+1} label", f"Group {i+1}", key=f"smr_ag_{i}")
-                with c2:
-                    obs = st.number_input(f"Observed deaths", min_value=0, key=f"smr_obs_{i}")
-                with c3:
-                    exp = st.number_input(f"Expected deaths", min_value=0.0, step=0.1, key=f"smr_exp_{i}")
-                observed.append(obs)
-                expected_list.append(exp)
-            total_observed = sum(observed)
-            total_expected = sum(expected_list)
-
-        if st.button("Calculate SMR"):
-            if total_expected > 0:
-                smr = total_observed / total_expected
-
-                # 95% CI using Poisson approximation
-                ci_low_smr = smr - 1.96 * (smr / math.sqrt(total_observed)) if total_observed > 0 else 0
-                ci_high_smr = smr + 1.96 * (smr / math.sqrt(total_observed)) if total_observed > 0 else 0
-                ci_low_smr = max(0, ci_low_smr)
+            if st.button("Calculate PAR"):
+                PAR_pct = (Pe * (RR - 1)) / (1 + Pe * (RR - 1)) * 100
 
                 st.subheader("📈 Results")
                 col1, col2, col3 = st.columns(3)
-                col1.metric("Observed Deaths", int(total_observed))
-                col2.metric("Expected Deaths", round(total_expected, 2))
-                col3.metric("SMR", round(smr, 3))
+                col1.metric("Exposure Prevalence (Pe)", f"{round(Pe*100,1)}%")
+                col2.metric("Risk Ratio (RR)", round(RR, 2))
+                col3.metric("PAR%", f"{round(PAR_pct, 1)}%")
 
-                st.write(f"95% CI: ({round(ci_low_smr,3)}, {round(ci_high_smr,3)})")
-
-                if ci_low_smr <= 1 <= ci_high_smr:
-                    st.warning(
-                        f"**Interpretation:** SMR = {round(smr,2)} (95% CI: {round(ci_low_smr,2)}–{round(ci_high_smr,2)}). "
-                        f"The confidence interval includes 1.0, so we cannot conclude that mortality in this "
-                        f"population differs significantly from the reference population."
-                    )
-                elif smr > 1:
-                    st.error(
-                        f"**Interpretation:** SMR = {round(smr,2)} (95% CI: {round(ci_low_smr,2)}–{round(ci_high_smr,2)}). "
-                        f"There were {int(total_observed)} observed deaths vs. {round(total_expected,1)} expected. "
-                        f"Mortality in this population is {round(smr,2)} times higher than in the reference population — "
-                        f"a statistically significant excess. We reject the null hypothesis (SMR = 1)."
-                    )
-                else:
-                    st.success(
-                        f"**Interpretation:** SMR = {round(smr,2)} (95% CI: {round(ci_low_smr,2)}–{round(ci_high_smr,2)}). "
-                        f"There were {int(total_observed)} observed deaths vs. {round(total_expected,1)} expected. "
-                        f"Mortality in this population is lower than in the reference population — "
-                        f"this may reflect the **healthy worker effect** (workers are generally healthier than the general population)."
-                    )
-
-                draw_ci("SMR", smr, ci_low_smr, ci_high_smr)
-
-    # ----------------------------------------------------------
-    # ATTRIBUTABLE RISK & AR%
-    # ----------------------------------------------------------
-
-    elif measure == "Attributable Risk & AR%":
-
-        st.subheader("Attributable Risk (AR) & Attributable Risk Percent (AR%)")
-        st.info(
-            "**Attributable Risk (AR)**, also called the **Risk Difference**, measures the absolute "
-            "difference in risk between exposed and unexposed groups. "
-            "**AR%** expresses that difference as a percentage of the exposed group's total risk — "
-            "it asks: of all the disease in the exposed group, what fraction is due to the exposure?"
-        )
-
-        with st.expander("📖 Formulas"):
-            st.markdown("""
-            **AR (Risk Difference) = Risk in Exposed − Risk in Unexposed**
-
-            **AR% = (AR / Risk in Exposed) × 100**
-
-            Or equivalently: **AR% = (RR − 1) / RR × 100**
-
-            - AR tells you the **absolute** excess risk due to exposure
-            - AR% tells you the **proportion** of exposed group's risk attributable to exposure
-            - Contrast with RR, which is a *relative* measure
-            """)
-
-        data_mode = st.radio("Data entry mode", ["Use preset scenario", "Enter my own data"], horizontal=True, key="ar_mode")
-
-        if data_mode == "Use preset scenario":
-            scenario = st.selectbox("Choose a scenario", [
-                "Hypertension & Cardiovascular Disease",
-                "Unvaccinated Children & Measles",
-                "High Sodium Diet & Stroke"
-            ], key="ar_scenario")
-
-            if scenario == "Hypertension & Cardiovascular Disease":
-                r_exposed, r_unexposed = 0.12, 0.04
-                st.markdown("""
-                **Scenario:** In a 10-year cohort study, adults with hypertension had a 12% risk
-                of cardiovascular disease (CVD), compared to 4% among normotensive adults.
-                *Adapted from Framingham Heart Study estimates.*
-                """)
-            elif scenario == "Unvaccinated Children & Measles":
-                r_exposed, r_unexposed = 0.90, 0.02
-                st.markdown("""
-                **Scenario:** During a measles outbreak in an unvaccinated community, 90% of
-                unvaccinated children developed measles, compared to 2% of vaccinated children.
-                *Adapted from CDC outbreak investigation data.*
-                """)
-            elif scenario == "High Sodium Diet & Stroke":
-                r_exposed, r_unexposed = 0.08, 0.03
-                st.markdown("""
-                **Scenario:** In a prospective cohort, adults consuming >5g sodium/day had an 8%
-                10-year stroke risk, compared to 3% among those consuming <2g/day.
-                *Adapted from He & MacGregor, J Human Hypertension (2003).*
-                """)
-
-        else:
-            r_exposed = st.number_input(
-                "Risk in exposed group (as proportion)",
-                min_value=0.001, max_value=1.0, value=0.12, step=0.01,
-                help="Example: 0.12 = 12% of exposed individuals developed the outcome."
-            )
-            r_unexposed = st.number_input(
-                "Risk in unexposed group (as proportion)",
-                min_value=0.001, max_value=1.0, value=0.04, step=0.01,
-                help="Example: 0.04 = 4% of unexposed individuals developed the outcome."
-            )
-
-        if st.button("Calculate AR & AR%"):
-            ar = r_exposed - r_unexposed
-            rr = r_exposed / r_unexposed
-            ar_pct = (ar / r_exposed) * 100
-
-            st.subheader("📈 Results")
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Risk (Exposed)", f"{round(r_exposed*100,1)}%")
-            col2.metric("Risk (Unexposed)", f"{round(r_unexposed*100,1)}%")
-            col3.metric("AR (Risk Difference)", f"{round(ar*100,1)}%")
-            col4.metric("AR%", f"{round(ar_pct,1)}%")
-
-            st.success(
-                f"**AR Interpretation:** The exposed group had {round(ar*100,1)} additional cases per 100 people "
-                f"compared to the unexposed group. This is the absolute excess risk due to exposure."
-            )
-            st.success(
-                f"**AR% Interpretation:** Of all disease occurring in the exposed group, "
-                f"{round(ar_pct,1)}% is attributable to the exposure. "
-                f"If the exposure were removed, we could theoretically prevent {round(ar_pct,1)}% "
-                f"of cases among exposed individuals."
-            )
-            st.info(
-                f"**Note:** The Risk Ratio (RR) for this data is {round(rr,2)}. "
-                f"While the RR tells you the *relative* increase in risk, "
-                f"the AR tells you the *absolute* excess — which is often more meaningful for public health decision-making."
-            )
-
-    # ----------------------------------------------------------
-    # NNH / NNT
-    # ----------------------------------------------------------
-
-    elif measure == "Number Needed to Harm / Treat (NNH/NNT)":
-
-        st.subheader("Number Needed to Harm (NNH) / Number Needed to Treat (NNT)")
-        st.info(
-            "**NNT** is the number of people who need to receive a treatment for one additional person "
-            "to benefit. **NNH** is the number of people who need to be exposed to a risk factor for "
-            "one additional person to be harmed. Both are the inverse of the Attributable Risk (Risk Difference) "
-            "and express risk in a clinically intuitive way."
-        )
-
-        with st.expander("📖 Formulas"):
-            st.markdown("""
-            **NNT = 1 / (Risk in control − Risk in treated)**  *(used when treatment reduces risk)*
-
-            **NNH = 1 / (Risk in exposed − Risk in unexposed)**  *(used when exposure increases risk)*
-
-            Both are the inverse of the **Attributable Risk (Risk Difference)**.
-
-            - A smaller NNT means the treatment is more effective
-            - A smaller NNH means the exposure is more dangerous
-            """)
-
-        data_mode = st.radio("Data entry mode", ["Use preset scenario", "Enter my own data"], horizontal=True, key="nnt_mode")
-
-        if data_mode == "Use preset scenario":
-            scenario = st.selectbox("Choose a scenario", [
-                "Statins & Major Cardiac Events (NNT)",
-                "Aspirin & GI Bleeding (NNH)",
-                "Smoking Cessation Program & Quitting at 1 Year (NNT)"
-            ], key="nnt_scenario")
-
-            if scenario == "Statins & Major Cardiac Events (NNT)":
-                r_treatment, r_control = 0.04, 0.06
-                label_treatment, label_control = "Statin therapy", "Placebo"
-                context = "NNT — Treatment reduces risk"
-                st.markdown("""
-                **Scenario:** In a 5-year RCT, 4% of patients on statin therapy experienced a major
-                cardiac event, compared to 6% in the placebo group.
-                *Adapted from Heart Protection Study (MRC/BHF).*
-                """)
-            elif scenario == "Aspirin & GI Bleeding (NNH)":
-                r_treatment, r_control = 0.025, 0.010
-                label_treatment, label_control = "Daily aspirin", "No aspirin"
-                context = "NNH — Exposure increases risk"
-                st.markdown("""
-                **Scenario:** In a cohort study, 2.5% of adults taking daily aspirin experienced
-                a GI bleeding event over 3 years, compared to 1.0% among non-users.
-                *Adapted from US Preventive Services Task Force aspirin evidence review.*
-                """)
-            elif scenario == "Smoking Cessation Program & Quitting at 1 Year (NNT)":
-                r_treatment, r_control = 0.22, 0.08
-                label_treatment, label_control = "Cessation program", "No program"
-                context = "NNT — Treatment increases benefit (quitting)"
-                st.markdown("""
-                **Scenario:** In a randomized trial, 22% of participants in a structured smoking
-                cessation program successfully quit at 1 year, vs. 8% in the control group.
-                *Adapted from Cochrane systematic review on behavioral smoking cessation.*
-                """)
-
-        else:
-            label_treatment = st.text_input("Label for treatment/exposed group", "Treatment")
-            label_control = st.text_input("Label for control/unexposed group", "Control")
-            r_treatment = st.number_input(
-                f"Risk in {label_treatment} group",
-                min_value=0.001, max_value=1.0, value=0.04, step=0.01
-            )
-            r_control = st.number_input(
-                f"Risk in {label_control} group",
-                min_value=0.001, max_value=1.0, value=0.06, step=0.01
-            )
-            context = "Manual entry"
-
-        if st.button("Calculate NNH / NNT"):
-            risk_diff = abs(r_treatment - r_control)
-            nnt_nnh = round(1 / risk_diff, 1) if risk_diff > 0 else None
-
-            st.subheader("📈 Results")
-            col1, col2, col3 = st.columns(3)
-            col1.metric(f"Risk ({label_treatment})", f"{round(r_treatment*100,1)}%")
-            col2.metric(f"Risk ({label_control})", f"{round(r_control*100,1)}%")
-            col3.metric("Risk Difference (AR)", f"{round(risk_diff*100,1)}%")
-
-            if nnt_nnh:
-                if r_treatment < r_control:
-                    st.success(
-                        f"**NNT = {nnt_nnh}**. You would need to treat **{nnt_nnh} people** with "
-                        f"{label_treatment} to prevent one additional outcome compared to {label_control}. "
-                        f"A lower NNT means a more effective intervention."
-                    )
-                else:
-                    st.error(
-                        f"**NNH = {nnt_nnh}**. For every **{nnt_nnh} people** exposed to "
-                        f"{label_treatment}, one additional harm would be expected compared to {label_control}. "
-                        f"A lower NNH means a more dangerous exposure."
-                    )
-
-                # ---- NNT/NNH Interpretation Guide ----
-                st.subheader("📐 How to Interpret This Number")
-
-                if r_treatment < r_control:
-                    # NNT guidance
-                    st.markdown("""
-**Is this NNT good or bad?** Context is everything. An NNT that seems large can still represent
-an important public health benefit — especially for serious outcomes like heart attacks or death,
-or when a treatment is low-cost and low-risk.
-
-**General benchmarks for NNT:**
-| NNT Range | General Interpretation |
-|-----------|----------------------|
-| 1 – 5 | Highly effective. Nearly everyone treated benefits (e.g., antibiotics for strep throat). |
-| 6 – 15 | Very effective. Strong benefit for a meaningful proportion of patients. |
-| 16 – 50 | Moderately effective. Common for preventive interventions in general populations. |
-| 51 – 100 | Modest effect. May still be worthwhile if the outcome is severe or treatment is cheap. |
-| > 100 | Small effect per person. Meaningful only at population scale or for catastrophic outcomes. |
-
-**Real-world NNT examples for comparison:**
-| Intervention | NNT | Outcome | Timeframe |
-|---|---|---|---|
-| Tamiflu for influenza | ~14 | Reduce duration by 1 day | Per illness |
-| Statins (high-risk patients) | ~20 | Prevent 1 MI or stroke | 5 years |
-| Statins (low-risk / primary prevention) | ~50–100 | Prevent 1 cardiac event | 5 years |
-| Aspirin for secondary MI prevention | ~40 | Prevent 1 death or MI | 2 years |
-| Smoking cessation counseling | ~10–20 | 1 additional person quits | 1 year |
-| Seatbelt use | ~3,300 | Prevent 1 death per crash | Per crash |
-
-**Key principle:** A large NNT is not automatically bad. Ask:
-- How serious is the outcome? (Preventing 1 death in 200 patients may be very worthwhile.)
-- What are the costs and risks of treatment? (Low side effects = higher acceptable NNT.)
-- What is the baseline risk? (Low-risk populations always produce higher NNTs for preventive interventions.)
-                    """)
-                else:
-                    # NNH guidance
-                    st.markdown("""
-**Is this NNH concerning?** Context determines whether an NNH represents an acceptable risk or a serious safety signal.
-
-**General benchmarks for NNH:**
-| NNH Range | General Interpretation |
-|-----------|----------------------|
-| 1 – 10 | Very high harm rate. Exposure is extremely dangerous for this outcome. |
-| 11 – 50 | High harm rate. Serious safety concern requiring careful risk-benefit analysis. |
-| 51 – 200 | Moderate harm rate. Common in drug side effect studies; must be weighed against benefits. |
-| 201 – 1,000 | Low harm rate. May be acceptable depending on severity of harm and magnitude of benefit. |
-| > 1,000 | Very rare harm. Usually acceptable unless the outcome is catastrophic (e.g., death). |
-
-**Real-world NNH examples for comparison:**
-| Exposure / Drug | NNH | Harm | Timeframe |
-|---|---|---|---|
-| Daily aspirin (low-dose) | ~67 | GI bleeding event | 3 years |
-| NSAIDs (regular use) | ~100 | GI complications | 1 year |
-| COX-2 inhibitors (Vioxx) | ~150 | Cardiovascular event | 18 months |
-| Smoking (1+ pack/day) | ~7 | Lung cancer | Lifetime |
-| Unvaccinated (measles outbreak) | ~1.1 | Measles infection | Per outbreak |
-
-**Key principle:** NNH must always be interpreted alongside NNT (the benefit).
-- If NNT < NNH: more people benefit than are harmed — generally favorable.
-- If NNH < NNT: more people are harmed than benefit — raises serious safety concerns.
-- Always consider: How severe is the harm vs. the benefit?
-                    """)
-
-    # ----------------------------------------------------------
-    # HAZARD RATIO
-    # ----------------------------------------------------------
-
-    elif measure == "Hazard Ratio (HR)":
-
-        st.subheader("Hazard Ratio (HR)")
-        st.info(
-            "The **Hazard Ratio** compares the rate at which an event occurs over time between two groups. "
-            "Unlike the Risk Ratio, which looks at cumulative risk over a fixed period, the HR accounts for "
-            "**when** events happen — making it the appropriate measure for survival analysis and "
-            "time-to-event studies. It is the standard measure reported in Cox proportional hazards regression."
-        )
-
-        with st.expander("📖 Key concepts"):
-            st.markdown("""
-            **HR = Hazard in exposed group / Hazard in unexposed group**
-
-            - **HR = 1.0**: Events occur at the same rate in both groups
-            - **HR > 1.0**: Events occur faster in the exposed group (increased hazard)
-            - **HR < 1.0**: Events occur more slowly in the exposed group (protective)
-
-            **How it differs from RR:**
-            - RR compares cumulative risk at a fixed time point
-            - HR compares the *instantaneous rate* of events at any given moment
-            - HR is more appropriate when follow-up time varies across participants
-            - HR is the standard output of Cox proportional hazards models
-
-            **When to use survival analysis:**
-            - Participants enter and leave the study at different times
-            - Some participants are lost to follow-up (censored)
-            - You are interested in *time to event*, not just whether it occurred
-            """)
-
-        data_mode = st.radio("Data entry mode", ["Use preset scenario", "Enter my own data"], horizontal=True, key="hr_mode")
-
-        if data_mode == "Use preset scenario":
-            scenario = st.selectbox("Choose a scenario", [
-                "Statins & Time to First MI (RCT)",
-                "HIV Diagnosis & Time to AIDS (Cohort)",
-                "Physical Activity & Time to Dementia Onset"
-            ], key="hr_scenario")
-
-            if scenario == "Statins & Time to First MI (RCT)":
-                hr, ci_low_hr, ci_high_hr = 0.68, 0.54, 0.85
-                exposed_label, unexposed_label = "Statin therapy", "Placebo"
-                outcome_label = "first myocardial infarction"
-                st.markdown("""
-                **Scenario:** In a 5-year randomized controlled trial, participants were assigned to
-                statin therapy or placebo and followed for time to first myocardial infarction (MI).
-                Results are reported from a Cox proportional hazards model.
-                *Adapted from JUPITER trial (Ridker et al., NEJM 2008).*
-                """)
-            elif scenario == "HIV Diagnosis & Time to AIDS (Cohort)":
-                hr, ci_low_hr, ci_high_hr = 2.31, 1.74, 3.07
-                exposed_label, unexposed_label = "CD4 < 200 at diagnosis", "CD4 ≥ 200 at diagnosis"
-                outcome_label = "AIDS-defining illness"
-                st.markdown("""
-                **Scenario:** A prospective cohort of HIV-positive adults is followed for time to
-                AIDS-defining illness. Participants are stratified by CD4 count at HIV diagnosis.
-                *Adapted from published HIV natural history cohort data.*
-                """)
-            elif scenario == "Physical Activity & Time to Dementia Onset":
-                hr, ci_low_hr, ci_high_hr = 0.72, 0.58, 0.89
-                exposed_label, unexposed_label = "High physical activity", "Low physical activity"
-                outcome_label = "dementia diagnosis"
-                st.markdown("""
-                **Scenario:** Adults aged 65+ are followed for up to 10 years. Those with high
-                physical activity levels are compared to sedentary adults for time to dementia diagnosis.
-                *Adapted from Larson et al., Annals of Internal Medicine (2006).*
-                """)
-
-            st.subheader("📈 Results")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Hazard Ratio (HR)", round(hr, 2))
-            col2.metric("95% CI Lower", round(ci_low_hr, 2))
-            col3.metric("95% CI Upper", round(ci_high_hr, 2))
-
-            if ci_low_hr <= 1 <= ci_high_hr:
-                st.warning(
-                    f"**Interpretation:** HR = {round(hr,2)} (95% CI: {round(ci_low_hr,2)}–{round(ci_high_hr,2)}). "
-                    f"The CI includes 1 → **not statistically significant**. "
-                    f"We cannot conclude that the rate of {outcome_label} differs between {exposed_label} and {unexposed_label}."
-                )
-            elif hr < 1:
                 st.success(
-                    f"**Interpretation:** HR = {round(hr,2)} (95% CI: {round(ci_low_hr,2)}–{round(ci_high_hr,2)}). "
-                    f"At any given point in time, {exposed_label} had {round((1-hr)*100,1)}% lower hazard of {outcome_label} "
-                    f"compared to {unexposed_label}. The CI does not include 1 → **statistically significant**."
+                    f"**Interpretation:** {round(PAR_pct,1)}% of cases in the total population are attributable "
+                    f"to this exposure. If the exposure were completely eliminated, we would expect to prevent "
+                    f"approximately {round(PAR_pct,1)}% of all cases of this disease in the population. "
+                    f"This assumes the association is causal."
                 )
+
+                if PAR_pct > 50:
+                    st.warning("⚠️ A PAR% above 50% suggests this exposure is a dominant driver of disease burden in the population.")
+
+        # ----------------------------------------------------------
+        # STANDARDIZED MORTALITY RATIO (SMR)
+        # ----------------------------------------------------------
+
+        elif measure == "Standardized Mortality Ratio (SMR)":
+
+            st.subheader("Standardized Mortality Ratio (SMR)")
+            st.info(
+                "The **SMR** compares the observed number of deaths (or cases) in a study population "
+                "to the number that would be **expected** based on the rates of a reference (standard) population. "
+                "It is used to assess whether a specific group — such as workers in a particular industry — "
+                "experiences more or fewer deaths than the general population."
+            )
+
+            with st.expander("📖 Formula"):
+                st.markdown("""
+                **SMR = Observed Deaths / Expected Deaths**
+
+                - **SMR = 1.0**: The study group has the same mortality as the reference population
+                - **SMR > 1.0**: Higher mortality than expected (excess deaths)
+                - **SMR < 1.0**: Lower mortality than expected (healthy worker effect)
+
+                **Expected deaths** are calculated by applying the reference population's age-specific
+                death rates to the age distribution of the study population.
+                """)
+
+            data_mode = st.radio("Data entry mode", ["Use preset scenario", "Enter my own data"], horizontal=True, key="smr_mode")
+
+            if data_mode == "Use preset scenario":
+                scenario = st.selectbox("Choose a scenario", [
+                    "Coal Miners & Respiratory Disease",
+                    "Nuclear Plant Workers & All-Cause Mortality",
+                    "Firefighters & Cancer Mortality"
+                ], key="smr_scenario")
+
+                if scenario == "Coal Miners & Respiratory Disease":
+                    age_groups = ["20–34", "35–44", "45–54", "55–64", "65–74"]
+                    observed =  [2,  8, 22, 41, 35]
+                    ref_rates = [0.0003, 0.0010, 0.0038, 0.0092, 0.0198]
+                    pop_sizes = [1200, 1800, 2100, 1600,  900]
+                    st.markdown("""
+                    **Scenario:** A cohort of 7,600 underground coal miners is followed for 10 years.
+                    Deaths from respiratory disease are compared to age-specific rates in the general
+                    male working population. *Adapted from NIOSH occupational cohort studies.*
+                    """)
+
+                elif scenario == "Nuclear Plant Workers & All-Cause Mortality":
+                    age_groups = ["20–34", "35–44", "45–54", "55–64", "65–74"]
+                    observed =  [3, 10, 18, 29, 22]
+                    ref_rates = [0.0008, 0.0018, 0.0045, 0.0110, 0.0240]
+                    pop_sizes = [2000, 2500, 1800, 1200,  600]
+                    st.markdown("""
+                    **Scenario:** A cohort of 8,100 nuclear power plant workers is followed for 10 years.
+                    All-cause mortality is compared to age-specific rates in the general population.
+                    This scenario often demonstrates the **healthy worker effect**.
+                    *Adapted from published nuclear worker cohort studies.*
+                    """)
+
+                elif scenario == "Firefighters & Cancer Mortality":
+                    age_groups = ["20–34", "35–44", "45–54", "55–64", "65–74"]
+                    observed =  [1, 6, 19, 38, 31]
+                    ref_rates = [0.0001, 0.0006, 0.0024, 0.0068, 0.0160]
+                    pop_sizes = [1500, 2000, 1900, 1400,  800]
+                    st.markdown("""
+                    **Scenario:** A cohort of 7,600 career firefighters is followed for 10 years.
+                    Cancer mortality is compared to age-specific rates in the general male population.
+                    *Adapted from Daniels et al. (2014) and IAFF mortality studies.*
+                    """)
+
+                st.divider()
+                st.markdown("**Age-Stratified Data:**")
+                smr_df = pd.DataFrame({
+                    "Age Group": age_groups,
+                    "Study Population Size": pop_sizes,
+                    "Observed Deaths": observed,
+                    "Reference Rate (per person)": ref_rates,
+                    "Expected Deaths": [round(pop_sizes[i] * ref_rates[i], 2) for i in range(len(age_groups))]
+                })
+                st.table(smr_df)
+
+                total_observed = sum(observed)
+                total_expected = sum([pop_sizes[i] * ref_rates[i] for i in range(len(age_groups))])
+
             else:
-                st.error(
-                    f"**Interpretation:** HR = {round(hr,2)} (95% CI: {round(ci_low_hr,2)}–{round(ci_high_hr,2)}). "
-                    f"At any given point in time, {exposed_label} had {round((hr-1)*100,1)}% higher hazard of {outcome_label} "
-                    f"compared to {unexposed_label}. The CI does not include 1 → **statistically significant**."
+                st.markdown("Enter observed and expected deaths by age group:")
+                n_groups = st.number_input("Number of age groups", min_value=1, max_value=10, value=3)
+                observed = []
+                expected_list = []
+                for i in range(n_groups):
+                    c1, c2, c3 = st.columns(3)
+                    with c1:
+                        ag = st.text_input(f"Age group {i+1} label", f"Group {i+1}", key=f"smr_ag_{i}")
+                    with c2:
+                        obs = st.number_input(f"Observed deaths", min_value=0, key=f"smr_obs_{i}")
+                    with c3:
+                        exp = st.number_input(f"Expected deaths", min_value=0.0, step=0.1, key=f"smr_exp_{i}")
+                    observed.append(obs)
+                    expected_list.append(exp)
+                total_observed = sum(observed)
+                total_expected = sum(expected_list)
+
+            if st.button("Calculate SMR"):
+                if total_expected > 0:
+                    smr = total_observed / total_expected
+
+                    # 95% CI using Poisson approximation
+                    ci_low_smr = smr - 1.96 * (smr / math.sqrt(total_observed)) if total_observed > 0 else 0
+                    ci_high_smr = smr + 1.96 * (smr / math.sqrt(total_observed)) if total_observed > 0 else 0
+                    ci_low_smr = max(0, ci_low_smr)
+
+                    st.subheader("📈 Results")
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("Observed Deaths", int(total_observed))
+                    col2.metric("Expected Deaths", round(total_expected, 2))
+                    col3.metric("SMR", round(smr, 3))
+
+                    st.write(f"95% CI: ({round(ci_low_smr,3)}, {round(ci_high_smr,3)})")
+
+                    if ci_low_smr <= 1 <= ci_high_smr:
+                        st.warning(
+                            f"**Interpretation:** SMR = {round(smr,2)} (95% CI: {round(ci_low_smr,2)}–{round(ci_high_smr,2)}). "
+                            f"The confidence interval includes 1.0, so we cannot conclude that mortality in this "
+                            f"population differs significantly from the reference population."
+                        )
+                    elif smr > 1:
+                        st.error(
+                            f"**Interpretation:** SMR = {round(smr,2)} (95% CI: {round(ci_low_smr,2)}–{round(ci_high_smr,2)}). "
+                            f"There were {int(total_observed)} observed deaths vs. {round(total_expected,1)} expected. "
+                            f"Mortality in this population is {round(smr,2)} times higher than in the reference population — "
+                            f"a statistically significant excess. We reject the null hypothesis (SMR = 1)."
+                        )
+                    else:
+                        st.success(
+                            f"**Interpretation:** SMR = {round(smr,2)} (95% CI: {round(ci_low_smr,2)}–{round(ci_high_smr,2)}). "
+                            f"There were {int(total_observed)} observed deaths vs. {round(total_expected,1)} expected. "
+                            f"Mortality in this population is lower than in the reference population — "
+                            f"this may reflect the **healthy worker effect** (workers are generally healthier than the general population)."
+                        )
+
+                    draw_ci("SMR", smr, ci_low_smr, ci_high_smr)
+
+        # ----------------------------------------------------------
+        # ATTRIBUTABLE RISK & AR%
+        # ----------------------------------------------------------
+
+        elif measure == "Attributable Risk & AR%":
+
+            st.subheader("Attributable Risk (AR) & Attributable Risk Percent (AR%)")
+            st.info(
+                "**Attributable Risk (AR)**, also called the **Risk Difference**, measures the absolute "
+                "difference in risk between exposed and unexposed groups. "
+                "**AR%** expresses that difference as a percentage of the exposed group's total risk — "
+                "it asks: of all the disease in the exposed group, what fraction is due to the exposure?"
+            )
+
+            with st.expander("📖 Formulas"):
+                st.markdown("""
+                **AR (Risk Difference) = Risk in Exposed − Risk in Unexposed**
+
+                **AR% = (AR / Risk in Exposed) × 100**
+
+                Or equivalently: **AR% = (RR − 1) / RR × 100**
+
+                - AR tells you the **absolute** excess risk due to exposure
+                - AR% tells you the **proportion** of exposed group's risk attributable to exposure
+                - Contrast with RR, which is a *relative* measure
+                """)
+
+            data_mode = st.radio("Data entry mode", ["Use preset scenario", "Enter my own data"], horizontal=True, key="ar_mode")
+
+            if data_mode == "Use preset scenario":
+                scenario = st.selectbox("Choose a scenario", [
+                    "Hypertension & Cardiovascular Disease",
+                    "Unvaccinated Children & Measles",
+                    "High Sodium Diet & Stroke"
+                ], key="ar_scenario")
+
+                if scenario == "Hypertension & Cardiovascular Disease":
+                    r_exposed, r_unexposed = 0.12, 0.04
+                    st.markdown("""
+                    **Scenario:** In a 10-year cohort study, adults with hypertension had a 12% risk
+                    of cardiovascular disease (CVD), compared to 4% among normotensive adults.
+                    *Adapted from Framingham Heart Study estimates.*
+                    """)
+                elif scenario == "Unvaccinated Children & Measles":
+                    r_exposed, r_unexposed = 0.90, 0.02
+                    st.markdown("""
+                    **Scenario:** During a measles outbreak in an unvaccinated community, 90% of
+                    unvaccinated children developed measles, compared to 2% of vaccinated children.
+                    *Adapted from CDC outbreak investigation data.*
+                    """)
+                elif scenario == "High Sodium Diet & Stroke":
+                    r_exposed, r_unexposed = 0.08, 0.03
+                    st.markdown("""
+                    **Scenario:** In a prospective cohort, adults consuming >5g sodium/day had an 8%
+                    10-year stroke risk, compared to 3% among those consuming <2g/day.
+                    *Adapted from He & MacGregor, J Human Hypertension (2003).*
+                    """)
+
+            else:
+                r_exposed = st.number_input(
+                    "Risk in exposed group (as proportion)",
+                    min_value=0.001, max_value=1.0, value=0.12, step=0.01,
+                    help="Example: 0.12 = 12% of exposed individuals developed the outcome."
+                )
+                r_unexposed = st.number_input(
+                    "Risk in unexposed group (as proportion)",
+                    min_value=0.001, max_value=1.0, value=0.04, step=0.01,
+                    help="Example: 0.04 = 4% of unexposed individuals developed the outcome."
                 )
 
-            draw_ci("HR", hr, ci_low_hr, ci_high_hr)
+            if st.button("Calculate AR & AR%"):
+                ar = r_exposed - r_unexposed
+                rr = r_exposed / r_unexposed
+                ar_pct = (ar / r_exposed) * 100
 
-        else:
-            hr = st.number_input("Hazard Ratio (HR)", min_value=0.01, value=0.68, step=0.01)
-            ci_low_hr = st.number_input("95% CI Lower bound", min_value=0.001, value=0.54, step=0.01)
-            ci_high_hr = st.number_input("95% CI Upper bound", min_value=0.001, value=0.85, step=0.01)
-            exposed_label = st.text_input("Exposed group label", "Exposed")
-            unexposed_label = st.text_input("Unexposed group label", "Unexposed")
-            outcome_label = st.text_input("Outcome label", "the outcome")
+                st.subheader("📈 Results")
+                col1, col2, col3, col4 = st.columns(4)
+                col1.metric("Risk (Exposed)", f"{round(r_exposed*100,1)}%")
+                col2.metric("Risk (Unexposed)", f"{round(r_unexposed*100,1)}%")
+                col3.metric("AR (Risk Difference)", f"{round(ar*100,1)}%")
+                col4.metric("AR%", f"{round(ar_pct,1)}%")
 
-            if st.button("Interpret HR"):
+                st.success(
+                    f"**AR Interpretation:** The exposed group had {round(ar*100,1)} additional cases per 100 people "
+                    f"compared to the unexposed group. This is the absolute excess risk due to exposure."
+                )
+                st.success(
+                    f"**AR% Interpretation:** Of all disease occurring in the exposed group, "
+                    f"{round(ar_pct,1)}% is attributable to the exposure. "
+                    f"If the exposure were removed, we could theoretically prevent {round(ar_pct,1)}% "
+                    f"of cases among exposed individuals."
+                )
+                st.info(
+                    f"**Note:** The Risk Ratio (RR) for this data is {round(rr,2)}. "
+                    f"While the RR tells you the *relative* increase in risk, "
+                    f"the AR tells you the *absolute* excess — which is often more meaningful for public health decision-making."
+                )
+
+        # ----------------------------------------------------------
+        # NNH / NNT
+        # ----------------------------------------------------------
+
+        elif measure == "Number Needed to Harm / Treat (NNH/NNT)":
+
+            st.subheader("Number Needed to Harm (NNH) / Number Needed to Treat (NNT)")
+            st.info(
+                "**NNT** is the number of people who need to receive a treatment for one additional person "
+                "to benefit. **NNH** is the number of people who need to be exposed to a risk factor for "
+                "one additional person to be harmed. Both are the inverse of the Attributable Risk (Risk Difference) "
+                "and express risk in a clinically intuitive way."
+            )
+
+            with st.expander("📖 Formulas"):
+                st.markdown("""
+                **NNT = 1 / (Risk in control − Risk in treated)**  *(used when treatment reduces risk)*
+
+                **NNH = 1 / (Risk in exposed − Risk in unexposed)**  *(used when exposure increases risk)*
+
+                Both are the inverse of the **Attributable Risk (Risk Difference)**.
+
+                - A smaller NNT means the treatment is more effective
+                - A smaller NNH means the exposure is more dangerous
+                """)
+
+            data_mode = st.radio("Data entry mode", ["Use preset scenario", "Enter my own data"], horizontal=True, key="nnt_mode")
+
+            if data_mode == "Use preset scenario":
+                scenario = st.selectbox("Choose a scenario", [
+                    "Statins & Major Cardiac Events (NNT)",
+                    "Aspirin & GI Bleeding (NNH)",
+                    "Smoking Cessation Program & Quitting at 1 Year (NNT)"
+                ], key="nnt_scenario")
+
+                if scenario == "Statins & Major Cardiac Events (NNT)":
+                    r_treatment, r_control = 0.04, 0.06
+                    label_treatment, label_control = "Statin therapy", "Placebo"
+                    context = "NNT — Treatment reduces risk"
+                    st.markdown("""
+                    **Scenario:** In a 5-year RCT, 4% of patients on statin therapy experienced a major
+                    cardiac event, compared to 6% in the placebo group.
+                    *Adapted from Heart Protection Study (MRC/BHF).*
+                    """)
+                elif scenario == "Aspirin & GI Bleeding (NNH)":
+                    r_treatment, r_control = 0.025, 0.010
+                    label_treatment, label_control = "Daily aspirin", "No aspirin"
+                    context = "NNH — Exposure increases risk"
+                    st.markdown("""
+                    **Scenario:** In a cohort study, 2.5% of adults taking daily aspirin experienced
+                    a GI bleeding event over 3 years, compared to 1.0% among non-users.
+                    *Adapted from US Preventive Services Task Force aspirin evidence review.*
+                    """)
+                elif scenario == "Smoking Cessation Program & Quitting at 1 Year (NNT)":
+                    r_treatment, r_control = 0.22, 0.08
+                    label_treatment, label_control = "Cessation program", "No program"
+                    context = "NNT — Treatment increases benefit (quitting)"
+                    st.markdown("""
+                    **Scenario:** In a randomized trial, 22% of participants in a structured smoking
+                    cessation program successfully quit at 1 year, vs. 8% in the control group.
+                    *Adapted from Cochrane systematic review on behavioral smoking cessation.*
+                    """)
+
+            else:
+                label_treatment = st.text_input("Label for treatment/exposed group", "Treatment")
+                label_control = st.text_input("Label for control/unexposed group", "Control")
+                r_treatment = st.number_input(
+                    f"Risk in {label_treatment} group",
+                    min_value=0.001, max_value=1.0, value=0.04, step=0.01
+                )
+                r_control = st.number_input(
+                    f"Risk in {label_control} group",
+                    min_value=0.001, max_value=1.0, value=0.06, step=0.01
+                )
+                context = "Manual entry"
+
+            if st.button("Calculate NNH / NNT"):
+                risk_diff = abs(r_treatment - r_control)
+                nnt_nnh = round(1 / risk_diff, 1) if risk_diff > 0 else None
+
+                st.subheader("📈 Results")
+                col1, col2, col3 = st.columns(3)
+                col1.metric(f"Risk ({label_treatment})", f"{round(r_treatment*100,1)}%")
+                col2.metric(f"Risk ({label_control})", f"{round(r_control*100,1)}%")
+                col3.metric("Risk Difference (AR)", f"{round(risk_diff*100,1)}%")
+
+                if nnt_nnh:
+                    if r_treatment < r_control:
+                        st.success(
+                            f"**NNT = {nnt_nnh}**. You would need to treat **{nnt_nnh} people** with "
+                            f"{label_treatment} to prevent one additional outcome compared to {label_control}. "
+                            f"A lower NNT means a more effective intervention."
+                        )
+                    else:
+                        st.error(
+                            f"**NNH = {nnt_nnh}**. For every **{nnt_nnh} people** exposed to "
+                            f"{label_treatment}, one additional harm would be expected compared to {label_control}. "
+                            f"A lower NNH means a more dangerous exposure."
+                        )
+
+                    # ---- NNT/NNH Interpretation Guide ----
+                    st.subheader("📐 How to Interpret This Number")
+
+                    if r_treatment < r_control:
+                        # NNT guidance
+                        st.markdown("""
+    **Is this NNT good or bad?** Context is everything. An NNT that seems large can still represent
+    an important public health benefit — especially for serious outcomes like heart attacks or death,
+    or when a treatment is low-cost and low-risk.
+
+    **General benchmarks for NNT:**
+    | NNT Range | General Interpretation |
+    |-----------|----------------------|
+    | 1 – 5 | Highly effective. Nearly everyone treated benefits (e.g., antibiotics for strep throat). |
+    | 6 – 15 | Very effective. Strong benefit for a meaningful proportion of patients. |
+    | 16 – 50 | Moderately effective. Common for preventive interventions in general populations. |
+    | 51 – 100 | Modest effect. May still be worthwhile if the outcome is severe or treatment is cheap. |
+    | > 100 | Small effect per person. Meaningful only at population scale or for catastrophic outcomes. |
+
+    **Real-world NNT examples for comparison:**
+    | Intervention | NNT | Outcome | Timeframe |
+    |---|---|---|---|
+    | Tamiflu for influenza | ~14 | Reduce duration by 1 day | Per illness |
+    | Statins (high-risk patients) | ~20 | Prevent 1 MI or stroke | 5 years |
+    | Statins (low-risk / primary prevention) | ~50–100 | Prevent 1 cardiac event | 5 years |
+    | Aspirin for secondary MI prevention | ~40 | Prevent 1 death or MI | 2 years |
+    | Smoking cessation counseling | ~10–20 | 1 additional person quits | 1 year |
+    | Seatbelt use | ~3,300 | Prevent 1 death per crash | Per crash |
+
+    **Key principle:** A large NNT is not automatically bad. Ask:
+    - How serious is the outcome? (Preventing 1 death in 200 patients may be very worthwhile.)
+    - What are the costs and risks of treatment? (Low side effects = higher acceptable NNT.)
+    - What is the baseline risk? (Low-risk populations always produce higher NNTs for preventive interventions.)
+                        """)
+                    else:
+                        # NNH guidance
+                        st.markdown("""
+    **Is this NNH concerning?** Context determines whether an NNH represents an acceptable risk or a serious safety signal.
+
+    **General benchmarks for NNH:**
+    | NNH Range | General Interpretation |
+    |-----------|----------------------|
+    | 1 – 10 | Very high harm rate. Exposure is extremely dangerous for this outcome. |
+    | 11 – 50 | High harm rate. Serious safety concern requiring careful risk-benefit analysis. |
+    | 51 – 200 | Moderate harm rate. Common in drug side effect studies; must be weighed against benefits. |
+    | 201 – 1,000 | Low harm rate. May be acceptable depending on severity of harm and magnitude of benefit. |
+    | > 1,000 | Very rare harm. Usually acceptable unless the outcome is catastrophic (e.g., death). |
+
+    **Real-world NNH examples for comparison:**
+    | Exposure / Drug | NNH | Harm | Timeframe |
+    |---|---|---|---|
+    | Daily aspirin (low-dose) | ~67 | GI bleeding event | 3 years |
+    | NSAIDs (regular use) | ~100 | GI complications | 1 year |
+    | COX-2 inhibitors (Vioxx) | ~150 | Cardiovascular event | 18 months |
+    | Smoking (1+ pack/day) | ~7 | Lung cancer | Lifetime |
+    | Unvaccinated (measles outbreak) | ~1.1 | Measles infection | Per outbreak |
+
+    **Key principle:** NNH must always be interpreted alongside NNT (the benefit).
+    - If NNT < NNH: more people benefit than are harmed — generally favorable.
+    - If NNH < NNT: more people are harmed than benefit — raises serious safety concerns.
+    - Always consider: How severe is the harm vs. the benefit?
+                        """)
+
+        # ----------------------------------------------------------
+        # HAZARD RATIO
+        # ----------------------------------------------------------
+
+        elif measure == "Hazard Ratio (HR)":
+
+            st.subheader("Hazard Ratio (HR)")
+            st.info(
+                "The **Hazard Ratio** compares the rate at which an event occurs over time between two groups. "
+                "Unlike the Risk Ratio, which looks at cumulative risk over a fixed period, the HR accounts for "
+                "**when** events happen — making it the appropriate measure for survival analysis and "
+                "time-to-event studies. It is the standard measure reported in Cox proportional hazards regression."
+            )
+
+            with st.expander("📖 Key concepts"):
+                st.markdown("""
+                **HR = Hazard in exposed group / Hazard in unexposed group**
+
+                - **HR = 1.0**: Events occur at the same rate in both groups
+                - **HR > 1.0**: Events occur faster in the exposed group (increased hazard)
+                - **HR < 1.0**: Events occur more slowly in the exposed group (protective)
+
+                **How it differs from RR:**
+                - RR compares cumulative risk at a fixed time point
+                - HR compares the *instantaneous rate* of events at any given moment
+                - HR is more appropriate when follow-up time varies across participants
+                - HR is the standard output of Cox proportional hazards models
+
+                **When to use survival analysis:**
+                - Participants enter and leave the study at different times
+                - Some participants are lost to follow-up (censored)
+                - You are interested in *time to event*, not just whether it occurred
+                """)
+
+            data_mode = st.radio("Data entry mode", ["Use preset scenario", "Enter my own data"], horizontal=True, key="hr_mode")
+
+            if data_mode == "Use preset scenario":
+                scenario = st.selectbox("Choose a scenario", [
+                    "Statins & Time to First MI (RCT)",
+                    "HIV Diagnosis & Time to AIDS (Cohort)",
+                    "Physical Activity & Time to Dementia Onset"
+                ], key="hr_scenario")
+
+                if scenario == "Statins & Time to First MI (RCT)":
+                    hr, ci_low_hr, ci_high_hr = 0.68, 0.54, 0.85
+                    exposed_label, unexposed_label = "Statin therapy", "Placebo"
+                    outcome_label = "first myocardial infarction"
+                    st.markdown("""
+                    **Scenario:** In a 5-year randomized controlled trial, participants were assigned to
+                    statin therapy or placebo and followed for time to first myocardial infarction (MI).
+                    Results are reported from a Cox proportional hazards model.
+                    *Adapted from JUPITER trial (Ridker et al., NEJM 2008).*
+                    """)
+                elif scenario == "HIV Diagnosis & Time to AIDS (Cohort)":
+                    hr, ci_low_hr, ci_high_hr = 2.31, 1.74, 3.07
+                    exposed_label, unexposed_label = "CD4 < 200 at diagnosis", "CD4 ≥ 200 at diagnosis"
+                    outcome_label = "AIDS-defining illness"
+                    st.markdown("""
+                    **Scenario:** A prospective cohort of HIV-positive adults is followed for time to
+                    AIDS-defining illness. Participants are stratified by CD4 count at HIV diagnosis.
+                    *Adapted from published HIV natural history cohort data.*
+                    """)
+                elif scenario == "Physical Activity & Time to Dementia Onset":
+                    hr, ci_low_hr, ci_high_hr = 0.72, 0.58, 0.89
+                    exposed_label, unexposed_label = "High physical activity", "Low physical activity"
+                    outcome_label = "dementia diagnosis"
+                    st.markdown("""
+                    **Scenario:** Adults aged 65+ are followed for up to 10 years. Those with high
+                    physical activity levels are compared to sedentary adults for time to dementia diagnosis.
+                    *Adapted from Larson et al., Annals of Internal Medicine (2006).*
+                    """)
+
                 st.subheader("📈 Results")
                 col1, col2, col3 = st.columns(3)
                 col1.metric("Hazard Ratio (HR)", round(hr, 2))
@@ -1456,22 +1425,58 @@ or when a treatment is low-cost and low-risk.
                 if ci_low_hr <= 1 <= ci_high_hr:
                     st.warning(
                         f"**Interpretation:** HR = {round(hr,2)} (95% CI: {round(ci_low_hr,2)}–{round(ci_high_hr,2)}). "
-                        f"The CI includes 1 → **not statistically significant**."
+                        f"The CI includes 1 → **not statistically significant**. "
+                        f"We cannot conclude that the rate of {outcome_label} differs between {exposed_label} and {unexposed_label}."
                     )
                 elif hr < 1:
                     st.success(
                         f"**Interpretation:** HR = {round(hr,2)} (95% CI: {round(ci_low_hr,2)}–{round(ci_high_hr,2)}). "
-                        f"{exposed_label} had {round((1-hr)*100,1)}% lower hazard of {outcome_label} "
-                        f"compared to {unexposed_label}. CI does not include 1 → **statistically significant**."
+                        f"At any given point in time, {exposed_label} had {round((1-hr)*100,1)}% lower hazard of {outcome_label} "
+                        f"compared to {unexposed_label}. The CI does not include 1 → **statistically significant**."
                     )
                 else:
                     st.error(
                         f"**Interpretation:** HR = {round(hr,2)} (95% CI: {round(ci_low_hr,2)}–{round(ci_high_hr,2)}). "
-                        f"{exposed_label} had {round((hr-1)*100,1)}% higher hazard of {outcome_label} "
-                        f"compared to {unexposed_label}. CI does not include 1 → **statistically significant**."
+                        f"At any given point in time, {exposed_label} had {round((hr-1)*100,1)}% higher hazard of {outcome_label} "
+                        f"compared to {unexposed_label}. The CI does not include 1 → **statistically significant**."
                     )
 
                 draw_ci("HR", hr, ci_low_hr, ci_high_hr)
+
+            else:
+                hr = st.number_input("Hazard Ratio (HR)", min_value=0.01, value=0.68, step=0.01)
+                ci_low_hr = st.number_input("95% CI Lower bound", min_value=0.001, value=0.54, step=0.01)
+                ci_high_hr = st.number_input("95% CI Upper bound", min_value=0.001, value=0.85, step=0.01)
+                exposed_label = st.text_input("Exposed group label", "Exposed")
+                unexposed_label = st.text_input("Unexposed group label", "Unexposed")
+                outcome_label = st.text_input("Outcome label", "the outcome")
+
+                if st.button("Interpret HR"):
+                    st.subheader("📈 Results")
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("Hazard Ratio (HR)", round(hr, 2))
+                    col2.metric("95% CI Lower", round(ci_low_hr, 2))
+                    col3.metric("95% CI Upper", round(ci_high_hr, 2))
+
+                    if ci_low_hr <= 1 <= ci_high_hr:
+                        st.warning(
+                            f"**Interpretation:** HR = {round(hr,2)} (95% CI: {round(ci_low_hr,2)}–{round(ci_high_hr,2)}). "
+                            f"The CI includes 1 → **not statistically significant**."
+                        )
+                    elif hr < 1:
+                        st.success(
+                            f"**Interpretation:** HR = {round(hr,2)} (95% CI: {round(ci_low_hr,2)}–{round(ci_high_hr,2)}). "
+                            f"{exposed_label} had {round((1-hr)*100,1)}% lower hazard of {outcome_label} "
+                            f"compared to {unexposed_label}. CI does not include 1 → **statistically significant**."
+                        )
+                    else:
+                        st.error(
+                            f"**Interpretation:** HR = {round(hr,2)} (95% CI: {round(ci_low_hr,2)}–{round(ci_high_hr,2)}). "
+                            f"{exposed_label} had {round((hr-1)*100,1)}% higher hazard of {outcome_label} "
+                            f"compared to {unexposed_label}. CI does not include 1 → **statistically significant**."
+                        )
+
+                    draw_ci("HR", hr, ci_low_hr, ci_high_hr)
 
     st.markdown("---")
     st.markdown("Strong epidemiologists think structurally before computing.")
