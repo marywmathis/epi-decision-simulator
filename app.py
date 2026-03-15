@@ -66,7 +66,7 @@ def draw_ci(label, estimate, ci_low, ci_high):
 st.title("🧭 Epidemiology Decision Simulator")
 st.markdown("Study Design → Outcome Type → Exposure Type → Table → Run Analysis → Interpretation")
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Measures of Association", "📐 Advanced Epi Measures", "📏 Standardization", "🎯 Practice: Measures of Association", "🎯 Practice: Advanced Epi Measures"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 Measures of Association", "📐 Advanced Epi Measures", "📏 Standardization", "🎯 Practice: Measures of Association", "🎯 Practice: Advanced Epi Measures", "🧪 Hypothesis Testing"])
 
 # ==========================================================
 # TAB 1: MEASURES OF ASSOCIATION (original app)
@@ -3242,6 +3242,560 @@ with tab5:
             st.info("Good work! Review any scenarios where you got feedback and make sure the reasoning clicks.")
         else:
             st.warning("Review the advanced epi measures and think carefully about what each one measures and when it applies.")
+
+    st.markdown("---")
+    st.markdown("Strong epidemiologists think structurally before computing.")
+
+# ==========================================================
+# TAB 6: HYPOTHESIS TESTING
+# ==========================================================
+
+with tab6:
+
+    st.markdown("""
+    This section builds your understanding of hypothesis testing from the ground up —
+    from writing hypotheses correctly, to understanding what tails mean,
+    to knowing what it actually means to reject the null.
+    """)
+
+    ht_section = st.radio(
+        "Choose a section:",
+        [
+            "1️⃣ Hypothesis Builder",
+            "2️⃣ One vs. Two Tailed Tests",
+            "3️⃣ What Does Rejecting the Null Actually Mean?"
+        ],
+        horizontal=True,
+        key="ht_section"
+    )
+
+    st.divider()
+
+    # ==========================================================
+    # SECTION 1: HYPOTHESIS BUILDER
+    # ==========================================================
+
+    if ht_section == "1️⃣ Hypothesis Builder":
+
+        st.subheader("Hypothesis Builder")
+        st.markdown("""
+        Every statistical test starts with two competing hypotheses. Practice writing them
+        correctly for each scenario below, then check your work.
+        """)
+
+        with st.expander("📖 Quick Reference: Null vs. Alternative Hypothesis"):
+            st.markdown("""
+**Null Hypothesis (H₀):**
+- The default assumption — states there is **no association**, no difference, or no effect
+- Always written as an equality (e.g., RR = 1, OR = 1, p₁ = p₂)
+- What you are trying to find evidence *against*
+- Example: "There is no association between smoking and lung cancer"
+
+**Alternative Hypothesis (H₁ or Hₐ):**
+- What you suspect is true — states there *is* an association, difference, or effect
+- Can be **two-tailed** (just different, direction unspecified): RR ≠ 1
+- Can be **one-tailed** (specific direction): RR > 1 or RR < 1
+- Example: "Smokers have a higher risk of lung cancer than non-smokers"
+
+**Key principle:** You never prove the null hypothesis is true. You either:
+- Find enough evidence to **reject H₀** (p < 0.05) → conclude the association is real
+- Fail to find enough evidence (**fail to reject H₀**) (p ≥ 0.05) → remain uncertain
+
+**Common mistake:** Students often say "we accept the null hypothesis." This is incorrect.
+Failing to find evidence of an effect is not the same as proving no effect exists.
+            """)
+
+        HYP_SCENARIOS = [
+            {
+                "id": "h1",
+                "title": "Scenario A: Exercise & Blood Pressure",
+                "description": (
+                    "A researcher wants to test whether a 12-week aerobic exercise program "
+                    "reduces systolic blood pressure in adults with hypertension. "
+                    "She will compare mean systolic BP before and after the program."
+                ),
+                "correct_null": "no difference",
+                "correct_alt_direction": "one-tailed",
+                "null_options": [
+                    "The exercise program has no effect on systolic blood pressure (μ_before = μ_after)",
+                    "The exercise program reduces systolic blood pressure (μ_before > μ_after)",
+                    "Systolic blood pressure changes after the exercise program (μ_before ≠ μ_after)",
+                ],
+                "alt_options": [
+                    "The exercise program reduces systolic blood pressure (μ_before > μ_after)",
+                    "The exercise program has no effect on systolic blood pressure",
+                    "Systolic blood pressure changes after the program (μ_before ≠ μ_after)",
+                ],
+                "correct_null_idx": 0,
+                "correct_alt_idx": 0,
+                "null_feedback": "✅ Correct. The null hypothesis always states no effect or no difference. Here: the program does nothing — BP before = BP after.",
+                "null_wrong_feedback": "❌ Not quite. The null hypothesis must state no effect. It should say the program has no impact — BP before equals BP after.",
+                "alt_feedback": "✅ Correct. Because the researcher specifically expects a *reduction* (not just any change), this is one-tailed. The alternative states a direction: before > after.",
+                "alt_wrong_feedback": "❌ Think about the researcher's expectation. She isn't just testing whether BP *changes* — she expects it to *decrease*. That directionality makes this one-tailed.",
+                "tails_explanation": (
+                    "**Why one-tailed?** The researcher has a specific directional hypothesis — "
+                    "she expects the program to *reduce* BP, not just change it in any direction. "
+                    "A one-tailed test puts all 5% of the rejection region in one tail (the lower end), "
+                    "making it easier to detect an effect in that direction but unable to detect "
+                    "an effect in the opposite direction."
+                ),
+            },
+            {
+                "id": "h2",
+                "title": "Scenario B: New Drug & Side Effects",
+                "description": (
+                    "A pharmaceutical company is testing whether a new cholesterol drug causes "
+                    "liver enzyme elevation at a different rate than placebo. They have no prior "
+                    "evidence about whether the drug increases or decreases liver enzymes — "
+                    "they just want to know if there's any difference."
+                ),
+                "correct_null": "no difference",
+                "correct_alt_direction": "two-tailed",
+                "null_options": [
+                    "The drug and placebo produce the same rate of liver enzyme elevation (p_drug = p_placebo)",
+                    "The drug increases liver enzyme elevation compared to placebo (p_drug > p_placebo)",
+                    "The drug causes liver enzyme changes compared to placebo (p_drug ≠ p_placebo)",
+                ],
+                "alt_options": [
+                    "The drug causes liver enzyme elevation at a different rate than placebo (p_drug ≠ p_placebo)",
+                    "The drug increases liver enzyme elevation compared to placebo (p_drug > p_placebo)",
+                    "The drug has no effect on liver enzymes compared to placebo",
+                ],
+                "correct_null_idx": 0,
+                "correct_alt_idx": 0,
+                "null_feedback": "✅ Correct. The null states no difference — the drug and placebo produce the same rate of enzyme elevation.",
+                "null_wrong_feedback": "❌ Not quite. The null hypothesis must always state no difference or no effect. The drug and placebo should be equal under H₀.",
+                "alt_feedback": "✅ Correct. Because the researchers have no prior expectation about direction (the drug could increase or decrease liver enzymes), this is two-tailed: p_drug ≠ p_placebo.",
+                "alt_wrong_feedback": "❌ Think about whether the researchers specified a direction. They said they don't know if the drug increases or decreases enzyme levels — just that it might differ. No specified direction = two-tailed (≠).",
+                "tails_explanation": (
+                    "**Why two-tailed?** The researchers have no prior basis to predict the *direction* "
+                    "of any difference. The drug could increase or decrease liver enzymes. "
+                    "A two-tailed test splits the 5% rejection region across both tails (2.5% each), "
+                    "so it can detect a difference in either direction. This is the most common "
+                    "approach in clinical trials when direction is unknown."
+                ),
+            },
+            {
+                "id": "h3",
+                "title": "Scenario C: Vaccination & Disease Incidence",
+                "description": (
+                    "Epidemiologists want to test whether a new vaccine reduces the incidence "
+                    "of a respiratory illness. They follow vaccinated and unvaccinated cohorts "
+                    "for one year and will compare incidence rates between groups. "
+                    "Based on the vaccine's mechanism, they expect it to be protective."
+                ),
+                "correct_null": "no difference",
+                "correct_alt_direction": "one-tailed",
+                "null_options": [
+                    "The vaccine and unvaccinated groups have the same incidence rate (IRR = 1)",
+                    "The vaccine reduces the incidence rate compared to unvaccinated (IRR < 1)",
+                    "The vaccine changes the incidence rate compared to unvaccinated (IRR ≠ 1)",
+                ],
+                "alt_options": [
+                    "The vaccine reduces incidence of respiratory illness (IRR < 1)",
+                    "The vaccine changes the incidence rate in either direction (IRR ≠ 1)",
+                    "The vaccine has no effect on incidence (IRR = 1)",
+                ],
+                "correct_null_idx": 0,
+                "correct_alt_idx": 0,
+                "null_feedback": "✅ Correct. The null states no effect — vaccinated and unvaccinated groups have equal incidence rates (IRR = 1).",
+                "null_wrong_feedback": "❌ The null must always state no effect. The vaccine and no-vaccine groups should show equal incidence under H₀ (IRR = 1).",
+                "alt_feedback": "✅ Correct. Because the researchers specifically expect the vaccine to be *protective* (reduce incidence), the alternative is directional and one-tailed: IRR < 1.",
+                "alt_wrong_feedback": "❌ The researchers said they expect the vaccine to be *protective* — that means they have a specific direction in mind (lower incidence in vaccinated group). A directional expectation means one-tailed.",
+                "tails_explanation": (
+                    "**Why one-tailed?** The vaccine's known mechanism suggests it should *reduce* "
+                    "disease incidence — not just change it in any direction. When strong biological "
+                    "or theoretical rationale supports a specific direction, a one-tailed test is "
+                    "appropriate. It concentrates all 5% in the lower tail (IRR < 1), making it "
+                    "more powerful at detecting a protective effect."
+                ),
+            },
+            {
+                "id": "h4",
+                "title": "Scenario D: Screen Time & Obesity in Children",
+                "description": (
+                    "A pediatric researcher conducts a cross-sectional study examining whether "
+                    "daily screen time (high vs. low) is associated with obesity status in children. "
+                    "She will use a chi-square test to assess whether obesity prevalence differs "
+                    "between high and low screen time groups. She has no prior hypothesis about "
+                    "which direction the association might go."
+                ),
+                "correct_null": "no difference",
+                "correct_alt_direction": "two-tailed",
+                "null_options": [
+                    "There is no association between screen time and obesity (PR = 1, or the two variables are independent)",
+                    "High screen time is associated with higher obesity prevalence (PR > 1)",
+                    "Screen time and obesity are associated (PR ≠ 1)",
+                ],
+                "alt_options": [
+                    "There is an association between screen time and obesity (PR ≠ 1)",
+                    "High screen time increases obesity prevalence (PR > 1)",
+                    "There is no association between screen time and obesity",
+                ],
+                "correct_null_idx": 0,
+                "correct_alt_idx": 0,
+                "null_feedback": "✅ Correct. The null states independence — no association between screen time and obesity. PR = 1 or the variables are statistically independent.",
+                "null_wrong_feedback": "❌ The null must state no association. Under H₀, screen time and obesity are independent — knowing a child's screen time tells you nothing about their obesity status.",
+                "alt_feedback": "✅ Correct. Because the researcher has no prior directional hypothesis, the alternative is two-tailed: there *is* an association (PR ≠ 1), without specifying direction. Note: chi-square tests are inherently two-tailed.",
+                "alt_wrong_feedback": "❌ The researcher stated she has no prior hypothesis about direction. Without a directional expectation, the alternative should be two-tailed (≠). Also note: chi-square tests are always two-tailed by nature.",
+                "tails_explanation": (
+                    "**Why two-tailed?** The researcher has no basis for predicting direction, "
+                    "and importantly, **chi-square tests are always two-tailed** — they test whether "
+                    "any difference exists in the table, regardless of direction. "
+                    "This is worth remembering: in epi, most association tests (chi-square, Fisher's exact) "
+                    "are two-tailed by default. One-tailed tests are more common in clinical trials "
+                    "with strong directional hypotheses."
+                ),
+            },
+        ]
+
+        for sc in HYP_SCENARIOS:
+            st.divider()
+            st.markdown(f"**{sc['title']}**")
+            st.markdown(sc["description"])
+            sid = sc["id"]
+
+            st.markdown("**Step 1: Select the correct null hypothesis (H₀):**")
+            null_choice = st.radio(
+                "H₀:", sc["null_options"],
+                key=f"h0_{sid}", index=None, label_visibility="collapsed"
+            )
+            if null_choice is not None:
+                if sc["null_options"].index(null_choice) == sc["correct_null_idx"]:
+                    st.success(sc["null_feedback"])
+                else:
+                    st.error(sc["null_wrong_feedback"])
+
+            st.markdown("**Step 2: Select the correct alternative hypothesis (H₁):**")
+            alt_choice = st.radio(
+                "H₁:", sc["alt_options"],
+                key=f"h1_{sid}", index=None, label_visibility="collapsed"
+            )
+            if alt_choice is not None:
+                if sc["alt_options"].index(alt_choice) == sc["correct_alt_idx"]:
+                    st.success(sc["alt_feedback"])
+                else:
+                    st.error(sc["alt_wrong_feedback"])
+
+            if null_choice is not None and alt_choice is not None:
+                if (sc["null_options"].index(null_choice) == sc["correct_null_idx"] and
+                        sc["alt_options"].index(alt_choice) == sc["correct_alt_idx"]):
+                    st.info(sc["tails_explanation"])
+
+    # ==========================================================
+    # SECTION 2: ONE VS. TWO TAILED
+    # ==========================================================
+
+    elif ht_section == "2️⃣ One vs. Two Tailed Tests":
+
+        st.subheader("One vs. Two Tailed Tests — Interactive Visualization")
+
+        st.markdown("""
+        A **p-value** is the probability of getting a test statistic as extreme as yours
+        (or more extreme) *if the null hypothesis were true*. Where that probability
+        comes from depends on how many tails you're using.
+        """)
+
+        col1, col2 = st.columns([3, 2])
+
+        with col2:
+            st.markdown("#### Adjust the settings")
+            chi2_input = st.slider(
+                "Chi-square test statistic (χ²)",
+                min_value=0.0, max_value=15.0, value=3.84, step=0.01,
+                key="chi2_slider",
+                help="Move this slider to see how the p-value changes as the test statistic changes."
+            )
+            dof_input = st.selectbox(
+                "Degrees of freedom",
+                [1, 2, 3, 4, 5], index=0, key="dof_select",
+                help="For a 2×2 table, df = 1. For larger tables, df = (rows-1) × (cols-1)."
+            )
+            tail_choice = st.radio(
+                "Tail type:",
+                ["Two-tailed (÷2 on each side)", "One-tailed (all on one side)"],
+                key="tail_radio"
+            )
+
+            from scipy.stats import chi2 as chi2_dist
+            p_two = float(1 - chi2_dist.cdf(chi2_input, dof_input))
+            p_one = p_two / 2
+
+            if "Two-tailed" in tail_choice:
+                p_display = p_two
+                tail_label = "Two-tailed p-value"
+            else:
+                p_display = p_one
+                tail_label = "One-tailed p-value"
+
+            st.metric(tail_label, f"{round(p_display, 4)}" if p_display >= 0.0001 else "< 0.0001")
+
+            if p_display < 0.05:
+                st.success("p < 0.05 → Reject H₀")
+            else:
+                st.warning("p ≥ 0.05 → Fail to reject H₀")
+
+            st.markdown("---")
+            st.markdown(f"**Two-tailed p:** {round(p_two,4)}")
+            st.markdown(f"**One-tailed p:** {round(p_one,4)}")
+            st.caption("The one-tailed p is always exactly half the two-tailed p for chi-square.")
+
+        with col1:
+            # numpy already imported at top
+
+            # Draw chi-square distribution using HTML/CSS bars
+            x_vals = [i * 0.1 for i in range(0, 160)]
+            from scipy.stats import chi2 as chi2_dist2
+            y_vals = [float(chi2_dist2.pdf(x, dof_input)) if x > 0 else 0 for x in x_vals]
+            max_y = max(y_vals) if max(y_vals) > 0 else 1
+
+            # Build SVG
+            w, h = 520, 220
+            margin_l, margin_r, margin_b, margin_t = 40, 20, 40, 20
+            plot_w = w - margin_l - margin_r
+            plot_h = h - margin_b - margin_t
+            x_max_plot = 15.0
+
+            def px(xval):
+                return margin_l + (xval / x_max_plot) * plot_w
+
+            def py(yval):
+                return margin_t + plot_h - (yval / (max_y * 1.1)) * plot_h
+
+            # Build path for the curve
+            path_pts = []
+            for i, (xv, yv) in enumerate(zip(x_vals, y_vals)):
+                if xv > x_max_plot:
+                    break
+                path_pts.append(f"{'M' if i==0 else 'L'}{round(px(xv),1)},{round(py(yv),1)}")
+            curve_path = " ".join(path_pts)
+
+            # Shaded rejection regions
+            crit_x = chi2_input
+            reject_color = "#c0392b"
+            accept_color = "#2e7d32"
+
+            # Fill area under curve to the right of chi2_input (rejection region)
+            fill_pts = []
+            for xv, yv in zip(x_vals, y_vals):
+                if xv < crit_x or xv > x_max_plot:
+                    continue
+                fill_pts.append(f"{round(px(xv),1)},{round(py(yv),1)}")
+            if fill_pts:
+                fill_path = (f"M{round(px(crit_x),1)},{round(py(0),1)} " +
+                             " ".join(f"L{pt}" for pt in fill_pts) +
+                             f" L{round(px(min(x_max_plot, x_vals[-1])),1)},{round(py(0),1)} Z")
+            else:
+                fill_path = ""
+
+            # x-axis labels
+            x_ticks = [0, 2, 4, 6, 8, 10, 12, 14]
+            tick_svg = ""
+            for xt in x_ticks:
+                tick_svg += f'<text x="{round(px(xt),1)}" y="{h-8}" text-anchor="middle" font-size="11" fill="#555">{xt}</text>'
+                tick_svg += f'<line x1="{round(px(xt),1)}" y1="{h-margin_b}" x2="{round(px(xt),1)}" y2="{h-margin_b+4}" stroke="#555" stroke-width="1"/>'
+
+            # Critical value line
+            crit_line = f'<line x1="{round(px(crit_x),1)}" y1="{margin_t}" x2="{round(px(crit_x),1)}" y2="{h-margin_b}" stroke="{reject_color}" stroke-width="2" stroke-dasharray="5,3"/>'
+            crit_label = f'<text x="{round(px(crit_x),1)}" y="{margin_t-4}" text-anchor="middle" font-size="11" fill="{reject_color}" font-weight="bold">χ²={round(chi2_input,2)}</text>'
+
+            # p-value annotation
+            p_label_x = px(min(crit_x + 1.5, x_max_plot - 1))
+            p_annotation = f'<text x="{round(p_label_x,1)}" y="{margin_t+30}" text-anchor="middle" font-size="11" fill="{reject_color}">p = {round(p_display,4) if p_display >= 0.0001 else "< 0.0001"}</text>'
+
+            # Axis lines
+            axis_svg = (
+                f'<line x1="{margin_l}" y1="{h-margin_b}" x2="{w-margin_r}" y2="{h-margin_b}" stroke="#333" stroke-width="1.5"/>'
+                f'<line x1="{margin_l}" y1="{margin_t}" x2="{margin_l}" y2="{h-margin_b}" stroke="#333" stroke-width="1.5"/>'
+            )
+
+            # Labels
+            labels_svg = (
+                f'<text x="{w//2}" y="{h-2}" text-anchor="middle" font-size="12" fill="#333">χ² value</text>'
+                f'<text x="12" y="{h//2}" text-anchor="middle" font-size="11" fill="#333" transform="rotate(-90,12,{h//2})">Density</text>'
+                f'<text x="{w//2}" y="{margin_t-8}" text-anchor="middle" font-size="12" fill="#333" font-weight="bold">Chi-Square Distribution (df={dof_input})</text>'
+            )
+
+            # Legend
+            tail_desc = "Rejection region (right tail)" if "One-tailed" in tail_choice else "Rejection region (right tail, ÷2)"
+            legend_svg = (
+                f'<rect x="{margin_l}" y="{margin_t+5}" width="12" height="12" fill="{reject_color}" opacity="0.5"/>'
+                f'<text x="{margin_l+16}" y="{margin_t+15}" font-size="11" fill="{reject_color}">{tail_desc}</text>'
+            )
+
+            svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" style="font-family:sans-serif; background:#f9f9f9; border-radius:8px;">
+  {axis_svg}
+  {f'<path d="{fill_path}" fill="{reject_color}" opacity="0.4"/>' if fill_path else ''}
+  <path d="{curve_path}" fill="none" stroke="#2c3e50" stroke-width="2.5"/>
+  {crit_line}
+  {crit_label}
+  {p_annotation}
+  {tick_svg}
+  {labels_svg}
+  {legend_svg}
+</svg>"""
+
+            st.markdown(svg, unsafe_allow_html=True)
+
+        st.divider()
+        st.markdown("""
+### Key Takeaways
+
+**Two-tailed test (most common in epi):**
+- Tests whether there is *any* difference, regardless of direction
+- Splits the 5% rejection region: 2.5% in each tail
+- Use when you have no strong prior reason to predict direction
+- Chi-square tests are **always two-tailed**
+
+**One-tailed test:**
+- Tests whether the effect is in one *specific* direction only
+- Puts all 5% rejection region in one tail → easier to reject H₀ in that direction
+- Only appropriate when strong prior evidence justifies a directional hypothesis
+- More powerful for detecting effects in the predicted direction, but
+  **cannot detect effects in the opposite direction**
+
+**Critical rule:** You must decide one- vs. two-tailed *before* looking at your data.
+Choosing after seeing results is p-hacking.
+        """)
+
+    # ==========================================================
+    # SECTION 3: WHAT DOES REJECTING THE NULL MEAN?
+    # ==========================================================
+
+    elif ht_section == "3️⃣ What Does Rejecting the Null Actually Mean?":
+
+        st.subheader("What Does Rejecting the Null Actually Mean?")
+
+        st.markdown("""
+        The p-value is one of the most misunderstood concepts in all of statistics.
+        Work through each concept below carefully.
+        """)
+
+        with st.expander("🔵 What the p-value IS", expanded=True):
+            st.markdown("""
+**The p-value is the probability of observing a test statistic as extreme as yours
+(or more extreme) *if the null hypothesis were true*.**
+
+In plain language: **"How surprising is my data, assuming nothing is going on?"**
+
+- A small p-value (e.g., p = 0.003) means: "If H₀ were true, data this extreme would
+  happen only 0.3% of the time. That's very surprising — so maybe H₀ isn't true."
+- A large p-value (e.g., p = 0.42) means: "If H₀ were true, data this extreme would
+  happen 42% of the time. That's not surprising at all — no reason to doubt H₀."
+
+**The 0.05 threshold:** We conventionally say p < 0.05 is "statistically significant."
+This means we accept a 5% chance of being wrong when we reject H₀ (Type I error / false positive).
+            """)
+
+        with st.expander("🔴 What the p-value is NOT"):
+            st.markdown("""
+These are the most common misconceptions — each one is **incorrect**:
+
+| ❌ Common Misconception | ✅ What's Actually True |
+|---|---|
+| "p = 0.03 means there's a 3% chance the null is true" | The p-value says nothing about the probability that H₀ is true |
+| "p = 0.06 means there's no association" | Failing to reject H₀ does not prove there's no effect — you may just have insufficient power |
+| "p < 0.05 means the result is important" | Statistical significance ≠ practical significance. A tiny, meaningless effect can be significant with a large enough sample |
+| "We accept the null hypothesis" | You never *accept* H₀ — you either reject it or *fail to reject* it |
+| "p = 0.049 is meaningful but p = 0.051 is not" | The 0.05 cutoff is arbitrary. These p-values represent nearly identical evidence |
+| "A smaller p-value means a stronger association" | p-values reflect sample size AND effect size. A huge sample produces tiny p-values even for trivial effects |
+            """)
+
+        with st.expander("🟡 Type I and Type II Errors"):
+            st.markdown("""
+Every decision to reject or fail to reject H₀ carries a risk of error:
+
+|  | H₀ is actually TRUE | H₀ is actually FALSE |
+|---|---|---|
+| **We reject H₀** | ❌ Type I Error (false positive) — α | ✅ Correct — power (1−β) |
+| **We fail to reject H₀** | ✅ Correct | ❌ Type II Error (false negative) — β |
+
+**Type I Error (α):**
+- Rejecting H₀ when it's actually true — a false positive
+- Probability = α, conventionally set at 0.05
+- Example: concluding a drug works when it actually doesn't
+
+**Type II Error (β):**
+- Failing to reject H₀ when it's actually false — a false negative
+- Probability = β; **power = 1 − β** (your ability to detect a real effect)
+- Example: concluding a drug doesn't work when it actually does
+- Common cause: sample size too small
+
+**The tradeoff:** Decreasing α (being more strict) reduces Type I errors but increases Type II errors. You can't minimize both simultaneously without increasing sample size.
+            """)
+
+        with st.expander("🟢 Connecting This to Your Epi Results"):
+            st.markdown("""
+When you run the chi-square test in the Measures of Association tab and get a p-value:
+
+**If p < 0.05 (reject H₀):**
+- The data are inconsistent with the null hypothesis of no association
+- We conclude there is a statistically significant association between exposure and outcome
+- This does NOT mean the association is causal — confounding and bias can still explain it
+- This does NOT tell you the association is large or important
+
+**If p ≥ 0.05 (fail to reject H₀):**
+- The data are consistent with the null hypothesis — but that doesn't prove H₀ is true
+- Possible explanations: truly no effect, OR insufficient sample size (low power), OR too much variability
+- **Never say "there is no association"** — say "there is insufficient evidence to conclude an association exists"
+
+**The CI connection:**
+- The 95% CI and the p-value always agree:
+  - If CI includes 1 → p ≥ 0.05 → fail to reject H₀
+  - If CI excludes 1 → p < 0.05 → reject H₀
+- The CI gives you *more* information than the p-value alone — it shows the range of plausible effect sizes
+            """)
+
+        with st.expander("🧠 Test Yourself"):
+            st.markdown("**Answer each question, then reveal the explanation.**")
+
+            q1 = st.radio(
+                "A study finds RR = 1.8, p = 0.03, 95% CI: 1.1–2.9. Which statement is correct?",
+                [
+                    "There is a 3% chance the null hypothesis is true",
+                    "If there were truly no association, data this extreme would occur 3% of the time",
+                    "The exposure causes the outcome with 97% certainty",
+                    "The result is not clinically meaningful because RR is small",
+                ],
+                key="q1_null", index=None
+            )
+            if q1:
+                if "data this extreme" in q1:
+                    st.success("✅ Correct. The p-value is the probability of observing results this extreme *assuming H₀ is true* — it says nothing about the probability that H₀ is true.")
+                else:
+                    st.error("❌ This is one of the most common p-value misconceptions. The p-value does not tell you the probability that H₀ is true, nor does it tell you the probability of causation.")
+
+            q2 = st.radio(
+                "A study finds OR = 2.1, p = 0.12. What is the correct conclusion?",
+                [
+                    "There is no association between exposure and outcome",
+                    "The null hypothesis is true",
+                    "There is insufficient evidence to conclude an association exists at α = 0.05",
+                    "The study was poorly designed",
+                ],
+                key="q2_null", index=None
+            )
+            if q2:
+                if "insufficient evidence" in q2:
+                    st.success("✅ Correct. p = 0.12 means we fail to reject H₀ — but this does NOT prove no association exists. It may reflect low power, small sample size, or high variability.")
+                else:
+                    st.error("❌ Failing to reject H₀ is not the same as proving H₀ is true. You cannot conclude 'no association' — only that you lack sufficient evidence to conclude one exists.")
+
+            q3 = st.radio(
+                "A clinical trial with 50,000 participants finds a drug reduces headache duration by 2 minutes (p < 0.0001). What is the most accurate interpretation?",
+                [
+                    "The drug has a large, clinically important effect",
+                    "The result is statistically significant but may not be clinically meaningful",
+                    "The p-value proves the drug is effective",
+                    "The result should be rejected because the sample is too large",
+                ],
+                key="q3_null", index=None
+            )
+            if q3:
+                if "clinically meaningful" in q3:
+                    st.success("✅ Correct. With 50,000 participants, even a tiny, clinically meaningless effect will produce a very small p-value. Statistical significance ≠ practical importance. Always consider effect size alongside p-value.")
+                else:
+                    st.error("❌ Large sample sizes can produce extremely small p-values even for trivial effects. A 2-minute reduction in headache duration is statistically significant but almost certainly not clinically meaningful.")
 
     st.markdown("---")
     st.markdown("Strong epidemiologists think structurally before computing.")
