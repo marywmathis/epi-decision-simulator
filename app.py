@@ -851,8 +851,6 @@ with tab3:
     | Sensitive to | Choice of standard population | Size/stability of reference rates |
             """)
 
-        st.markdown("---")
-        st.markdown("Strong epidemiologists think structurally before computing.")
 
 
     # TAB 2: ADVANCED EPI MEASURES
