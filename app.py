@@ -2475,6 +2475,114 @@ with tab5:
                 "outcome_label": "hip fracture",
             },
         },
+        {
+            "id": "adv_6",
+            "title": "Scenario 6: Long-term PPI Use & Kidney Disease",
+            "description": (
+                "A pharmacovigilance team is studying the safety of long-term proton pump inhibitor "
+                "(PPI) use — a common medication for acid reflux. In a 5-year cohort study, 3.2% of "
+                "adults taking PPIs daily developed chronic kidney disease (CKD), compared to 1.1% "
+                "of adults not taking PPIs. A drug safety officer wants to communicate to prescribers "
+                "how many patients would need to take PPIs long-term before one additional case of "
+                "CKD would be expected — in other words, the harm side of the risk-benefit equation."
+            ),
+            "correct_measure": "Number Needed to Harm / Treat (NNH/NNT)",
+            "measure_hint": (
+                "When an exposure or drug causes harm and you want to express that risk in terms of "
+                "'how many people need to be exposed before one additional person is harmed,' that is "
+                "the Number Needed to Harm (NNH). NNH = 1 / Risk Difference, exactly like NNT, "
+                "but in the harmful direction. This is the most intuitive way to communicate drug "
+                "safety risk to clinicians. PAR% quantifies population-level burden. AR% tells you "
+                "the fraction of disease in the exposed group. SMR compares to a reference population."
+            ),
+            "data": {
+                "type": "nnt",
+                "context": (
+                    "Use the cohort data to calculate the Number Needed to Harm (NNH). "
+                    "Because PPI use increases risk, this will be an NNH rather than an NNT."
+                ),
+                "r_treatment": 0.032,
+                "r_control": 0.011,
+                "treatment_label": "Long-term PPI use",
+                "control_label": "No PPI use",
+                "outcome_label": "chronic kidney disease",
+            },
+        },
+        {
+            "id": "adv_7",
+            "title": "Scenario 7: Police Officers & Cardiovascular Mortality",
+            "description": (
+                "An occupational health researcher studies a cohort of 6,800 active-duty police "
+                "officers followed for 10 years. During this period, 41 officers died from "
+                "cardiovascular disease. Based on age- and sex-specific cardiovascular mortality "
+                "rates from the general US population applied to the officer cohort's age and sex "
+                "distribution, 68.2 cardiovascular deaths would have been expected if officers "
+                "had the same mortality as the general population. The researcher wants to determine "
+                "whether cardiovascular mortality in this occupational group is higher or lower "
+                "than expected — and whether a well-known occupational phenomenon might explain the result."
+            ),
+            "correct_measure": "Standardized Mortality Ratio (SMR)",
+            "measure_hint": (
+                "You have an occupational cohort, a count of observed deaths, and a count of "
+                "expected deaths calculated by applying reference population rates to the cohort's "
+                "age-sex structure. Observed ÷ Expected = SMR. This is indirect standardization. "
+                "The phrase 'higher or lower than expected compared to the general population' is "
+                "the defining signal for SMR. PAR requires population exposure prevalence. "
+                "AR% compares risk between exposed and unexposed within the same study."
+            ),
+            "data": {
+                "type": "smr",
+                "context": (
+                    "Calculate the SMR and interpret whether cardiovascular mortality among police "
+                    "officers is higher or lower than expected. Consider whether the healthy worker "
+                    "effect might explain the finding."
+                ),
+                "observed": 41,
+                "expected": 68.2,
+                "group_label": "Police officers",
+                "outcome_label": "cardiovascular disease",
+            },
+        },
+        {
+            "id": "adv_8",
+            "title": "Scenario 8: Heavy Metal Exposure & Time to Cognitive Decline",
+            "description": (
+                "An environmental health study follows 3,400 adults living near a former industrial "
+                "site with known heavy metal soil contamination. Participants are classified as "
+                "high-exposure (living within 1 mile of the site) or low-exposure (living 1–5 miles "
+                "away). They are followed for up to 12 years for cognitive decline, assessed "
+                "annually. Because some participants move away, others develop dementia from "
+                "unrelated causes, and enrollment happens at different ages, each participant "
+                "contributes a different amount of follow-up time. Researchers used a Cox "
+                "proportional hazards model and found HR = 1.74 (95% CI: 1.38–2.19). "
+                "They want to know whether high exposure significantly accelerates time to "
+                "cognitive decline."
+            ),
+            "correct_measure": "Hazard Ratio (HR)",
+            "measure_hint": (
+                "Several clues identify this as a Hazard Ratio scenario: (1) follow-up time varies "
+                "across participants, (2) participants are censored when they move or develop "
+                "competing events, (3) the researchers explicitly used a Cox proportional hazards "
+                "model, and (4) they want to compare the rate at which cognitive decline occurs "
+                "over time. The Cox model always produces a Hazard Ratio. A simple RR would not "
+                "account for when events occurred or for censoring. NNT requires a fixed time "
+                "point with complete follow-up."
+            ),
+            "data": {
+                "type": "hr",
+                "context": (
+                    "The Cox proportional hazards model produced the following results. "
+                    "Interpret the Hazard Ratio and confidence interval to determine whether "
+                    "high heavy metal exposure significantly accelerates cognitive decline."
+                ),
+                "hr": 1.74,
+                "ci_low": 1.38,
+                "ci_high": 2.19,
+                "exposed_label": "High exposure (within 1 mile)",
+                "unexposed_label": "Low exposure (1–5 miles)",
+                "outcome_label": "cognitive decline",
+            },
+        },
     ]
 
     measure_options = [
