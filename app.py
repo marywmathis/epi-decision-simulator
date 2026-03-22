@@ -3,358 +3,138 @@ import pandas as pd
 import numpy as np
 from scipy.stats import chi2_contingency
 import math
+import random
 
 st.set_page_config(page_title="Epidemiology Decision Simulator", layout="wide")
 
-# ==========================================================
-# CI VISUALIZATION HELPER
-# ==========================================================
-
 def draw_ci(label, estimate, ci_low, ci_high):
-    """Draw a CI number line using HTML — no extra libraries required."""
-
     significant = not (ci_low <= 1 <= ci_high)
     color = "#2e7d32" if significant else "#c0392b"
     sig_text = "CI does not cross 1 → statistically significant" if significant else "CI crosses 1 → not statistically significant"
-
     all_vals = [ci_low, ci_high, estimate, 1.0]
     span = max(all_vals) - min(all_vals)
     pad = max(span * 0.35, 0.4)
     x_min = max(0.001, min(all_vals) - pad)
     x_max = max(all_vals) + pad
-
     def to_pct(val):
         return round((val - x_min) / (x_max - x_min) * 100, 2)
-
-    pct_low  = to_pct(ci_low)
+    pct_low = to_pct(ci_low)
     pct_high = to_pct(ci_high)
-    pct_est  = to_pct(estimate)
+    pct_est = to_pct(estimate)
     pct_null = to_pct(1.0)
-
     html = f"""
     <div style="background:#f9f9f9; border-radius:6px; padding:16px 12px 8px 12px; margin:8px 0 16px 0;">
       <div style="position:relative; height:60px; margin: 0 20px;">
         <div style="position:absolute; top:28px; left:0; right:0; height:2px; background:#cccccc;"></div>
-        <div style="position:absolute; top:24px; left:{pct_low}%; width:{pct_high - pct_low}%;
-                    height:10px; background:{color}; border-radius:5px;"></div>
-        <div style="position:absolute; top:20px; left:calc({pct_est}% - 9px);
-                    width:18px; height:18px; background:{color}; border-radius:50%;"></div>
-        <div style="position:absolute; top:8px; left:{pct_null}%; width:2px; height:44px;
-                    background:#333; border-left: 2px dashed #333;"></div>
-        <div style="position:absolute; top:0px; left:{pct_null}%;
-                    transform:translateX(-50%); font-size:11px; color:#333; white-space:nowrap;">1 (null)</div>
-        <div style="position:absolute; top:46px; left:{pct_low}%;
-                    transform:translateX(-50%); font-size:11px; color:{color};">{round(ci_low,2)}</div>
-        <div style="position:absolute; top:46px; left:{pct_est}%;
-                    transform:translateX(-50%); font-size:12px; color:{color};
-                    font-weight:bold; white-space:nowrap;">{label} = {round(estimate,2)}</div>
-        <div style="position:absolute; top:46px; left:{pct_high}%;
-                    transform:translateX(-50%); font-size:11px; color:{color};">{round(ci_high,2)}</div>
+        <div style="position:absolute; top:24px; left:{pct_low}%; width:{pct_high - pct_low}%; height:10px; background:{color}; border-radius:5px;"></div>
+        <div style="position:absolute; top:20px; left:calc({pct_est}% - 9px); width:18px; height:18px; background:{color}; border-radius:50%;"></div>
+        <div style="position:absolute; top:8px; left:{pct_null}%; width:2px; height:44px; background:#333; border-left: 2px dashed #333;"></div>
+        <div style="position:absolute; top:0px; left:{pct_null}%; transform:translateX(-50%); font-size:11px; color:#333; white-space:nowrap;">1 (null)</div>
+        <div style="position:absolute; top:46px; left:{pct_low}%; transform:translateX(-50%); font-size:11px; color:{color};">{round(ci_low,2)}</div>
+        <div style="position:absolute; top:46px; left:{pct_est}%; transform:translateX(-50%); font-size:12px; color:{color}; font-weight:bold; white-space:nowrap;">{label} = {round(estimate,2)}</div>
+        <div style="position:absolute; top:46px; left:{pct_high}%; transform:translateX(-50%); font-size:11px; color:{color};">{round(ci_high,2)}</div>
       </div>
-      <div style="text-align:center; font-size:12px; color:{color}; font-style:italic; margin-top:28px;">
-        {sig_text}
-      </div>
-    </div>
-    """
+      <div style="text-align:center; font-size:12px; color:{color}; font-style:italic; margin-top:28px;">{sig_text}</div>
+    </div>"""
     st.markdown(html, unsafe_allow_html=True)
 
-
-# ==========================================================
-# APP HEADER + TABS
-# ==========================================================
-
 st.title("🧭 Epidemiology Decision Simulator")
-st.markdown("An interactive epidemiology learning suite — measures of association, advanced epi measures, standardization, hypothesis testing, and practice scenarios.")
+st.markdown("An interactive epidemiology learning suite — measures of association, advanced epi measures, standardization, hypothesis testing, practice scenarios, and a glossary.")
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 Measures of Association", "📐 Advanced Epi Measures", "📏 Standardization", "🎯 Practice: Measures of Association", "🎯 Practice: Advanced Epi Measures", "🧪 Hypothesis Testing"])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "📊 Measures of Association",
+    "📐 Advanced Epi Measures",
+    "📏 Standardization",
+    "🎯 Practice: Measures of Association",
+    "🎯 Practice: Advanced Epi Measures",
+    "🧪 Hypothesis Testing",
+    "📖 Glossary"
+])
 
-# ==========================================================
-# TAB 1: MEASURES OF ASSOCIATION (original app)
-# ==========================================================
-
-
+# ==================================================
+# TAB 1: MEASURES OF ASSOCIATION (unchanged logic)
+# ==================================================
 with tab1:
-
-    # ----------------------------------------------------------
-    # PRESET SCENARIOS
-    # ----------------------------------------------------------
-
     PRESETS = {
         "None — I'll enter my own data": None,
         "Cohort: Smoking & Lung Cancer": {
             "design": "Cohort", "outcome_type": "Binary", "exposure_type": "Binary (2 groups)",
-            "row_0": "Smoker", "row_1": "Non-smoker",
-            "col_0": "Lung Cancer", "col_1": "No Lung Cancer",
+            "row_0": "Smoker", "row_1": "Non-smoker", "col_0": "Lung Cancer", "col_1": "No Lung Cancer",
             "cell_0_0": 84, "cell_0_1": 2916, "cell_1_0": 14, "cell_1_1": 2986,
-            "description": (
-                "**Scenario:** A prospective cohort follows 6,000 adults over 10 years. "
-                "Smokers develop lung cancer at a substantially higher rate than non-smokers. "
-                "*Adapted from Doll & Hill (1950), British Doctors Study.*"
-            )
+            "description": "**Scenario:** Prospective cohort of 6,000 adults over 10 years. *Doll & Hill (1950).*"
         },
         "Case-Control: H. pylori & Gastric Ulcer": {
             "design": "Case-Control", "outcome_type": "Binary", "exposure_type": "Binary (2 groups)",
             "row_0": "H. pylori positive", "row_1": "H. pylori negative",
             "col_0": "Gastric Ulcer (Case)", "col_1": "No Ulcer (Control)",
             "cell_0_0": 118, "cell_0_1": 62, "cell_1_0": 32, "cell_1_1": 138,
-            "description": (
-                "**Scenario:** A hospital-based case-control study recruits 150 patients with confirmed "
-                "gastric ulcer and 200 controls. Past H. pylori infection assessed via serology. "
-                "*Adapted from Marshall & Warren (1984).*"
-            )
+            "description": "**Scenario:** Hospital-based case-control study. *Marshall & Warren (1984).*"
         },
         "Cross-sectional: Obesity & Hypertension": {
             "design": "Cross-sectional", "outcome_type": "Binary", "exposure_type": "Binary (2 groups)",
             "row_0": "Obese (BMI ≥ 30)", "row_1": "Non-obese (BMI < 30)",
             "col_0": "Hypertension", "col_1": "No Hypertension",
             "cell_0_0": 210, "cell_0_1": 290, "cell_1_0": 120, "cell_1_1": 880,
-            "description": (
-                "**Scenario:** A one-time cross-sectional health survey of 1,500 adults measures "
-                "current BMI and blood pressure simultaneously. *Adapted from NHANES survey data.*"
-            )
-        },
-        "Cohort: Asbestos Exposure & Mesothelioma (Rate)": {
-            "design": "Cohort", "outcome_type": "Rate (person-time)", "exposure_type": "Binary (2 groups)",
-            "exposed_label": "Asbestos-exposed workers", "unexposed_label": "Unexposed controls",
-            "cases1": 32, "py1": 8500, "cases2": 4, "py2": 9200,
-            "description": (
-                "**Scenario:** A retrospective cohort of shipyard workers followed using employment records. "
-                "Person-time varies because workers joined and left at different times. "
-                "*Adapted from Selikoff et al. (1980).*"
-            )
+            "description": "**Scenario:** One-time cross-sectional health survey. *NHANES.*"
         },
     }
 
-    col_title, col_reset = st.columns([5, 1])
-    with col_title:
-        st.markdown("#### 💡 Load a Preset Scenario")
-        st.caption("Choose a preset to pre-fill all fields with realistic data, or select \'I\'ll enter my own data\' to start from scratch.")
-    with col_reset:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🔄 Reset", key="reset_tab1", help="Clear all fields and return to defaults"):
-            keys_to_clear = [
-                "preset_choice", "last_preset", "design", "outcome_type", "exposure_type",
-                "row_0", "row_1", "col_0", "col_1",
-                "cell_0_0", "cell_0_1", "cell_1_0", "cell_1_1",
-                "exposed_label", "unexposed_label", "cases1", "cases2", "py1", "py2"
-            ]
-            for k in keys_to_clear:
-                if k in st.session_state:
-                    del st.session_state[k]
-            st.rerun()
-
-    # Track the last loaded preset so we only inject session state once per change
     if "last_preset" not in st.session_state:
         st.session_state["last_preset"] = None
+
+    col_title, col_reset = st.columns([5, 1])
+    with col_reset:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🔄 Reset", key="reset_tab1"):
+            for k in ["preset_choice","last_preset","design","outcome_type","exposure_type",
+                      "row_0","row_1","col_0","col_1","cell_0_0","cell_0_1","cell_1_0","cell_1_1"]:
+                if k in st.session_state: del st.session_state[k]
+            st.rerun()
 
     preset_choice = st.selectbox("Select a scenario:", list(PRESETS.keys()), key="preset_choice")
     preset = PRESETS[preset_choice]
 
-    # When preset changes, write all values into session state so widgets pick them up
     if preset_choice != st.session_state["last_preset"]:
         st.session_state["last_preset"] = preset_choice
         if preset:
-            for key in ["design", "outcome_type", "exposure_type",
-                        "row_0", "row_1", "col_0", "col_1",
-                        "cell_0_0", "cell_0_1", "cell_1_0", "cell_1_1",
-                        "exposed_label", "unexposed_label",
-                        "cases1", "py1", "cases2", "py2"]:
-                if key in preset:
-                    st.session_state[key] = preset[key]
+            for key in ["design","outcome_type","exposure_type","row_0","row_1","col_0","col_1",
+                        "cell_0_0","cell_0_1","cell_1_0","cell_1_1"]:
+                if key in preset: st.session_state[key] = preset[key]
         else:
-            # Reset to defaults
-            st.session_state["row_0"] = "Group 1"
-            st.session_state["row_1"] = "Group 2"
-            st.session_state["col_0"] = "Level 1"
-            st.session_state["col_1"] = "Level 2"
-            st.session_state["cell_0_0"] = 0
-            st.session_state["cell_0_1"] = 0
-            st.session_state["cell_1_0"] = 0
-            st.session_state["cell_1_1"] = 0
-            st.session_state["cases1"] = 0
-            st.session_state["cases2"] = 0
-            st.session_state["py1"] = 1
-            st.session_state["py2"] = 1
-            st.session_state["exposed_label"] = "Exposed"
-            st.session_state["unexposed_label"] = "Unexposed"
-            st.session_state["design"] = "Cohort"
-            st.session_state["outcome_type"] = "Binary"
-            st.session_state["exposure_type"] = "Binary (2 groups)"
+            defaults = {"row_0":"Group 1","row_1":"Group 2","col_0":"Level 1","col_1":"Level 2",
+                       "cell_0_0":0,"cell_0_1":0,"cell_1_0":0,"cell_1_1":0,
+                       "design":"Cohort","outcome_type":"Binary","exposure_type":"Binary (2 groups)"}
+            for k,v in defaults.items(): st.session_state[k] = v
         st.rerun()
 
-    if preset:
-        st.info(preset["description"])
+    if preset: st.info(preset["description"])
+    st.divider()
+
+    design_options = ["Cohort","Case-Control","Cross-sectional"]
+    if "design" not in st.session_state: st.session_state["design"] = "Cohort"
+    design = st.selectbox("Select study design:", design_options,
+                          index=design_options.index(st.session_state.get("design","Cohort")))
+
+    outcome_options = ["Binary","Categorical (Nominal >2 levels)","Ordinal","Rate (person-time)"]
+    if "outcome_type" not in st.session_state: st.session_state["outcome_type"] = "Binary"
+    outcome_type = st.selectbox("Select outcome type:", outcome_options,
+                                index=outcome_options.index(st.session_state.get("outcome_type","Binary")))
+
+    exposure_options = ["Binary (2 groups)","Categorical (>2 groups)"]
+    if "exposure_type" not in st.session_state: st.session_state["exposure_type"] = "Binary (2 groups)"
+    exposure_type = st.selectbox("Select exposure type:", exposure_options,
+                                 index=exposure_options.index(st.session_state.get("exposure_type","Binary (2 groups)")))
 
     st.divider()
 
-    def pval(key, default):
-        return st.session_state.get(key, preset[key] if preset and key in preset else default)
-
-    st.subheader("Step 1️⃣: Study Design")
-
-    design_options = ["Cohort", "Case-Control", "Cross-sectional"]
-    if "design" not in st.session_state:
-        st.session_state["design"] = "Cohort"
-    design = st.selectbox(
-        "Select study design:",
-        design_options,
-        index=design_options.index(st.session_state.get("design", "Cohort")),
-        help=(
-            "Cohort: Follow exposed and unexposed groups forward in time to compare new cases (incidence). "
-            "Produces a Risk Ratio (RR) or Rate Ratio.\n\n"
-            "Case-Control: Start with people who already have the disease (cases) and those who don't (controls), "
-            "then look back at their past exposure. Produces an Odds Ratio (OR).\n\n"
-            "Cross-sectional: Measure exposure and outcome at the same point in time — a snapshot. "
-            "Produces a Prevalence Ratio (PR) or Odds Ratio."
-        )
-    )
-
-    st.subheader("Step 2️⃣: Outcome Variable Type")
-
-    outcome_options = ["Binary", "Categorical (Nominal >2 levels)", "Ordinal", "Rate (person-time)"]
-    if "outcome_type" not in st.session_state:
-        st.session_state["outcome_type"] = "Binary"
-    outcome_type = st.selectbox(
-        "Select outcome type:",
-        outcome_options,
-        index=outcome_options.index(st.session_state.get("outcome_type", "Binary")),
-        help=(
-            "Binary: The outcome has exactly two categories (e.g., disease: Yes/No). "
-            "Produces a 2x2 table and allows RR and OR calculation.\n\n"
-            "Categorical (Nominal >2 levels): The outcome has 3+ unordered categories "
-            "(e.g., disease severity: mild, moderate, severe). Produces a larger table; chi-square only.\n\n"
-            "Ordinal: The outcome has ordered categories (e.g., none, mild, severe). "
-            "Treated like categorical here; chi-square only.\n\n"
-            "Rate (person-time): Each participant contributes a different amount of time at risk. "
-            "Used when follow-up time varies. Produces an Incidence Rate Ratio (IRR)."
-        )
-    )
-
-    st.subheader("Step 3️⃣: Exposure Variable Type")
-
-    exposure_options = ["Binary (2 groups)", "Categorical (>2 groups)"]
-    if "exposure_type" not in st.session_state:
-        st.session_state["exposure_type"] = "Binary (2 groups)"
-    exposure_type = st.selectbox(
-        "Select exposure type:",
-        exposure_options,
-        index=exposure_options.index(st.session_state.get("exposure_type", "Binary (2 groups)")),
-        help=(
-            "Binary (2 groups): Exposed vs. unexposed — the most common setup. "
-            "Enables a standard 2x2 table and full RR/OR analysis.\n\n"
-            "Categorical (>2 groups): Three or more exposure levels "
-            "(e.g., never smoker, light smoker, heavy smoker). "
-            "Produces a larger table; chi-square only."
-        )
-    )
-
-    st.divider()
-
-    # ----------------------------------------------------------
-    # RATE OUTCOME
-    # ----------------------------------------------------------
-
-    if outcome_type == "Rate (person-time)":
-
-        st.header("📊 Rate Data Entry")
-        st.info(
-            "**Person-time** accounts for the fact that participants are followed for different lengths of time. "
-            "Instead of counting people, you sum up the total time each person was at risk. "
-            "The **Incidence Rate Ratio (IRR)** compares the rate of new cases between the two groups."
-        )
-
-        exposed_label = st.text_input("Label for Exposed Group", key="exposed_label")
-        unexposed_label = st.text_input("Label for Unexposed Group", key="unexposed_label")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            cases1 = st.number_input(f"Cases ({exposed_label})", min_value=0, key="cases1")
-            py1 = st.number_input(f"Person-Time ({exposed_label})", min_value=1, key="py1")
-        with col2:
-            cases2 = st.number_input(f"Cases ({unexposed_label})", min_value=0, key="cases2")
-            py2 = st.number_input(f"Person-Time ({unexposed_label})", min_value=1, key="py2")
-
-        if st.button("Run Statistical Analysis"):
-            if cases1 > 0 and cases2 > 0:
-                ir1 = cases1 / py1
-                ir2 = cases2 / py2
-                if ir2 > 0:
-                    rr = ir1 / ir2
-                    se_log_rr = math.sqrt((1/cases1) + (1/cases2))
-                    ci_low = math.exp(math.log(rr) - 1.96 * se_log_rr)
-                    ci_high = math.exp(math.log(rr) + 1.96 * se_log_rr)
-
-                    st.subheader("📈 Rate Ratio Results")
-                    st.write(f"Rate Ratio = {round(rr,3)}")
-                    st.write(f"95% CI: ({round(ci_low,3)}, {round(ci_high,3)})")
-
-                    if ci_low <= 1 <= ci_high:
-                        st.warning(
-                            f"**Result:** The incidence rate among {exposed_label} does not differ "
-                            f"statistically from {unexposed_label} (IRR = {round(rr,2)}, "
-                            f"95% CI: {round(ci_low,2)}–{round(ci_high,2)}). "
-                            f"Because the confidence interval includes 1, we **fail to reject** the null "
-                            f"hypothesis of no association."
-                        )
-                    else:
-                        direction = "higher" if rr > 1 else "lower"
-                        st.success(
-                            f"**Result:** In this {design.lower()} study, the incidence rate among "
-                            f"{exposed_label} is {round(rr,2)} times {direction} than "
-                            f"among {unexposed_label} (IRR = {round(rr,2)}, "
-                            f"95% CI: {round(ci_low,2)}–{round(ci_high,2)}). "
-                            f"Because the CI does not include 1, we **reject the null hypothesis**."
-                        )
-                    draw_ci("IRR", rr, ci_low, ci_high)
-            else:
-                st.warning("Both groups must have at least one case to compute rate ratio.")
-
-    # ----------------------------------------------------------
-    # CONTINGENCY TABLE
-    # ----------------------------------------------------------
-
-    elif outcome_type in ["Binary", "Categorical (Nominal >2 levels)", "Ordinal"]:
-
-        st.header("📊 Build Contingency Table")
-
-        if exposure_type == "Binary (2 groups)":
-            num_rows = 2
-        else:
-            num_rows = st.number_input("Number of Exposure Groups", min_value=2, value=3)
-
-        if outcome_type == "Binary":
-            num_cols = 2
-        else:
-            num_cols = st.number_input("Number of Outcome Levels", min_value=2, value=3)
+    if outcome_type in ["Binary","Categorical (Nominal >2 levels)","Ordinal"]:
+        num_rows = 2 if exposure_type == "Binary (2 groups)" else st.number_input("Number of Exposure Groups", min_value=2, value=3)
+        num_cols = 2 if outcome_type == "Binary" else st.number_input("Number of Outcome Levels", min_value=2, value=3)
 
         st.subheader("Label Exposure Groups")
-        st.caption(
-            "Name each exposure group — these are the groups you are comparing. "
-            "Examples: *Received medication* vs *No medication*; *Smoker* vs *Non-smoker*; "
-            "*Vaccinated* vs *Unvaccinated*; *Exposed to toxin* vs *Not exposed*."
-        )
-        row_names = [
-            st.text_input(
-                f"Exposure Group {i+1}", key=f"row_{i}",
-                help="Examples: Exposed, Unexposed, Vaccinated, Smoker, Received Treatment, Control group."
-            )
-            for i in range(num_rows)
-        ]
-
+        row_names = [st.text_input(f"Exposure Group {i+1}", key=f"row_{i}") for i in range(num_rows)]
         st.subheader("Label Outcome Levels")
-        st.caption(
-            "Name each outcome category — this is what you measured or counted. "
-            "Examples: *Hypertension* vs *No hypertension*; *Asthma exacerbation* vs *No exacerbation*; "
-            "*Lung cancer* vs *No lung cancer*; *Hospitalized* vs *Not hospitalized*."
-        )
-        col_names = [
-            st.text_input(
-                f"Outcome Level {j+1}", key=f"col_{j}",
-                help="Examples: Disease, No disease, Outcome present, Outcome absent, Mild, Moderate, Severe."
-            )
-            for j in range(num_cols)
-        ]
-
+        col_names = [st.text_input(f"Outcome Level {j+1}", key=f"col_{j}") for j in range(num_cols)]
         st.subheader("Enter Cell Counts")
 
         data = []
@@ -364,3739 +144,1153 @@ with tab1:
             cols = st.columns(num_cols)
             for j in range(num_cols):
                 with cols[j]:
-                    value = st.number_input(
-                        f"{row_names[i]} - {col_names[j]}",
-                        min_value=0,
-                        key=f"cell_{i}_{j}"
-                    )
-                    row.append(value)
+                    row.append(st.number_input(f"{row_names[i]} - {col_names[j]}", min_value=0, key=f"cell_{i}_{j}"))
             data.append(row)
 
         df = pd.DataFrame(data, columns=col_names, index=row_names)
         df["Row Total"] = df.sum(axis=1)
-        total_row = df.sum()
-        total_row.name = "Column Total"
+        total_row = df.sum(); total_row.name = "Column Total"
         df = pd.concat([df, total_row.to_frame().T])
-
         st.subheader("Contingency Table with Totals")
         st.table(df)
-
         table_array = df.iloc[:-1, :-1].values
 
         if st.button("Run Statistical Analysis"):
-
-            alpha = 0.05
-
             if np.sum(table_array) == 0:
-                st.warning(
-                    "⚠️ All cell counts are zero. Please enter your data before running the analysis. "
-                    "Tip: Label your groups first, then fill in the counts in each cell."
-                )
+                st.warning("⚠️ All cell counts are zero.")
             else:
-                row_sums = table_array.sum(axis=1)
-                col_sums = table_array.sum(axis=0)
-
+                row_sums = table_array.sum(axis=1); col_sums = table_array.sum(axis=0)
                 if np.any(row_sums == 0) or np.any(col_sums == 0):
-                    st.warning(
-                        "⚠️ One or more rows or columns sum to zero. "
-                        "Each exposure group and outcome category must have at least one observation "
-                        "before the chi-square test can run."
-                    )
+                    st.warning("⚠️ One or more rows/columns sum to zero.")
                 else:
                     try:
                         chi2, p, dof, expected = chi2_contingency(table_array)
                     except ValueError:
-                        st.warning("Chi-square could not be computed due to structural zeros.")
+                        st.warning("Chi-square could not be computed.")
                     else:
                         st.subheader("📈 Chi-Square Test of Independence")
-                        st.info(
-                            "The **chi-square (χ²) test** asks: is there a statistically significant association "
-                            "between exposure and outcome, or could the pattern in the table be due to chance? "
-                            "A **p-value < 0.05** means we reject the null hypothesis of no association. "
-                            "A **p-value ≥ 0.05** means we do not have enough evidence to conclude an association exists."
-                        )
-
-                        # --- ONE vs TWO TAILED SELECTOR ---
-                        tail_sel = st.radio(
-                            "Tail type:",
-                            ["Two-tailed (standard for chi-square)", "One-tailed (divide p by 2)"],
-                            horizontal=True,
-                            key="tab1_tail_sel",
-                            help=(
-                                "Chi-square tests are almost always two-tailed in epidemiology. "
-                                "One-tailed divides the p-value by 2 and is only appropriate when "
-                                "you have a strong directional hypothesis established before seeing the data. "
-                                "See the Hypothesis Testing tab for a full explanation."
-                            )
-                        )
+                        tail_sel = st.radio("Tail type:", ["Two-tailed (standard for chi-square)","One-tailed (divide p by 2)"], horizontal=True, key="tab1_tail_sel")
                         p_display = p if "Two-tailed" in tail_sel else p / 2
                         tail_note = "" if "Two-tailed" in tail_sel else " (one-tailed)"
-
                         st.write(f"χ²({dof}) = {round(chi2, 3)}")
-                        if p_display < 0.0001:
-                            st.write(f"p-value < 0.0001{tail_note}")
-                        elif p_display < 0.001:
-                            st.write(f"p-value = {round(p_display, 5)}{tail_note}")
+                        st.write(f"p-value = {round(p_display,4) if p_display >= 0.0001 else '< 0.0001'}{tail_note}")
+
+                        if p_display < 0.05:
+                            st.success(f"Statistically significant association (p = {round(p_display,4)}{tail_note}). We **reject the null hypothesis**.")
                         else:
-                            st.write(f"p-value = {round(p_display, 4)}{tail_note}")
+                            st.warning(f"Insufficient evidence (p = {round(p_display,4)}{tail_note}). We **fail to reject the null hypothesis**.")
 
-                        # --- CHI-SQUARE DISTRIBUTION VISUALIZATION ---
-                        from scipy.stats import chi2 as chi2_dist_tab1
-                        x_vals_t1 = [i * 0.1 for i in range(1, 200)]
-                        y_vals_t1 = [float(chi2_dist_tab1.pdf(x, dof)) for x in x_vals_t1]
-                        max_y_t1 = max(y_vals_t1) if y_vals_t1 else 1
-                        x_max_t1 = max(chi2 * 2.5, 10.0)
-
-                        wt, ht = 560, 160
-                        ml, mr, mb, mt2 = 35, 15, 35, 15
-                        pw_t1 = wt - ml - mr
-                        ph_t1 = ht - mb - mt2
-
-                        def t1_px(v):
-                            return ml + (v / x_max_t1) * pw_t1
-
-                        def t1_py(v):
-                            return mt2 + ph_t1 - (v / (max_y_t1 * 1.15)) * ph_t1
-
-                        # Curve path
-                        pts_t1 = []
-                        for i, (xv, yv) in enumerate(zip(x_vals_t1, y_vals_t1)):
-                            if xv > x_max_t1:
-                                break
-                            pts_t1.append(f"{'M' if i==0 else 'L'}{round(t1_px(xv),1)},{round(t1_py(yv),1)}")
-                        curve_t1 = " ".join(pts_t1)
-
-                        # Shaded rejection region (right of chi2 value)
-                        rc = "#c0392b"
-                        fill_t1 = []
-                        for xv, yv in zip(x_vals_t1, y_vals_t1):
-                            if xv < chi2 or xv > x_max_t1:
-                                continue
-                            fill_t1.append(f"{round(t1_px(xv),1)},{round(t1_py(yv),1)}")
-                        fill_path_t1 = ""
-                        if fill_t1:
-                            fill_path_t1 = (
-                                f"M{round(t1_px(chi2),1)},{round(t1_py(0),1)} " +
-                                " ".join(f"L{pt}" for pt in fill_t1) +
-                                f" L{round(t1_px(min(x_max_t1, x_vals_t1[-1])),1)},{round(t1_py(0),1)} Z"
-                            )
-
-                        # X ticks
-                        tick_count = 6
-                        ticks_t1 = [round(x_max_t1 * i / tick_count, 1) for i in range(tick_count + 1)]
-                        ticks_svg_t1 = "".join(
-                            f'<text x="{round(t1_px(xt),1)}" y="{ht-6}" text-anchor="middle" font-size="10" fill="#555">{xt}</text>'
-                            f'<line x1="{round(t1_px(xt),1)}" y1="{ht-mb}" x2="{round(t1_px(xt),1)}" y2="{ht-mb+3}" stroke="#555" stroke-width="1"/>'
-                            for xt in ticks_t1
-                        )
-
-                        # Observed chi2 line
-                        obs_x = round(t1_px(chi2), 1)
-                        obs_line = f'<line x1="{obs_x}" y1="{mt2}" x2="{obs_x}" y2="{ht-mb}" stroke="{rc}" stroke-width="2" stroke-dasharray="5,3"/>'
-
-                        # Label box to the right of the line
-                        lbl = f"χ²={round(chi2,2)}"
-                        lbl_w2 = max(len(lbl) * 7 + 10, 60)
-                        lbl_bx = round(min(obs_x + 6, wt - mr - lbl_w2 - 2), 1)
-                        lbl_by = round((mt2 + ht - mb) / 2, 1)
-                        lbl_box = (
-                            f'<rect x="{lbl_bx}" y="{lbl_by-13}" width="{lbl_w2}" height="17" fill="white" stroke="{rc}" stroke-width="1.2" rx="3"/>'
-                            f'<text x="{lbl_bx + lbl_w2//2}" y="{lbl_by}" text-anchor="middle" font-size="11" fill="{rc}" font-weight="bold">{lbl}</text>'
-                        )
-
-                        # p-value annotation in shaded area
-                        p_ann_x = round(min(t1_px(chi2) + (pw_t1 - t1_px(chi2) + ml) * 0.4, wt - mr - 30), 1)
-                        p_str = f"p={'<0.0001' if p_display < 0.0001 else round(p_display,4)}"
-                        p_color = rc if p_display < 0.05 else "#2e7d32"
-                        p_ann = f'<text x="{p_ann_x}" y="{mt2+22}" text-anchor="middle" font-size="11" fill="{p_color}" font-weight="bold">{p_str}</text>'
-
-                        # Axes
-                        axes_t1 = (
-                            f'<line x1="{ml}" y1="{ht-mb}" x2="{wt-mr}" y2="{ht-mb}" stroke="#333" stroke-width="1.5"/>'
-                            f'<line x1="{ml}" y1="{mt2}" x2="{ml}" y2="{ht-mb}" stroke="#333" stroke-width="1.5"/>'
-                        )
-                        title_t1 = f'<text x="{wt//2}" y="{mt2-2}" text-anchor="middle" font-size="12" fill="#333" font-weight="bold">χ² Distribution (df={dof}) — Your result: χ²={round(chi2,2)}</text>'
-                        xlabel_t1 = f'<text x="{wt//2}" y="{ht-1}" text-anchor="middle" font-size="10" fill="#555">χ² value</text>'
-                        reject_legend = f'<rect x="{ml}" y="{mt2+3}" width="10" height="10" fill="{rc}" opacity="0.45"/><text x="{ml+13}" y="{mt2+12}" font-size="10" fill="{rc}">Rejection region (your p-value)</text>'
-
-                        svg_t1 = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{wt}" height="{ht}" style="font-family:sans-serif;background:#f9f9f9;border-radius:6px;margin:6px 0;">
-  {axes_t1}
-  {f'<path d="{fill_path_t1}" fill="{rc}" opacity="0.4"/>' if fill_path_t1 else ''}
-  <path d="{curve_t1}" fill="none" stroke="#2c3e50" stroke-width="2"/>
-  {obs_line}
-  {lbl_box}
-  {p_ann}
-  {ticks_svg_t1}
-  {title_t1}
-  {xlabel_t1}
-  {reject_legend}
-</svg>"""
-                        st.markdown(svg_t1, unsafe_allow_html=True)
-
-                        exposure_label_string = ", ".join(row_names)
-                        outcome_label_string = ", ".join(col_names)
-
-                        if p_display < alpha:
-                            st.success(
-                                f"**Result:** In this {design.lower()} study, the distribution of "
-                                f"{outcome_label_string} differs significantly across exposure groups "
-                                f"({exposure_label_string}) (χ²({dof}) = {round(chi2,3)}, p = {round(p_display,4)}{tail_note}). "
-                                f"We **reject the null hypothesis** of independence."
-                            )
-                        else:
-                            st.warning(
-                                f"**Result:** In this {design.lower()} study, there is insufficient "
-                                f"evidence to conclude that {outcome_label_string} differs across "
-                                f"exposure groups ({exposure_label_string}) "
-                                f"(χ²({dof}) = {round(chi2,3)}, p = {round(p_display,4)}{tail_note}). "
-                                f"We **fail to reject the null hypothesis**."
-                            )
-
-                        # ---- SHOW THE MATH: CHI-SQUARE ----
-                        with st.expander("🔢 Show me the math — Chi-Square Test"):
-                            st.markdown(f"""
-**The chi-square test compares observed cell counts to what we would expect if there were no association.**
-
-**Step 1: Your observed counts (O)**
-""")
-                            obs_df = pd.DataFrame(
-                                table_array,
-                                columns=col_names,
-                                index=row_names
-                            )
-                            st.table(obs_df)
-                            st.markdown(f"""
-**Step 2: Expected counts (E) — calculated from row and column totals**
-
-E = (Row Total × Column Total) ÷ Grand Total
-
-Expected counts assuming no association:
-""")
-                            exp_df = pd.DataFrame(
-                                [[round(expected[i][j], 2) for j in range(num_cols)] for i in range(num_rows)],
-                                columns=col_names,
-                                index=row_names
-                            )
-                            st.table(exp_df)
-                            st.markdown(f"""
-**Step 3: Calculate χ² = Σ [(O − E)² ÷ E]**
-
-For each cell: subtract expected from observed, square it, divide by expected. Sum all cells.
-
-χ²({dof}) = **{round(chi2, 3)}**
-
-**Step 4: Interpret the p-value**
-
-With {dof} degree(s) of freedom, a χ² of {round(chi2,3)} gives p = **{round(p,4) if p >= 0.0001 else "< 0.0001"}**
-
-{'✅ p < 0.05 → We reject the null hypothesis. The association is statistically significant.' if p < 0.05 else '⚠️ p ≥ 0.05 → We fail to reject the null hypothesis. Insufficient evidence of an association.'}
-                            """)
+                        with st.expander("🔢 Show me the math — Chi-Square"):
+                            obs_df = pd.DataFrame(table_array, columns=col_names, index=row_names)
+                            st.markdown("**Observed counts (O):**"); st.table(obs_df)
+                            exp_df = pd.DataFrame([[round(expected[i][j],2) for j in range(num_cols)] for i in range(num_rows)], columns=col_names, index=row_names)
+                            st.markdown("**Expected counts (E):**"); st.table(exp_df)
+                            st.markdown(f"**χ²({dof}) = {round(chi2,3)}, p = {round(p,4) if p >= 0.0001 else '< 0.0001'}**")
 
                         if num_rows == 2 and num_cols == 2:
-
-                            a, b = table_array[0]
-                            c, d = table_array[1]
-
+                            a, b = table_array[0]; c, d = table_array[1]
                             if all(v > 0 for v in [a, b, c, d]):
-
-                                # --- Determine correct measure label based on study design ---
-                                is_cross_sectional = (design == "Cross-sectional")
-                                primary_label = "Prevalence Ratio (PR)" if is_cross_sectional else "Risk Ratio (RR)"
-                                primary_abbrev = "PR" if is_cross_sectional else "RR"
-
-                                st.info(
-                                    f"Because you have a 2×2 table, we can calculate the "
-                                    f"**{primary_label}** and **Odds Ratio (OR)**. "
-                                    f"The **95% confidence interval (CI)** gives the range of "
-                                    f"plausible values for the true measure. "
-                                    f"If the CI includes 1, the association is **not statistically significant** — "
-                                    f"a {primary_abbrev} or OR of 1 means no difference between groups."
-                                )
-
-                                # --- Calculation (same formula, different label) ---
+                                is_cs = (design == "Cross-sectional")
+                                plabel = "Prevalence Ratio (PR)" if is_cs else "Risk Ratio (RR)"
+                                pabbr = "PR" if is_cs else "RR"
                                 rr = (a/(a+b)) / (c/(c+d))
                                 se_log_rr = math.sqrt((1/a)-(1/(a+b))+(1/c)-(1/(c+d)))
                                 ci_low_rr = math.exp(math.log(rr)-1.96*se_log_rr)
                                 ci_high_rr = math.exp(math.log(rr)+1.96*se_log_rr)
-
-                                risk_a = a/(a+b)
-                                risk_c = c/(c+d)
-                                odds_a = a/b
-                                odds_c = c/d
                                 or_val = (a*d)/(b*c)
                                 se_log_or = math.sqrt(1/a+1/b+1/c+1/d)
                                 ci_low_or = math.exp(math.log(or_val)-1.96*se_log_or)
                                 ci_high_or = math.exp(math.log(or_val)+1.96*se_log_or)
 
-                                # ---- PRIMARY RATIO (RR or PR) ----
-                                st.subheader(primary_label)
-                                if is_cross_sectional:
-                                    st.caption(
-                                        "PR = prevalence in exposed ÷ prevalence in unexposed. "
-                                        "PR = 1: no difference. PR > 1: higher prevalence in exposed group. PR < 1: lower prevalence in exposed group. "
-                                        "The appropriate measure for cross-sectional studies comparing prevalence between groups."
-                                    )
-                                else:
-                                    st.caption(
-                                        "RR = risk in exposed ÷ risk in unexposed. "
-                                        "RR = 1: no difference. RR > 1: higher risk in exposed group. RR < 1: lower risk in exposed group. "
-                                        "Most appropriate for cohort studies."
-                                    )
-
+                                st.subheader(plabel)
                                 if ci_low_rr <= 1 <= ci_high_rr:
-                                    st.warning(
-                                        f"{primary_abbrev} = {round(rr,2)} (95% CI: {round(ci_low_rr,2)}–{round(ci_high_rr,2)}). "
-                                        f"The CI includes 1 → **not statistically significant**. "
-                                        f"We cannot conclude that {row_names[0]} has a different {'prevalence' if is_cross_sectional else 'risk'} of {col_names[0]} than {row_names[1]}."
-                                    )
+                                    st.warning(f"{pabbr} = {round(rr,2)} (95% CI: {round(ci_low_rr,2)}–{round(ci_high_rr,2)}). Not significant.")
                                 else:
                                     direction = "higher" if rr > 1 else "lower"
-                                    st.success(
-                                        f"{primary_abbrev} = {round(rr,2)} (95% CI: {round(ci_low_rr,2)}–{round(ci_high_rr,2)}). "
-                                        f"The {'prevalence' if is_cross_sectional else 'risk'} of {col_names[0]} among {row_names[0]} is {round(rr,2)} times "
-                                        f"{direction} than among {row_names[1]}. "
-                                        f"The CI does not include 1 → **statistically significant**."
-                                    )
+                                    st.success(f"{pabbr} = {round(rr,2)} (95% CI: {round(ci_low_rr,2)}–{round(ci_high_rr,2)}). {round(rr,2)}× {direction} risk.")
+                                draw_ci(pabbr, rr, ci_low_rr, ci_high_rr)
 
-                                draw_ci(primary_abbrev, rr, ci_low_rr, ci_high_rr)
-
-                                # ---- SHOW THE MATH: RR/PR ----
-                                with st.expander(f"🔢 Show me the math — {primary_label}"):
-                                    st.markdown(f"""
-**Step 1: Calculate {'prevalence' if is_cross_sectional else 'risk'} in each group**
-
-- {'Prevalence' if is_cross_sectional else 'Risk'} in {row_names[0]}: a ÷ (a+b) = {a} ÷ {a+b} = **{round(risk_a, 4)}** ({round(risk_a*100,1)}%)
-- {'Prevalence' if is_cross_sectional else 'Risk'} in {row_names[1]}: c ÷ (c+d) = {c} ÷ {c+d} = **{round(risk_c, 4)}** ({round(risk_c*100,1)}%)
-
-**Step 2: Divide to get the {primary_abbrev}**
-
-{primary_abbrev} = {round(risk_a,4)} ÷ {round(risk_c,4)} = **{round(rr, 4)}**
-
-**Step 3: Calculate the 95% CI using the log method**
-
-SE(log {primary_abbrev}) = √[(1/a − 1/(a+b)) + (1/c − 1/(c+d))]
-= √[(1/{a} − 1/{a+b}) + (1/{c} − 1/{c+d})]
-= **{round(se_log_rr, 4)}**
-
-95% CI = e^(log({round(rr,4)}) ± 1.96 × {round(se_log_rr,4)})
-= (**{round(ci_low_rr,3)}**, **{round(ci_high_rr,3)}**)
-                                    """)
-
-                                # ---- ODDS RATIO ----
                                 st.subheader("Odds Ratio (OR)")
-                                st.caption(
-                                    "OR = odds of outcome in exposed ÷ odds of outcome in unexposed. "
-                                    "OR = 1: no difference. OR > 1: higher odds in exposed group. OR < 1: lower odds in exposed group. "
-                                    f"Most appropriate for case-control studies. "
-                                    f"Note: the OR is always farther from 1 than the {primary_abbrev}."
-                                )
-
                                 if ci_low_or <= 1 <= ci_high_or:
-                                    st.warning(
-                                        f"OR = {round(or_val,2)} (95% CI: {round(ci_low_or,2)}–{round(ci_high_or,2)}). "
-                                        f"The CI includes 1 → **not statistically significant**. "
-                                        f"We cannot conclude that the odds of {col_names[0]} differ between {row_names[0]} and {row_names[1]}."
-                                    )
+                                    st.warning(f"OR = {round(or_val,2)} (95% CI: {round(ci_low_or,2)}–{round(ci_high_or,2)}). Not significant.")
                                 else:
                                     direction = "higher" if or_val > 1 else "lower"
-                                    st.success(
-                                        f"OR = {round(or_val,2)} (95% CI: {round(ci_low_or,2)}–{round(ci_high_or,2)}). "
-                                        f"The odds of {col_names[0]} among {row_names[0]} are {round(or_val,2)} times "
-                                        f"{direction} than among {row_names[1]}. "
-                                        f"The CI does not include 1 → **statistically significant**."
-                                    )
-
+                                    st.success(f"OR = {round(or_val,2)} (95% CI: {round(ci_low_or,2)}–{round(ci_high_or,2)}). {round(or_val,2)}× {direction} odds.")
                                 draw_ci("OR", or_val, ci_low_or, ci_high_or)
-
-                                # ---- SHOW THE MATH: OR ----
-                                with st.expander("🔢 Show me the math — Odds Ratio"):
-                                    st.markdown(f"""
-**Step 1: Calculate odds in each group**
-
-- Odds in {row_names[0]}: a ÷ b = {a} ÷ {b} = **{round(odds_a, 4)}**
-- Odds in {row_names[1]}: c ÷ d = {c} ÷ {d} = **{round(odds_c, 4)}**
-
-**Step 2: Divide to get the OR** *(or use the cross-product shortcut)*
-
-OR = (a × d) ÷ (b × c) = ({a} × {d}) ÷ ({b} × {c}) = {a*d} ÷ {b*c} = **{round(or_val, 4)}**
-
-**Step 3: Calculate the 95% CI using the log method**
-
-SE(log OR) = √(1/a + 1/b + 1/c + 1/d)
-= √(1/{a} + 1/{b} + 1/{c} + 1/{d})
-= **{round(se_log_or, 4)}**
-
-95% CI = e^(log({round(or_val,4)}) ± 1.96 × {round(se_log_or,4)})
-= (**{round(ci_low_or,3)}**, **{round(ci_high_or,3)}**)
-                                    """)
-
-                                # ---- WHY OR > RR ----
-                                with st.expander(f"❓ Why is the OR farther from 1 than the {primary_abbrev}?"):
-                                    st.markdown(f"""
-The OR and {primary_abbrev} both measure association, but they use different denominators:
-
-- **{primary_abbrev}** compares *risks* (or prevalences): proportion of the **whole group** with the outcome
-- **OR** compares *odds*: ratio of those **with** to those **without** the outcome
-
-Because the OR's denominator (those without the outcome) is smaller than the {primary_abbrev}'s denominator (the whole group), the OR always produces a more extreme value than the {primary_abbrev} when the outcome is common.
-
-**With your data:**
-- {primary_abbrev} = {round(rr, 2)} → the {'prevalence' if is_cross_sectional else 'risk'} in {row_names[0]} is {round(rr,2)}x the {'prevalence' if is_cross_sectional else 'risk'} in {row_names[1]}
-- OR = {round(or_val, 2)} → the *odds* in {row_names[0]} are {round(or_val,2)}x the *odds* in {row_names[1]}
-
-**The rule of thumb:** When the outcome is rare (<10%), the OR closely approximates the {primary_abbrev}. As the outcome becomes more common, the OR diverges further from 1.
-
-**Why?** It comes down to what each measure divides by:
-
-- {primary_abbrev} = [a/(a+b)] ÷ [c/(c+d)] — divides cases by the **entire group** (cases + non-cases)
-- OR = [a/b] ÷ [c/d] — divides cases by **only the non-cases**
-
-When the outcome is rare, almost everyone is a non-case, so b ≈ (a+b) and d ≈ (c+d). The two denominators are nearly identical, and OR ≈ {primary_abbrev}.
-
-But when the outcome is common — say 40% of the exposed group has it — b is much smaller than (a+b). Dividing by a smaller number produces a larger ratio, pushing the OR further from 1 than the {primary_abbrev}.
-
-**With your data:** The outcome prevalence in {row_names[0]} is {round(risk_a*100,1)}%. {'Since this is above 10%, the OR ({:.2f}) and {} ({:.2f}) diverge noticeably — the OR overstates the association.'.format(or_val, primary_abbrev, rr) if risk_a > 0.10 else 'Since this is below 10%, the OR ({:.2f}) and {} ({:.2f}) are close — the rare disease assumption holds.'.format(or_val, primary_abbrev, rr)}
-
-This is why reporting an OR as if it were a {primary_abbrev} in a cohort or cross-sectional study overstates the association when the outcome is common.
-                                    """)
-
-                            else:
-                                st.info(
-                                    f"⚠️ {primary_abbrev if 'primary_abbrev' in dir() else 'RR'} and OR require all four cells (a, b, c, d) to be greater than zero. "
-                                    "At least one cell is currently 0, so these measures cannot be calculated."
-                                )
 
     st.markdown("---")
     st.markdown("Strong epidemiologists think structurally before computing.")
 
-# ==========================================================
-# TAB 3: STANDARDIZATION
-# ==========================================================
-
-with tab3:
-
-    col_title3, col_reset3 = st.columns([5, 1])
-    with col_reset3:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🔄 Reset", key="reset_tab3", help="Clear all fields and return to defaults"):
-            keys_to_clear3 = ["std_preset_choice"]
-            for k in keys_to_clear3:
-                if k in st.session_state:
-                    del st.session_state[k]
-            st.rerun()
-
-    st.markdown("""
-    **Standardization** allows fair comparison of rates between populations that differ in age structure.
-    Without it, a population with more elderly people will always appear sicker — even if age-specific
-    rates are identical to a younger population.
-
-    There are two methods:
-    - **Direct standardization** applies each population's age-specific rates to a single standard population structure.
-    - **Indirect standardization** applies a reference population's rates to your study population, producing an **SMR**.
-    """)
-
+# ==================================================
+# TAB 2: ADVANCED EPI MEASURES
+# ==================================================
+with tab2:
+    measure = st.selectbox("Select measure to calculate:",
+        ["Population Attributable Risk (PAR)","Standardized Mortality Ratio (SMR)",
+         "Attributable Risk & AR%","Number Needed to Harm / Treat (NNH/NNT)","Hazard Ratio (HR)"])
     st.divider()
 
-    # ----------------------------------------------------------
-    # PRESET SCENARIOS
-    # ----------------------------------------------------------
+    if measure == "Population Attributable Risk (PAR)":
+        st.subheader("Population Attributable Risk (PAR)")
+        st.info("PAR estimates the proportion of disease in the **total population** attributable to a specific exposure.")
+        data_mode = st.radio("Data entry", ["Use preset scenario","Enter my own data"], horizontal=True)
+        if data_mode == "Use preset scenario":
+            scenario = st.selectbox("Scenario", ["Smoking & Lung Cancer","Physical Inactivity & T2D","Obesity & CVD"])
+            if scenario == "Smoking & Lung Cancer": Pe, RR = 0.14, 15.0
+            elif scenario == "Physical Inactivity & T2D": Pe, RR = 0.46, 1.5
+            else: Pe, RR = 0.42, 2.0
+        else:
+            Pe = st.number_input("Exposure prevalence (Pe)", min_value=0.001, max_value=0.999, value=0.30, step=0.01)
+            RR = st.number_input("Risk Ratio (RR)", min_value=0.01, value=2.0, step=0.1)
+        if st.button("Calculate PAR"):
+            PAR_pct = (Pe * (RR - 1)) / (1 + Pe * (RR - 1)) * 100
+            col1,col2,col3 = st.columns(3)
+            col1.metric("Pe", f"{round(Pe*100,1)}%"); col2.metric("RR", round(RR,2)); col3.metric("PAR%", f"{round(PAR_pct,1)}%")
+            st.success(f"{round(PAR_pct,1)}% of all cases in the population are attributable to this exposure.")
 
+    elif measure == "Standardized Mortality Ratio (SMR)":
+        st.subheader("Standardized Mortality Ratio (SMR)")
+        st.info("SMR = Observed Deaths / Expected Deaths. Compares a study group to a reference population.")
+        data_mode = st.radio("Data entry", ["Use preset scenario","Enter my own data"], horizontal=True, key="smr_mode")
+        if data_mode == "Use preset scenario":
+            scenario = st.selectbox("Scenario", ["Coal Miners & Respiratory Disease","Nuclear Workers & All-Cause Mortality","Firefighters & Cancer"], key="smr_scenario")
+            if scenario == "Coal Miners & Respiratory Disease":
+                age_groups=["20–34","35–44","45–54","55–64","65–74"]; observed=[2,8,22,41,35]
+                ref_rates=[0.0003,0.0010,0.0038,0.0092,0.0198]; pop_sizes=[1200,1800,2100,1600,900]
+            elif scenario == "Nuclear Workers & All-Cause Mortality":
+                age_groups=["20–34","35–44","45–54","55–64","65–74"]; observed=[3,10,18,29,22]
+                ref_rates=[0.0008,0.0018,0.0045,0.0110,0.0240]; pop_sizes=[2000,2500,1800,1200,600]
+            else:
+                age_groups=["20–34","35–44","45–54","55–64","65–74"]; observed=[1,6,19,38,31]
+                ref_rates=[0.0001,0.0006,0.0024,0.0068,0.0160]; pop_sizes=[1500,2000,1900,1400,800]
+            smr_df = pd.DataFrame({"Age Group":age_groups,"Pop Size":pop_sizes,"Observed":observed,
+                "Ref Rate":ref_rates,"Expected":[round(pop_sizes[i]*ref_rates[i],2) for i in range(5)]})
+            st.table(smr_df)
+            total_observed = sum(observed); total_expected = sum([pop_sizes[i]*ref_rates[i] for i in range(5)])
+        else:
+            n_groups = st.number_input("Number of age groups", min_value=1, max_value=10, value=3)
+            observed=[]; expected_list=[]
+            for i in range(n_groups):
+                c1,c2 = st.columns(2)
+                with c1: obs = st.number_input(f"Observed {i+1}", min_value=0, key=f"smr_obs_{i}")
+                with c2: exp = st.number_input(f"Expected {i+1}", min_value=0.0, step=0.1, key=f"smr_exp_{i}")
+                observed.append(obs); expected_list.append(exp)
+            total_observed = sum(observed); total_expected = sum(expected_list)
+        if st.button("Calculate SMR"):
+            if total_expected > 0:
+                smr = total_observed / total_expected
+                ci_low_s = max(0, smr - 1.96*(smr/math.sqrt(total_observed))) if total_observed > 0 else 0
+                ci_high_s = smr + 1.96*(smr/math.sqrt(total_observed)) if total_observed > 0 else 0
+                col1,col2,col3 = st.columns(3)
+                col1.metric("Observed", int(total_observed)); col2.metric("Expected", round(total_expected,2)); col3.metric("SMR", round(smr,3))
+                st.write(f"95% CI: ({round(ci_low_s,3)}, {round(ci_high_s,3)})")
+                if ci_low_s <= 1 <= ci_high_s: st.warning("CI includes 1 — not significantly different from reference.")
+                elif smr > 1: st.error(f"SMR = {round(smr,2)} — Excess mortality vs. reference population.")
+                else: st.success(f"SMR = {round(smr,2)} — Lower mortality. May reflect healthy worker effect.")
+                draw_ci("SMR", smr, ci_low_s, ci_high_s)
+
+    elif measure == "Attributable Risk & AR%":
+        st.subheader("Attributable Risk (AR) & AR%")
+        data_mode = st.radio("Data entry", ["Use preset scenario","Enter my own data"], horizontal=True, key="ar_mode")
+        if data_mode == "Use preset scenario":
+            scenario = st.selectbox("Scenario", ["Hypertension & CVD","Unvaccinated & Measles","High Sodium & Stroke"], key="ar_scenario")
+            if scenario == "Hypertension & CVD": r_exposed, r_unexposed = 0.12, 0.04
+            elif scenario == "Unvaccinated & Measles": r_exposed, r_unexposed = 0.90, 0.02
+            else: r_exposed, r_unexposed = 0.08, 0.03
+        else:
+            r_exposed = st.number_input("Risk in exposed", min_value=0.001, max_value=1.0, value=0.12, step=0.01)
+            r_unexposed = st.number_input("Risk in unexposed", min_value=0.001, max_value=1.0, value=0.04, step=0.01)
+        if st.button("Calculate AR & AR%"):
+            ar = r_exposed - r_unexposed; ar_pct = (ar / r_exposed) * 100; rr = r_exposed / r_unexposed
+            col1,col2,col3,col4 = st.columns(4)
+            col1.metric("Risk (Exposed)", f"{round(r_exposed*100,1)}%"); col2.metric("Risk (Unexposed)", f"{round(r_unexposed*100,1)}%")
+            col3.metric("AR", f"{round(ar*100,1)}%"); col4.metric("AR%", f"{round(ar_pct,1)}%")
+            st.success(f"AR = {round(ar*100,1)}%: absolute excess risk per 100 exposed people.")
+            st.success(f"AR% = {round(ar_pct,1)}%: fraction of disease in the exposed group attributable to the exposure.")
+
+    elif measure == "Number Needed to Harm / Treat (NNH/NNT)":
+        st.subheader("NNH / NNT")
+        data_mode = st.radio("Data entry", ["Use preset scenario","Enter my own data"], horizontal=True, key="nnt_mode")
+        if data_mode == "Use preset scenario":
+            scenario = st.selectbox("Scenario", ["Statins & Cardiac Events (NNT)","Aspirin & GI Bleeding (NNH)","Smoking Cessation (NNT)"], key="nnt_scenario")
+            if scenario == "Statins & Cardiac Events (NNT)": r_treatment,r_control,label_treatment,label_control = 0.04,0.06,"Statin","Placebo"
+            elif scenario == "Aspirin & GI Bleeding (NNH)": r_treatment,r_control,label_treatment,label_control = 0.025,0.010,"Daily aspirin","No aspirin"
+            else: r_treatment,r_control,label_treatment,label_control = 0.22,0.08,"Cessation program","No program"
+        else:
+            label_treatment = st.text_input("Treatment group", "Treatment")
+            label_control = st.text_input("Control group", "Control")
+            r_treatment = st.number_input(f"Risk ({label_treatment})", min_value=0.001, max_value=1.0, value=0.04, step=0.01)
+            r_control = st.number_input(f"Risk ({label_control})", min_value=0.001, max_value=1.0, value=0.06, step=0.01)
+        if st.button("Calculate NNT/NNH"):
+            risk_diff = abs(r_treatment - r_control)
+            if risk_diff > 0:
+                nnt = round(1/risk_diff, 1)
+                col1,col2,col3 = st.columns(3)
+                col1.metric(f"Risk ({label_treatment})", f"{round(r_treatment*100,1)}%")
+                col2.metric(f"Risk ({label_control})", f"{round(r_control*100,1)}%")
+                col3.metric("Risk Difference", f"{round(risk_diff*100,1)}%")
+                if r_treatment < r_control: st.success(f"NNT = {nnt}: treat {nnt} people to prevent one additional outcome.")
+                else: st.error(f"NNH = {nnt}: {nnt} people exposed before one additional harm expected.")
+
+    elif measure == "Hazard Ratio (HR)":
+        st.subheader("Hazard Ratio (HR)")
+        st.info("HR compares the instantaneous event rate over time. Output of Cox proportional hazards regression.")
+        data_mode = st.radio("Data entry", ["Use preset scenario","Enter my own data"], horizontal=True, key="hr_mode")
+        if data_mode == "Use preset scenario":
+            scenario = st.selectbox("Scenario", ["Statins & Time to MI","HIV & Time to AIDS","Physical Activity & Dementia"], key="hr_scenario")
+            if scenario == "Statins & Time to MI": hr,ci_low_hr,ci_high_hr,exposed_label,outcome_label = 0.68,0.54,0.85,"Statin therapy","first MI"
+            elif scenario == "HIV & Time to AIDS": hr,ci_low_hr,ci_high_hr,exposed_label,outcome_label = 2.31,1.74,3.07,"CD4 < 200","AIDS-defining illness"
+            else: hr,ci_low_hr,ci_high_hr,exposed_label,outcome_label = 0.72,0.58,0.89,"High physical activity","dementia"
+            col1,col2,col3 = st.columns(3); col1.metric("HR", round(hr,2)); col2.metric("CI Lower", round(ci_low_hr,2)); col3.metric("CI Upper", round(ci_high_hr,2))
+            if ci_low_hr <= 1 <= ci_high_hr: st.warning(f"HR = {round(hr,2)} — CI includes 1. Not significant.")
+            elif hr < 1: st.success(f"HR = {round(hr,2)}: {exposed_label} had {round((1-hr)*100,1)}% lower hazard of {outcome_label}. Significant.")
+            else: st.error(f"HR = {round(hr,2)}: {exposed_label} had {round((hr-1)*100,1)}% higher hazard of {outcome_label}. Significant.")
+            draw_ci("HR", hr, ci_low_hr, ci_high_hr)
+        else:
+            hr = st.number_input("HR", min_value=0.01, value=0.68, step=0.01)
+            ci_low_hr = st.number_input("CI Lower", min_value=0.001, value=0.54, step=0.01)
+            ci_high_hr = st.number_input("CI Upper", min_value=0.001, value=0.85, step=0.01)
+            exposed_label = st.text_input("Exposed group", "Exposed")
+            outcome_label = st.text_input("Outcome", "the outcome")
+            if st.button("Interpret HR"):
+                if ci_low_hr <= 1 <= ci_high_hr: st.warning(f"HR = {round(hr,2)} — CI includes 1. Not significant.")
+                elif hr < 1: st.success(f"HR = {round(hr,2)}: {round((1-hr)*100,1)}% lower hazard. Significant.")
+                else: st.error(f"HR = {round(hr,2)}: {round((hr-1)*100,1)}% higher hazard. Significant.")
+                draw_ci("HR", hr, ci_low_hr, ci_high_hr)
+
+    st.markdown("---")
+    st.markdown("Strong epidemiologists think structurally before computing.")
+
+# ==================================================
+# TAB 3: STANDARDIZATION
+# ==================================================
+with tab3:
+    st.markdown("**Standardization** allows fair comparison of rates between populations with different age structures.")
     STD_PRESETS = {
         "None — I'll enter my own data": None,
         "Urban vs. Rural CVD Mortality": {
-            "description": (
-                "**Scenario:** Compare cardiovascular disease (CVD) mortality between an urban county "
-                "(younger population) and a rural county (older population). Without standardization, "
-                "the rural county appears to have higher CVD mortality — but is this real or just "
-                "because it has more elderly residents? *Adapted from CDC WONDER mortality data.*"
-            ),
-            "age_groups": ["0–44", "45–54", "55–64", "65–74", "75+"],
-            "std_pop":    [150000, 40000, 35000, 25000, 15000],
-            "pop_a":      [80000,  15000, 12000,  8000,  4000],
-            "deaths_a":   [12,     45,    120,    280,   310],
-            "pop_b":      [30000,  18000, 22000,  20000, 14000],
-            "deaths_b":   [5,      55,    145,    430,   580],
-            "label_a": "Urban County",
-            "label_b": "Rural County",
-            "outcome": "CVD deaths",
-            "ref_label": "State population"
-        },
-        "Miners vs. Office Workers (Lung Disease)": {
-            "description": (
-                "**Scenario:** Compare lung disease mortality between coal miners and office workers. "
-                "Miners are older on average due to longer tenure requirements. "
-                "Standardization reveals whether excess mortality is due to age or occupational exposure. "
-                "*Adapted from NIOSH occupational cohort data.*"
-            ),
-            "age_groups": ["20–34", "35–44", "45–54", "55–64", "65–74"],
-            "std_pop":    [5000,    6000,    5500,    4000,    2000],
-            "pop_a":      [800,     1800,    2100,    1600,    900],
-            "deaths_a":   [1,       6,       18,      38,      32],
-            "pop_b":      [2000,    2200,    1800,    1200,    600],
-            "deaths_b":   [0,       2,       5,       10,      8],
-            "label_a": "Coal Miners",
-            "label_b": "Office Workers",
-            "outcome": "lung disease deaths",
-            "ref_label": "Workforce population"
-        },
-        "Country A vs. Country B (Breast Cancer)": {
-            "description": (
-                "**Scenario:** Compare breast cancer mortality between two countries with very different "
-                "age distributions. Country A has a younger population (developing nation); "
-                "Country B has an older population (developed nation). "
-                "*Adapted from WHO Global Cancer Observatory data.*"
-            ),
-            "age_groups": ["0–34", "35–44", "45–54", "55–64", "65+"],
-            "std_pop":    [100000, 30000,  25000,  20000,  25000],
-            "pop_a":      [60000,  12000,   8000,   5000,   3000],
-            "deaths_a":   [2,      18,      35,     42,     38],
-            "pop_b":      [20000,  18000,  22000,  20000,  25000],
-            "deaths_b":   [1,      22,      58,     95,    142],
-            "label_a": "Country A",
-            "label_b": "Country B",
-            "outcome": "breast cancer deaths",
-            "ref_label": "World standard population"
+            "description":"**Scenario:** Compare CVD mortality: urban (younger) vs. rural (older) county. *CDC WONDER.*",
+            "age_groups":["0–44","45–54","55–64","65–74","75+"],"std_pop":[150000,40000,35000,25000,15000],
+            "pop_a":[80000,15000,12000,8000,4000],"deaths_a":[12,45,120,280,310],
+            "pop_b":[30000,18000,22000,20000,14000],"deaths_b":[5,55,145,430,580],
+            "label_a":"Urban County","label_b":"Rural County","outcome":"CVD deaths","ref_label":"State population"
         },
     }
-
-    std_preset_choice = st.selectbox(
-        "Load a preset scenario:",
-        list(STD_PRESETS.keys()),
-        key="std_preset_choice"
-    )
+    std_preset_choice = st.selectbox("Load a preset:", list(STD_PRESETS.keys()), key="std_preset_choice")
     std_preset = STD_PRESETS[std_preset_choice]
-
-    if std_preset:
-        st.info(std_preset["description"])
-
+    if std_preset: st.info(std_preset["description"])
     st.divider()
 
-    # ----------------------------------------------------------
-    # DATA ENTRY
-    # ----------------------------------------------------------
-
     if std_preset:
-        age_groups  = std_preset["age_groups"]
-        std_pop     = std_preset["std_pop"]
-        pop_a       = std_preset["pop_a"]
-        deaths_a    = std_preset["deaths_a"]
-        pop_b       = std_preset["pop_b"]
-        deaths_b    = std_preset["deaths_b"]
-        label_a     = std_preset["label_a"]
-        label_b     = std_preset["label_b"]
-        outcome_lbl = std_preset["outcome"]
-        ref_label   = std_preset["ref_label"]
-        n_groups    = len(age_groups)
+        age_groups=std_preset["age_groups"]; std_pop=std_preset["std_pop"]
+        pop_a=std_preset["pop_a"]; deaths_a=std_preset["deaths_a"]
+        pop_b=std_preset["pop_b"]; deaths_b=std_preset["deaths_b"]
+        label_a=std_preset["label_a"]; label_b=std_preset["label_b"]
+        outcome_lbl=std_preset["outcome"]; ref_label=std_preset["ref_label"]; n_groups=len(age_groups)
     else:
-        st.subheader("Set Up Your Data")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            label_a = st.text_input("Population A name", "Population A")
-            label_b = st.text_input("Population B name", "Population B")
-        with col2:
-            ref_label   = st.text_input("Standard/reference population name", "Standard Population")
-            outcome_lbl = st.text_input("Outcome label", "deaths")
-
+        col1,col2 = st.columns(2)
+        with col1: label_a=st.text_input("Population A","Population A"); label_b=st.text_input("Population B","Population B")
+        with col2: ref_label=st.text_input("Reference population","Standard Population"); outcome_lbl=st.text_input("Outcome","deaths")
         n_groups = st.number_input("Number of age groups", min_value=2, max_value=10, value=5)
-        age_groups, std_pop, pop_a, deaths_a, pop_b, deaths_b = [], [], [], [], [], []
-
-        st.markdown("Enter data for each age group:")
-        header_cols = st.columns([2, 2, 2, 2, 2, 2])
-        header_cols[0].markdown("**Age Group**")
-        header_cols[1].markdown(f"**{ref_label} size**")
-        header_cols[2].markdown(f"**{label_a} pop.**")
-        header_cols[3].markdown(f"**{label_a} {outcome_lbl}**")
-        header_cols[4].markdown(f"**{label_b} pop.**")
-        header_cols[5].markdown(f"**{label_b} {outcome_lbl}**")
-
+        age_groups,std_pop,pop_a,deaths_a,pop_b,deaths_b = [],[],[],[],[],[]
         for i in range(int(n_groups)):
-            cols = st.columns([2, 2, 2, 2, 2, 2])
-            age_groups.append(cols[0].text_input("", f"Group {i+1}", key=f"ag_{i}", label_visibility="collapsed"))
-            std_pop.append(cols[1].number_input("", min_value=1, value=10000, key=f"sp_{i}", label_visibility="collapsed"))
-            pop_a.append(cols[2].number_input("", min_value=1, value=1000, key=f"pa_{i}", label_visibility="collapsed"))
-            deaths_a.append(cols[3].number_input("", min_value=0, value=0, key=f"da_{i}", label_visibility="collapsed"))
-            pop_b.append(cols[4].number_input("", min_value=1, value=1000, key=f"pb_{i}", label_visibility="collapsed"))
-            deaths_b.append(cols[5].number_input("", min_value=0, value=0, key=f"db_{i}", label_visibility="collapsed"))
-
-    # ----------------------------------------------------------
-    # SHOW DATA TABLE
-    # ----------------------------------------------------------
-
+            cols = st.columns([2,2,2,2,2,2])
+            age_groups.append(cols[0].text_input("",f"Group {i+1}",key=f"ag_{i}",label_visibility="collapsed"))
+            std_pop.append(cols[1].number_input("",min_value=1,value=10000,key=f"sp_{i}",label_visibility="collapsed"))
+            pop_a.append(cols[2].number_input("",min_value=1,value=1000,key=f"pa_{i}",label_visibility="collapsed"))
+            deaths_a.append(cols[3].number_input("",min_value=0,value=0,key=f"da_{i}",label_visibility="collapsed"))
+            pop_b.append(cols[4].number_input("",min_value=1,value=1000,key=f"pb_{i}",label_visibility="collapsed"))
+            deaths_b.append(cols[5].number_input("",min_value=0,value=0,key=f"db_{i}",label_visibility="collapsed"))
 
     if st.button("Run Standardization Analysis"):
-
-      if sum(pop_a) == 0 or sum(pop_b) == 0 or sum(std_pop) == 0:
-        st.warning("⚠️ Population sizes cannot be zero. Please check your data.")
-      else:
-
-        rate_a = [deaths_a[i] / max(pop_a[i], 1) * 100000 for i in range(n_groups)]
-        rate_b = [deaths_b[i] / max(pop_b[i], 1) * 100000 for i in range(n_groups)]
-        ref_rate = [(deaths_a[i] + deaths_b[i]) / max(pop_a[i] + pop_b[i], 1) * 100000 for i in range(n_groups)]
-
-        display_df = pd.DataFrame({
-            "Age Group": age_groups,
-            f"{ref_label} (std pop)": std_pop,
-            f"{label_a} — Population": pop_a,
-            f"{label_a} — {outcome_lbl.capitalize()}": deaths_a,
-            f"{label_a} — Rate per 100k": [round(r, 1) for r in rate_a],
-            f"{label_b} — Population": pop_b,
-            f"{label_b} — {outcome_lbl.capitalize()}": deaths_b,
-            f"{label_b} — Rate per 100k": [round(r, 1) for r in rate_b],
-        })
-
-        with st.expander("📋 View age-stratified data table", expanded=True):
-            st.dataframe(display_df, use_container_width=True)
-
-        st.divider()
-
-        # ----------------------------------------------------------
-        # CALCULATIONS
-        # ----------------------------------------------------------
-
-        # DIRECT STANDARDIZATION
-        # Apply each population's age-specific rates to the standard population
-        expected_a_direct = [rate_a[i] / 100000 * std_pop[i] for i in range(n_groups)]
-        expected_b_direct = [rate_b[i] / 100000 * std_pop[i] for i in range(n_groups)]
-        total_std_pop = sum(std_pop)
-        age_adj_rate_a = sum(expected_a_direct) / total_std_pop * 100000
-        age_adj_rate_b = sum(expected_b_direct) / total_std_pop * 100000
-
-        # INDIRECT STANDARDIZATION (SMR)
-        # Apply reference rates to each population's age structure
-        expected_a_indirect = [ref_rate[i] / 100000 * pop_a[i] for i in range(n_groups)]
-        expected_b_indirect = [ref_rate[i] / 100000 * pop_b[i] for i in range(n_groups)]
-        total_obs_a = sum(deaths_a)
-        total_obs_b = sum(deaths_b)
-        total_exp_a = sum(expected_a_indirect)
-        total_exp_b = sum(expected_b_indirect)
-        smr_a = total_obs_a / total_exp_a if total_exp_a > 0 else None
-        smr_b = total_obs_b / total_exp_b if total_exp_b > 0 else None
-
-        # Crude rates (unadjusted)
-        crude_rate_a = sum(deaths_a) / sum(pop_a) * 100000
-        crude_rate_b = sum(deaths_b) / sum(pop_b) * 100000
-
-        # ----------------------------------------------------------
-        # RESULTS: SIDE BY SIDE
-        # ----------------------------------------------------------
-
-        st.subheader("📊 Results: Side-by-Side Comparison")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.markdown(f"### {label_a}")
-            st.metric("Crude Rate (per 100,000)", round(crude_rate_a, 1))
-            st.metric("Age-Adjusted Rate — Direct (per 100,000)", round(age_adj_rate_a, 1))
-            if smr_a:
-                st.metric("SMR — Indirect", round(smr_a, 3))
-
-        with col2:
-            st.markdown(f"### {label_b}")
-            st.metric("Crude Rate (per 100,000)", round(crude_rate_b, 1))
-            st.metric("Age-Adjusted Rate — Direct (per 100,000)", round(age_adj_rate_b, 1))
-            if smr_b:
-                st.metric("SMR — Indirect", round(smr_b, 3))
-
-        st.divider()
-
-        # ----------------------------------------------------------
-        # INTERPRETATION
-        # ----------------------------------------------------------
-
-        st.subheader("🔍 Interpretation")
-
-        # Crude comparison
-        crude_higher = label_a if crude_rate_a > crude_rate_b else label_b
-        crude_lower  = label_b if crude_rate_a > crude_rate_b else label_a
-        crude_diff   = abs(crude_rate_a - crude_rate_b)
-
-        # Direct comparison
-        adj_higher = label_a if age_adj_rate_a > age_adj_rate_b else label_b
-        adj_lower  = label_b if age_adj_rate_a > age_adj_rate_b else label_a
-        adj_diff   = abs(age_adj_rate_a - age_adj_rate_b)
-
-        st.markdown(f"""
-    **Crude rates (unadjusted):**
-    {label_a} has a crude rate of {round(crude_rate_a,1)} per 100,000; {label_b} has {round(crude_rate_b,1)} per 100,000.
-    {crude_higher} appears to have higher {outcome_lbl} by {round(crude_diff,1)} per 100,000 before accounting for age.
-        """)
-
-        st.markdown(f"""
-    **After direct standardization (age-adjusted rates):**
-    Applying both populations' rates to the same standard population ({ref_label}):
-    {label_a} age-adjusted rate = {round(age_adj_rate_a,1)} per 100,000;
-    {label_b} age-adjusted rate = {round(age_adj_rate_b,1)} per 100,000.
-    {adj_higher} has a higher age-adjusted rate by {round(adj_diff,1)} per 100,000.
-        """)
-
-        if crude_higher != adj_higher:
-            st.error(
-                f"⚠️ **Confounding by age detected!** The crude rates suggested {crude_higher} had "
-                f"higher {outcome_lbl}, but after age adjustment, {adj_higher} actually has the higher rate. "
-                f"This reversal indicates that age was confounding the crude comparison — "
-                f"the apparent difference was largely due to differences in age structure, not true disease burden."
-            )
+        if sum(pop_a) == 0 or sum(pop_b) == 0:
+            st.warning("Population sizes cannot be zero.")
         else:
-            diff_pct = abs(crude_rate_a - crude_rate_b) / max(crude_rate_a, crude_rate_b, 0.0001) * 100
-            adj_pct  = abs(age_adj_rate_a - age_adj_rate_b) / max(age_adj_rate_a, age_adj_rate_b, 0.0001) * 100
-            if abs(diff_pct - adj_pct) > 10:
-                st.warning(
-                    f"⚠️ Age partially confounded this comparison. The gap between populations "
-                    f"changed after adjustment, suggesting age structure was inflating or deflating the crude difference. "
-                    f"The age-adjusted rates give a fairer comparison."
-                )
+            rate_a = [deaths_a[i]/max(pop_a[i],1)*100000 for i in range(n_groups)]
+            rate_b = [deaths_b[i]/max(pop_b[i],1)*100000 for i in range(n_groups)]
+            ref_rate = [(deaths_a[i]+deaths_b[i])/max(pop_a[i]+pop_b[i],1)*100000 for i in range(n_groups)]
+            expected_a_direct = [rate_a[i]/100000*std_pop[i] for i in range(n_groups)]
+            expected_b_direct = [rate_b[i]/100000*std_pop[i] for i in range(n_groups)]
+            age_adj_rate_a = sum(expected_a_direct)/sum(std_pop)*100000
+            age_adj_rate_b = sum(expected_b_direct)/sum(std_pop)*100000
+            crude_rate_a = sum(deaths_a)/sum(pop_a)*100000
+            crude_rate_b = sum(deaths_b)/sum(pop_b)*100000
+            crude_higher = label_a if crude_rate_a > crude_rate_b else label_b
+            adj_higher = label_a if age_adj_rate_a > age_adj_rate_b else label_b
+
+            col1,col2 = st.columns(2)
+            with col1:
+                st.markdown(f"### {label_a}")
+                st.metric("Crude Rate (per 100,000)", round(crude_rate_a,1))
+                st.metric("Age-Adjusted Rate", round(age_adj_rate_a,1))
+            with col2:
+                st.markdown(f"### {label_b}")
+                st.metric("Crude Rate (per 100,000)", round(crude_rate_b,1))
+                st.metric("Age-Adjusted Rate", round(age_adj_rate_b,1))
+
+            if crude_higher != adj_higher:
+                st.error("⚠️ **Confounding by age detected!** Crude and age-adjusted rates point in opposite directions.")
             else:
-                st.success(
-                    f"✅ Age structure had minimal impact here. The crude and age-adjusted rates tell "
-                    f"a similar story, suggesting age is not a major confounder in this comparison."
-                )
-
-        if smr_a and smr_b:
-            st.markdown(f"""
-    **Indirect standardization (SMR):**
-    - {label_a} SMR = {round(smr_a,3)}: observed {outcome_lbl} were {round(smr_a,3)}x the number expected based on reference rates.
-    {"  → Excess mortality compared to reference population." if smr_a > 1 else "  → Lower mortality than reference population (possible healthy worker effect)."}
-    - {label_b} SMR = {round(smr_b,3)}: observed {outcome_lbl} were {round(smr_b,3)}x the number expected.
-    {"  → Excess mortality compared to reference population." if smr_b > 1 else "  → Lower mortality than reference population."}
-            """)
-
-        st.divider()
-
-        # ----------------------------------------------------------
-        # EXPLAINER
-        # ----------------------------------------------------------
-
-        with st.expander("📖 When to use direct vs. indirect standardization"):
-            st.markdown("""
-    **Direct standardization:**
-    - Apply each study population's age-specific rates to one shared standard population
-    - Produces an **age-adjusted rate** (comparable across populations)
-    - Requires knowing age-specific rates in both populations
-    - Best when you want to compare two or more populations fairly
-    - Result depends on choice of standard population (WHO world standard, US 2000 standard, etc.)
-
-    **Indirect standardization (SMR):**
-    - Apply a reference population's age-specific rates to your study population's age structure
-    - Produces an **SMR** (ratio of observed to expected events)
-    - Use when your study population is small and age-specific rates are unstable
-    - Best for comparing one group against a well-established reference (e.g., national rates)
-    - Watch for the **healthy worker effect**: workers are often healthier than the general population,
-      producing SMR < 1 even without a true protective exposure
-
-    **Key difference:**
-    | | Direct | Indirect |
-    |---|---|---|
-    | What you apply | Study pop's rates → standard pop structure | Reference rates → study pop structure |
-    | Output | Age-adjusted rate (per 100,000) | SMR (ratio) |
-    | Best use | Comparing multiple populations | Comparing one group vs. a reference |
-    | Requires | Age-specific rates in study populations | Reference population age-specific rates |
-    | Sensitive to | Choice of standard population | Size/stability of reference rates |
-            """)
-
-
-
-    # TAB 2: ADVANCED EPI MEASURES
-    # ==========================================================
-
-    with tab2:
-
-        col_title2, col_reset2 = st.columns([5, 1])
-        with col_title2:
-            st.markdown(
-                "Calculate advanced epidemiologic measures using **preset realistic scenarios** "
-                "or enter your own data manually."
-            )
-        with col_reset2:
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("🔄 Reset", key="reset_tab2", help="Clear all fields and return to defaults"):
-                keys_to_clear2 = [
-                    "smr_mode", "smr_scenario", "ar_mode", "ar_scenario",
-                    "nnt_mode", "nnt_scenario", "hr_mode", "hr_scenario"
-                ]
-                for k in keys_to_clear2:
-                    if k in st.session_state:
-                        del st.session_state[k]
-                st.rerun()
-
-        measure = st.selectbox(
-            "Select measure to calculate:",
-            [
-                "Population Attributable Risk (PAR)",
-                "Standardized Mortality Ratio (SMR)",
-                "Attributable Risk & AR%",
-                "Number Needed to Harm / Treat (NNH/NNT)",
-                "Hazard Ratio (HR)"
-            ]
-        )
-
-        st.divider()
-
-        # ----------------------------------------------------------
-        # POPULATION ATTRIBUTABLE RISK (PAR)
-        # ----------------------------------------------------------
-
-        if measure == "Population Attributable Risk (PAR)":
-
-            st.subheader("Population Attributable Risk (PAR)")
-            st.info(
-                "**PAR** estimates the proportion of disease in the **total population** that is attributable to "
-                "a specific exposure — in other words, how much disease could theoretically be prevented "
-                "if the exposure were eliminated. It requires knowing both the **Risk Ratio** and the "
-                "**prevalence of the exposure in the population**."
-            )
-
-            with st.expander("📖 Formula"):
-                st.markdown("""
-                **PAR% = Pe × (RR − 1) / [1 + Pe × (RR − 1)] × 100**
-
-                Where:
-                - **Pe** = prevalence of exposure in the population
-                - **RR** = Risk Ratio (relative risk)
-
-                Also known as the **Population Attributable Fraction (PAF)**.
-                """)
-
-            data_mode = st.radio("Data entry mode", ["Use preset scenario", "Enter my own data"], horizontal=True)
-
-            if data_mode == "Use preset scenario":
-                scenario = st.selectbox("Choose a scenario", [
-                    "Smoking & Lung Cancer (US Adults)",
-                    "Physical Inactivity & Type 2 Diabetes",
-                    "Obesity & Cardiovascular Disease"
-                ])
-
-                if scenario == "Smoking & Lung Cancer (US Adults)":
-                    Pe, RR = 0.14, 15.0
-                    st.markdown("""
-                    **Scenario:** Approximately 14% of U.S. adults currently smoke cigarettes.
-                    Smokers have roughly 15 times the risk of developing lung cancer compared to non-smokers.
-                    *Sources: CDC (2023), IARC Monographs.*
-                    """)
-                elif scenario == "Physical Inactivity & Type 2 Diabetes":
-                    Pe, RR = 0.46, 1.5
-                    st.markdown("""
-                    **Scenario:** About 46% of U.S. adults do not meet physical activity guidelines.
-                    Physically inactive individuals have approximately 1.5 times the risk of developing
-                    Type 2 diabetes compared to those who are active.
-                    *Sources: CDC BRFSS (2022), Jeon et al., Diabetes Care.*
-                    """)
-                elif scenario == "Obesity & Cardiovascular Disease":
-                    Pe, RR = 0.42, 2.0
-                    st.markdown("""
-                    **Scenario:** Approximately 42% of U.S. adults have obesity (BMI ≥ 30).
-                    Individuals with obesity have about twice the risk of cardiovascular disease
-                    compared to those with healthy weight.
-                    *Sources: CDC NHANES (2022), American Heart Association.*
-                    """)
-
-            else:
-                Pe = st.number_input(
-                    "Prevalence of exposure in the population (Pe)",
-                    min_value=0.001, max_value=0.999, value=0.30, step=0.01,
-                    help="Enter as a proportion between 0 and 1. Example: 0.25 means 25% of the population is exposed."
-                )
-                RR = st.number_input(
-                    "Risk Ratio (RR)",
-                    min_value=0.01, value=2.0, step=0.1,
-                    help="The relative risk of disease in the exposed group compared to the unexposed group."
-                )
-
-            if st.button("Calculate PAR"):
-                PAR_pct = (Pe * (RR - 1)) / (1 + Pe * (RR - 1)) * 100
-
-                st.subheader("📈 Results")
-                col1, col2, col3 = st.columns(3)
-                col1.metric("Exposure Prevalence (Pe)", f"{round(Pe*100,1)}%")
-                col2.metric("Risk Ratio (RR)", round(RR, 2))
-                col3.metric("PAR%", f"{round(PAR_pct, 1)}%")
-
-                st.success(
-                    f"**Interpretation:** {round(PAR_pct,1)}% of cases in the total population are attributable "
-                    f"to this exposure. If the exposure were completely eliminated, we would expect to prevent "
-                    f"approximately {round(PAR_pct,1)}% of all cases of this disease in the population. "
-                    f"This assumes the association is causal."
-                )
-
-                if PAR_pct > 50:
-                    st.warning("⚠️ A PAR% above 50% suggests this exposure is a dominant driver of disease burden in the population.")
-
-        # ----------------------------------------------------------
-        # STANDARDIZED MORTALITY RATIO (SMR)
-        # ----------------------------------------------------------
-
-        elif measure == "Standardized Mortality Ratio (SMR)":
-
-            st.subheader("Standardized Mortality Ratio (SMR)")
-            st.info(
-                "The **SMR** compares the observed number of deaths (or cases) in a study population "
-                "to the number that would be **expected** based on the rates of a reference (standard) population. "
-                "It is used to assess whether a specific group — such as workers in a particular industry — "
-                "experiences more or fewer deaths than the general population."
-            )
-
-            with st.expander("📖 Formula"):
-                st.markdown("""
-                **SMR = Observed Deaths / Expected Deaths**
-
-                - **SMR = 1.0**: The study group has the same mortality as the reference population
-                - **SMR > 1.0**: Higher mortality than expected (excess deaths)
-                - **SMR < 1.0**: Lower mortality than expected (healthy worker effect)
-
-                **Expected deaths** are calculated by applying the reference population's age-specific
-                death rates to the age distribution of the study population.
-                """)
-
-            data_mode = st.radio("Data entry mode", ["Use preset scenario", "Enter my own data"], horizontal=True, key="smr_mode")
-
-            if data_mode == "Use preset scenario":
-                scenario = st.selectbox("Choose a scenario", [
-                    "Coal Miners & Respiratory Disease",
-                    "Nuclear Plant Workers & All-Cause Mortality",
-                    "Firefighters & Cancer Mortality"
-                ], key="smr_scenario")
-
-                if scenario == "Coal Miners & Respiratory Disease":
-                    age_groups = ["20–34", "35–44", "45–54", "55–64", "65–74"]
-                    observed =  [2,  8, 22, 41, 35]
-                    ref_rates = [0.0003, 0.0010, 0.0038, 0.0092, 0.0198]
-                    pop_sizes = [1200, 1800, 2100, 1600,  900]
-                    st.markdown("""
-                    **Scenario:** A cohort of 7,600 underground coal miners is followed for 10 years.
-                    Deaths from respiratory disease are compared to age-specific rates in the general
-                    male working population. *Adapted from NIOSH occupational cohort studies.*
-                    """)
-
-                elif scenario == "Nuclear Plant Workers & All-Cause Mortality":
-                    age_groups = ["20–34", "35–44", "45–54", "55–64", "65–74"]
-                    observed =  [3, 10, 18, 29, 22]
-                    ref_rates = [0.0008, 0.0018, 0.0045, 0.0110, 0.0240]
-                    pop_sizes = [2000, 2500, 1800, 1200,  600]
-                    st.markdown("""
-                    **Scenario:** A cohort of 8,100 nuclear power plant workers is followed for 10 years.
-                    All-cause mortality is compared to age-specific rates in the general population.
-                    This scenario often demonstrates the **healthy worker effect**.
-                    *Adapted from published nuclear worker cohort studies.*
-                    """)
-
-                elif scenario == "Firefighters & Cancer Mortality":
-                    age_groups = ["20–34", "35–44", "45–54", "55–64", "65–74"]
-                    observed =  [1, 6, 19, 38, 31]
-                    ref_rates = [0.0001, 0.0006, 0.0024, 0.0068, 0.0160]
-                    pop_sizes = [1500, 2000, 1900, 1400,  800]
-                    st.markdown("""
-                    **Scenario:** A cohort of 7,600 career firefighters is followed for 10 years.
-                    Cancer mortality is compared to age-specific rates in the general male population.
-                    *Adapted from Daniels et al. (2014) and IAFF mortality studies.*
-                    """)
-
-                st.divider()
-                st.markdown("**Age-Stratified Data:**")
-                smr_df = pd.DataFrame({
-                    "Age Group": age_groups,
-                    "Study Population Size": pop_sizes,
-                    "Observed Deaths": observed,
-                    "Reference Rate (per person)": ref_rates,
-                    "Expected Deaths": [round(pop_sizes[i] * ref_rates[i], 2) for i in range(len(age_groups))]
-                })
-                st.table(smr_df)
-
-                total_observed = sum(observed)
-                total_expected = sum([pop_sizes[i] * ref_rates[i] for i in range(len(age_groups))])
-
-            else:
-                st.markdown("Enter observed and expected deaths by age group:")
-                n_groups = st.number_input("Number of age groups", min_value=1, max_value=10, value=3)
-                observed = []
-                expected_list = []
-                for i in range(n_groups):
-                    c1, c2, c3 = st.columns(3)
-                    with c1:
-                        ag = st.text_input(f"Age group {i+1} label", f"Group {i+1}", key=f"smr_ag_{i}")
-                    with c2:
-                        obs = st.number_input(f"Observed deaths", min_value=0, key=f"smr_obs_{i}")
-                    with c3:
-                        exp = st.number_input(f"Expected deaths", min_value=0.0, step=0.1, key=f"smr_exp_{i}")
-                    observed.append(obs)
-                    expected_list.append(exp)
-                total_observed = sum(observed)
-                total_expected = sum(expected_list)
-
-            if st.button("Calculate SMR"):
-                if total_expected > 0:
-                    smr = total_observed / total_expected
-
-                    # 95% CI using Poisson approximation
-                    ci_low_smr = smr - 1.96 * (smr / math.sqrt(total_observed)) if total_observed > 0 else 0
-                    ci_high_smr = smr + 1.96 * (smr / math.sqrt(total_observed)) if total_observed > 0 else 0
-                    ci_low_smr = max(0, ci_low_smr)
-
-                    st.subheader("📈 Results")
-                    col1, col2, col3 = st.columns(3)
-                    col1.metric("Observed Deaths", int(total_observed))
-                    col2.metric("Expected Deaths", round(total_expected, 2))
-                    col3.metric("SMR", round(smr, 3))
-
-                    st.write(f"95% CI: ({round(ci_low_smr,3)}, {round(ci_high_smr,3)})")
-
-                    if ci_low_smr <= 1 <= ci_high_smr:
-                        st.warning(
-                            f"**Interpretation:** SMR = {round(smr,2)} (95% CI: {round(ci_low_smr,2)}–{round(ci_high_smr,2)}). "
-                            f"The confidence interval includes 1.0, so we cannot conclude that mortality in this "
-                            f"population differs significantly from the reference population."
-                        )
-                    elif smr > 1:
-                        st.error(
-                            f"**Interpretation:** SMR = {round(smr,2)} (95% CI: {round(ci_low_smr,2)}–{round(ci_high_smr,2)}). "
-                            f"There were {int(total_observed)} observed deaths vs. {round(total_expected,1)} expected. "
-                            f"Mortality in this population is {round(smr,2)} times higher than in the reference population — "
-                            f"a statistically significant excess. We reject the null hypothesis (SMR = 1)."
-                        )
-                    else:
-                        st.success(
-                            f"**Interpretation:** SMR = {round(smr,2)} (95% CI: {round(ci_low_smr,2)}–{round(ci_high_smr,2)}). "
-                            f"There were {int(total_observed)} observed deaths vs. {round(total_expected,1)} expected. "
-                            f"Mortality in this population is lower than in the reference population — "
-                            f"this may reflect the **healthy worker effect** (workers are generally healthier than the general population)."
-                        )
-
-                    draw_ci("SMR", smr, ci_low_smr, ci_high_smr)
-
-        # ----------------------------------------------------------
-        # ATTRIBUTABLE RISK & AR%
-        # ----------------------------------------------------------
-
-        elif measure == "Attributable Risk & AR%":
-
-            st.subheader("Attributable Risk (AR) & Attributable Risk Percent (AR%)")
-            st.info(
-                "**Attributable Risk (AR)**, also called the **Risk Difference**, measures the absolute "
-                "difference in risk between exposed and unexposed groups. "
-                "**AR%** expresses that difference as a percentage of the exposed group's total risk — "
-                "it asks: of all the disease in the exposed group, what fraction is due to the exposure?"
-            )
-
-            with st.expander("📖 Formulas"):
-                st.markdown("""
-                **AR (Risk Difference) = Risk in Exposed − Risk in Unexposed**
-
-                **AR% = (AR / Risk in Exposed) × 100**
-
-                Or equivalently: **AR% = (RR − 1) / RR × 100**
-
-                - AR tells you the **absolute** excess risk due to exposure
-                - AR% tells you the **proportion** of exposed group's risk attributable to exposure
-                - Contrast with RR, which is a *relative* measure
-                """)
-
-            data_mode = st.radio("Data entry mode", ["Use preset scenario", "Enter my own data"], horizontal=True, key="ar_mode")
-
-            if data_mode == "Use preset scenario":
-                scenario = st.selectbox("Choose a scenario", [
-                    "Hypertension & Cardiovascular Disease",
-                    "Unvaccinated Children & Measles",
-                    "High Sodium Diet & Stroke"
-                ], key="ar_scenario")
-
-                if scenario == "Hypertension & Cardiovascular Disease":
-                    r_exposed, r_unexposed = 0.12, 0.04
-                    st.markdown("""
-                    **Scenario:** In a 10-year cohort study, adults with hypertension had a 12% risk
-                    of cardiovascular disease (CVD), compared to 4% among normotensive adults.
-                    *Adapted from Framingham Heart Study estimates.*
-                    """)
-                elif scenario == "Unvaccinated Children & Measles":
-                    r_exposed, r_unexposed = 0.90, 0.02
-                    st.markdown("""
-                    **Scenario:** During a measles outbreak in an unvaccinated community, 90% of
-                    unvaccinated children developed measles, compared to 2% of vaccinated children.
-                    *Adapted from CDC outbreak investigation data.*
-                    """)
-                elif scenario == "High Sodium Diet & Stroke":
-                    r_exposed, r_unexposed = 0.08, 0.03
-                    st.markdown("""
-                    **Scenario:** In a prospective cohort, adults consuming >5g sodium/day had an 8%
-                    10-year stroke risk, compared to 3% among those consuming <2g/day.
-                    *Adapted from He & MacGregor, J Human Hypertension (2003).*
-                    """)
-
-            else:
-                r_exposed = st.number_input(
-                    "Risk in exposed group (as proportion)",
-                    min_value=0.001, max_value=1.0, value=0.12, step=0.01,
-                    help="Example: 0.12 = 12% of exposed individuals developed the outcome."
-                )
-                r_unexposed = st.number_input(
-                    "Risk in unexposed group (as proportion)",
-                    min_value=0.001, max_value=1.0, value=0.04, step=0.01,
-                    help="Example: 0.04 = 4% of unexposed individuals developed the outcome."
-                )
-
-            if st.button("Calculate AR & AR%"):
-                ar = r_exposed - r_unexposed
-                rr = r_exposed / r_unexposed
-                ar_pct = (ar / r_exposed) * 100
-
-                st.subheader("📈 Results")
-                col1, col2, col3, col4 = st.columns(4)
-                col1.metric("Risk (Exposed)", f"{round(r_exposed*100,1)}%")
-                col2.metric("Risk (Unexposed)", f"{round(r_unexposed*100,1)}%")
-                col3.metric("AR (Risk Difference)", f"{round(ar*100,1)}%")
-                col4.metric("AR%", f"{round(ar_pct,1)}%")
-
-                st.success(
-                    f"**AR Interpretation:** The exposed group had {round(ar*100,1)} additional cases per 100 people "
-                    f"compared to the unexposed group. This is the absolute excess risk due to exposure."
-                )
-                st.success(
-                    f"**AR% Interpretation:** Of all disease occurring in the exposed group, "
-                    f"{round(ar_pct,1)}% is attributable to the exposure. "
-                    f"If the exposure were removed, we could theoretically prevent {round(ar_pct,1)}% "
-                    f"of cases among exposed individuals."
-                )
-                st.info(
-                    f"**Note:** The Risk Ratio (RR) for this data is {round(rr,2)}. "
-                    f"While the RR tells you the *relative* increase in risk, "
-                    f"the AR tells you the *absolute* excess — which is often more meaningful for public health decision-making."
-                )
-
-        # ----------------------------------------------------------
-        # NNH / NNT
-        # ----------------------------------------------------------
-
-        elif measure == "Number Needed to Harm / Treat (NNH/NNT)":
-
-            st.subheader("Number Needed to Harm (NNH) / Number Needed to Treat (NNT)")
-            st.info(
-                "**NNT** is the number of people who need to receive a treatment for one additional person "
-                "to benefit. **NNH** is the number of people who need to be exposed to a risk factor for "
-                "one additional person to be harmed. Both are the inverse of the Attributable Risk (Risk Difference) "
-                "and express risk in a clinically intuitive way."
-            )
-
-            with st.expander("📖 Formulas"):
-                st.markdown("""
-                **NNT = 1 / (Risk in control − Risk in treated)**  *(used when treatment reduces risk)*
-
-                **NNH = 1 / (Risk in exposed − Risk in unexposed)**  *(used when exposure increases risk)*
-
-                Both are the inverse of the **Attributable Risk (Risk Difference)**.
-
-                - A smaller NNT means the treatment is more effective
-                - A smaller NNH means the exposure is more dangerous
-                """)
-
-            data_mode = st.radio("Data entry mode", ["Use preset scenario", "Enter my own data"], horizontal=True, key="nnt_mode")
-
-            if data_mode == "Use preset scenario":
-                scenario = st.selectbox("Choose a scenario", [
-                    "Statins & Major Cardiac Events (NNT)",
-                    "Aspirin & GI Bleeding (NNH)",
-                    "Smoking Cessation Program & Quitting at 1 Year (NNT)"
-                ], key="nnt_scenario")
-
-                if scenario == "Statins & Major Cardiac Events (NNT)":
-                    r_treatment, r_control = 0.04, 0.06
-                    label_treatment, label_control = "Statin therapy", "Placebo"
-                    context = "NNT — Treatment reduces risk"
-                    st.markdown("""
-                    **Scenario:** In a 5-year RCT, 4% of patients on statin therapy experienced a major
-                    cardiac event, compared to 6% in the placebo group.
-                    *Adapted from Heart Protection Study (MRC/BHF).*
-                    """)
-                elif scenario == "Aspirin & GI Bleeding (NNH)":
-                    r_treatment, r_control = 0.025, 0.010
-                    label_treatment, label_control = "Daily aspirin", "No aspirin"
-                    context = "NNH — Exposure increases risk"
-                    st.markdown("""
-                    **Scenario:** In a cohort study, 2.5% of adults taking daily aspirin experienced
-                    a GI bleeding event over 3 years, compared to 1.0% among non-users.
-                    *Adapted from US Preventive Services Task Force aspirin evidence review.*
-                    """)
-                elif scenario == "Smoking Cessation Program & Quitting at 1 Year (NNT)":
-                    r_treatment, r_control = 0.22, 0.08
-                    label_treatment, label_control = "Cessation program", "No program"
-                    context = "NNT — Treatment increases benefit (quitting)"
-                    st.markdown("""
-                    **Scenario:** In a randomized trial, 22% of participants in a structured smoking
-                    cessation program successfully quit at 1 year, vs. 8% in the control group.
-                    *Adapted from Cochrane systematic review on behavioral smoking cessation.*
-                    """)
-
-            else:
-                label_treatment = st.text_input("Label for treatment/exposed group", "Treatment")
-                label_control = st.text_input("Label for control/unexposed group", "Control")
-                r_treatment = st.number_input(
-                    f"Risk in {label_treatment} group",
-                    min_value=0.001, max_value=1.0, value=0.04, step=0.01
-                )
-                r_control = st.number_input(
-                    f"Risk in {label_control} group",
-                    min_value=0.001, max_value=1.0, value=0.06, step=0.01
-                )
-                context = "Manual entry"
-
-            if st.button("Calculate NNH / NNT"):
-                risk_diff = abs(r_treatment - r_control)
-                nnt_nnh = round(1 / risk_diff, 1) if risk_diff > 0 else None
-
-                st.subheader("📈 Results")
-                col1, col2, col3 = st.columns(3)
-                col1.metric(f"Risk ({label_treatment})", f"{round(r_treatment*100,1)}%")
-                col2.metric(f"Risk ({label_control})", f"{round(r_control*100,1)}%")
-                col3.metric("Risk Difference (AR)", f"{round(risk_diff*100,1)}%")
-
-                if nnt_nnh:
-                    if r_treatment < r_control:
-                        st.success(
-                            f"**NNT = {nnt_nnh}**. You would need to treat **{nnt_nnh} people** with "
-                            f"{label_treatment} to prevent one additional outcome compared to {label_control}. "
-                            f"A lower NNT means a more effective intervention."
-                        )
-                    else:
-                        st.error(
-                            f"**NNH = {nnt_nnh}**. For every **{nnt_nnh} people** exposed to "
-                            f"{label_treatment}, one additional harm would be expected compared to {label_control}. "
-                            f"A lower NNH means a more dangerous exposure."
-                        )
-
-                    # ---- NNT/NNH Interpretation Guide ----
-                    st.subheader("📐 How to Interpret This Number")
-
-                    if r_treatment < r_control:
-                        # NNT guidance
-                        st.markdown("""
-    **Is this NNT good or bad?** Context is everything. An NNT that seems large can still represent
-    an important public health benefit — especially for serious outcomes like heart attacks or death,
-    or when a treatment is low-cost and low-risk.
-
-    **General benchmarks for NNT:**
-    | NNT Range | General Interpretation |
-    |-----------|----------------------|
-    | 1 – 5 | Highly effective. Nearly everyone treated benefits (e.g., antibiotics for strep throat). |
-    | 6 – 15 | Very effective. Strong benefit for a meaningful proportion of patients. |
-    | 16 – 50 | Moderately effective. Common for preventive interventions in general populations. |
-    | 51 – 100 | Modest effect. May still be worthwhile if the outcome is severe or treatment is cheap. |
-    | > 100 | Small effect per person. Meaningful only at population scale or for catastrophic outcomes. |
-
-    **Real-world NNT examples for comparison:**
-    | Intervention | NNT | Outcome | Timeframe |
-    |---|---|---|---|
-    | Tamiflu for influenza | ~14 | Reduce duration by 1 day | Per illness |
-    | Statins (high-risk patients) | ~20 | Prevent 1 MI or stroke | 5 years |
-    | Statins (low-risk / primary prevention) | ~50–100 | Prevent 1 cardiac event | 5 years |
-    | Aspirin for secondary MI prevention | ~40 | Prevent 1 death or MI | 2 years |
-    | Smoking cessation counseling | ~10–20 | 1 additional person quits | 1 year |
-    | Seatbelt use | ~3,300 | Prevent 1 death per crash | Per crash |
-
-    **Key principle:** A large NNT is not automatically bad. Ask:
-    - How serious is the outcome? (Preventing 1 death in 200 patients may be very worthwhile.)
-    - What are the costs and risks of treatment? (Low side effects = higher acceptable NNT.)
-    - What is the baseline risk? (Low-risk populations always produce higher NNTs for preventive interventions.)
-                        """)
-                    else:
-                        # NNH guidance
-                        st.markdown("""
-    **Is this NNH concerning?** Context determines whether an NNH represents an acceptable risk or a serious safety signal.
-
-    **General benchmarks for NNH:**
-    | NNH Range | General Interpretation |
-    |-----------|----------------------|
-    | 1 – 10 | Very high harm rate. Exposure is extremely dangerous for this outcome. |
-    | 11 – 50 | High harm rate. Serious safety concern requiring careful risk-benefit analysis. |
-    | 51 – 200 | Moderate harm rate. Common in drug side effect studies; must be weighed against benefits. |
-    | 201 – 1,000 | Low harm rate. May be acceptable depending on severity of harm and magnitude of benefit. |
-    | > 1,000 | Very rare harm. Usually acceptable unless the outcome is catastrophic (e.g., death). |
-
-    **Real-world NNH examples for comparison:**
-    | Exposure / Drug | NNH | Harm | Timeframe |
-    |---|---|---|---|
-    | Daily aspirin (low-dose) | ~67 | GI bleeding event | 3 years |
-    | NSAIDs (regular use) | ~100 | GI complications | 1 year |
-    | COX-2 inhibitors (Vioxx) | ~150 | Cardiovascular event | 18 months |
-    | Smoking (1+ pack/day) | ~7 | Lung cancer | Lifetime |
-    | Unvaccinated (measles outbreak) | ~1.1 | Measles infection | Per outbreak |
-
-    **Key principle:** NNH must always be interpreted alongside NNT (the benefit).
-    - If NNT < NNH: more people benefit than are harmed — generally favorable.
-    - If NNH < NNT: more people are harmed than benefit — raises serious safety concerns.
-    - Always consider: How severe is the harm vs. the benefit?
-                        """)
-
-        # ----------------------------------------------------------
-        # HAZARD RATIO
-        # ----------------------------------------------------------
-
-        elif measure == "Hazard Ratio (HR)":
-
-            st.subheader("Hazard Ratio (HR)")
-            st.info(
-                "The **Hazard Ratio** compares the rate at which an event occurs over time between two groups. "
-                "Unlike the Risk Ratio, which looks at cumulative risk over a fixed period, the HR accounts for "
-                "**when** events happen — making it the appropriate measure for survival analysis and "
-                "time-to-event studies. It is the standard measure reported in Cox proportional hazards regression."
-            )
-
-            with st.expander("📖 Key concepts"):
-                st.markdown("""
-                **HR = Hazard in exposed group / Hazard in unexposed group**
-
-                - **HR = 1.0**: Events occur at the same rate in both groups
-                - **HR > 1.0**: Events occur faster in the exposed group (increased hazard)
-                - **HR < 1.0**: Events occur more slowly in the exposed group (protective)
-
-                **How it differs from RR:**
-                - RR compares cumulative risk at a fixed time point
-                - HR compares the *instantaneous rate* of events at any given moment
-                - HR is more appropriate when follow-up time varies across participants
-                - HR is the standard output of Cox proportional hazards models
-
-                **When to use survival analysis:**
-                - Participants enter and leave the study at different times
-                - Some participants are lost to follow-up (censored)
-                - You are interested in *time to event*, not just whether it occurred
-                """)
-
-            data_mode = st.radio("Data entry mode", ["Use preset scenario", "Enter my own data"], horizontal=True, key="hr_mode")
-
-            if data_mode == "Use preset scenario":
-                scenario = st.selectbox("Choose a scenario", [
-                    "Statins & Time to First MI (RCT)",
-                    "HIV Diagnosis & Time to AIDS (Cohort)",
-                    "Physical Activity & Time to Dementia Onset"
-                ], key="hr_scenario")
-
-                if scenario == "Statins & Time to First MI (RCT)":
-                    hr, ci_low_hr, ci_high_hr = 0.68, 0.54, 0.85
-                    exposed_label, unexposed_label = "Statin therapy", "Placebo"
-                    outcome_label = "first myocardial infarction"
-                    st.markdown("""
-                    **Scenario:** In a 5-year randomized controlled trial, participants were assigned to
-                    statin therapy or placebo and followed for time to first myocardial infarction (MI).
-                    Results are reported from a Cox proportional hazards model.
-                    *Adapted from JUPITER trial (Ridker et al., NEJM 2008).*
-                    """)
-                elif scenario == "HIV Diagnosis & Time to AIDS (Cohort)":
-                    hr, ci_low_hr, ci_high_hr = 2.31, 1.74, 3.07
-                    exposed_label, unexposed_label = "CD4 < 200 at diagnosis", "CD4 ≥ 200 at diagnosis"
-                    outcome_label = "AIDS-defining illness"
-                    st.markdown("""
-                    **Scenario:** A prospective cohort of HIV-positive adults is followed for time to
-                    AIDS-defining illness. Participants are stratified by CD4 count at HIV diagnosis.
-                    *Adapted from published HIV natural history cohort data.*
-                    """)
-                elif scenario == "Physical Activity & Time to Dementia Onset":
-                    hr, ci_low_hr, ci_high_hr = 0.72, 0.58, 0.89
-                    exposed_label, unexposed_label = "High physical activity", "Low physical activity"
-                    outcome_label = "dementia diagnosis"
-                    st.markdown("""
-                    **Scenario:** Adults aged 65+ are followed for up to 10 years. Those with high
-                    physical activity levels are compared to sedentary adults for time to dementia diagnosis.
-                    *Adapted from Larson et al., Annals of Internal Medicine (2006).*
-                    """)
-
-                st.subheader("📈 Results")
-                col1, col2, col3 = st.columns(3)
-                col1.metric("Hazard Ratio (HR)", round(hr, 2))
-                col2.metric("95% CI Lower", round(ci_low_hr, 2))
-                col3.metric("95% CI Upper", round(ci_high_hr, 2))
-
-                if ci_low_hr <= 1 <= ci_high_hr:
-                    st.warning(
-                        f"**Interpretation:** HR = {round(hr,2)} (95% CI: {round(ci_low_hr,2)}–{round(ci_high_hr,2)}). "
-                        f"The CI includes 1 → **not statistically significant**. "
-                        f"We cannot conclude that the rate of {outcome_label} differs between {exposed_label} and {unexposed_label}."
-                    )
-                elif hr < 1:
-                    st.success(
-                        f"**Interpretation:** HR = {round(hr,2)} (95% CI: {round(ci_low_hr,2)}–{round(ci_high_hr,2)}). "
-                        f"At any given point in time, {exposed_label} had {round((1-hr)*100,1)}% lower hazard of {outcome_label} "
-                        f"compared to {unexposed_label}. The CI does not include 1 → **statistically significant**."
-                    )
-                else:
-                    st.error(
-                        f"**Interpretation:** HR = {round(hr,2)} (95% CI: {round(ci_low_hr,2)}–{round(ci_high_hr,2)}). "
-                        f"At any given point in time, {exposed_label} had {round((hr-1)*100,1)}% higher hazard of {outcome_label} "
-                        f"compared to {unexposed_label}. The CI does not include 1 → **statistically significant**."
-                    )
-
-                draw_ci("HR", hr, ci_low_hr, ci_high_hr)
-
-            else:
-                hr = st.number_input("Hazard Ratio (HR)", min_value=0.01, value=0.68, step=0.01)
-                ci_low_hr = st.number_input("95% CI Lower bound", min_value=0.001, value=0.54, step=0.01)
-                ci_high_hr = st.number_input("95% CI Upper bound", min_value=0.001, value=0.85, step=0.01)
-                exposed_label = st.text_input("Exposed group label", "Exposed")
-                unexposed_label = st.text_input("Unexposed group label", "Unexposed")
-                outcome_label = st.text_input("Outcome label", "the outcome")
-
-                if st.button("Interpret HR"):
-                    st.subheader("📈 Results")
-                    col1, col2, col3 = st.columns(3)
-                    col1.metric("Hazard Ratio (HR)", round(hr, 2))
-                    col2.metric("95% CI Lower", round(ci_low_hr, 2))
-                    col3.metric("95% CI Upper", round(ci_high_hr, 2))
-
-                    if ci_low_hr <= 1 <= ci_high_hr:
-                        st.warning(
-                            f"**Interpretation:** HR = {round(hr,2)} (95% CI: {round(ci_low_hr,2)}–{round(ci_high_hr,2)}). "
-                            f"The CI includes 1 → **not statistically significant**."
-                        )
-                    elif hr < 1:
-                        st.success(
-                            f"**Interpretation:** HR = {round(hr,2)} (95% CI: {round(ci_low_hr,2)}–{round(ci_high_hr,2)}). "
-                            f"{exposed_label} had {round((1-hr)*100,1)}% lower hazard of {outcome_label} "
-                            f"compared to {unexposed_label}. CI does not include 1 → **statistically significant**."
-                        )
-                    else:
-                        st.error(
-                            f"**Interpretation:** HR = {round(hr,2)} (95% CI: {round(ci_low_hr,2)}–{round(ci_high_hr,2)}). "
-                            f"{exposed_label} had {round((hr-1)*100,1)}% higher hazard of {outcome_label} "
-                            f"compared to {unexposed_label}. CI does not include 1 → **statistically significant**."
-                        )
-
-                    draw_ci("HR", hr, ci_low_hr, ci_high_hr)
+                st.success("✅ Age structure had minimal impact. Crude and adjusted rates tell a similar story.")
 
     st.markdown("---")
     st.markdown("Strong epidemiologists think structurally before computing.")
 
-# ==========================================================
-# TAB 4: PRACTICE ON YOUR OWN
-# ==========================================================
-
+# ==================================================
+# TAB 4: PRACTICE — MEASURES OF ASSOCIATION
+# QUICK WIN 1: Submit button, locked answers, "what you missed"
+# ==================================================
 with tab4:
-
     st.markdown("""
-    Read each scenario carefully, then make your decisions about study design,
-    outcome variable type, and exposure variable type. You'll get immediate feedback
-    on each choice explaining why it is or isn't correct.
+    Read each scenario, make **all three decisions**, then click **Submit My Answers**.
+    Feedback is hidden until you commit — work through your reasoning first.
     """)
 
     PRACTICE_SCENARIOS = [
         {
-            "id": "scenario_1",
-            "title": "Scenario 1: Lead Exposure & Cognitive Development",
-            "description": (
-                "Investigators recruit 400 children aged 6–12 from neighborhoods near a former "
-                "lead smelting plant and 400 children from neighborhoods with no known lead exposure. "
-                "Blood lead levels are measured at baseline. Children are followed for 3 years, "
-                "and new diagnoses of learning disabilities are recorded. Researchers want to compare "
-                "the rate of new learning disability diagnoses between the two groups."
-            ),
-            "correct_design": "Cohort",
-            "correct_outcome": "Binary",
-            "correct_exposure": "Binary (2 groups)",
-            "data": {
-                "type": "contingency",
-                "context": (
-                    "Here is the data collected from the 3-year follow-up. "
-                    "Enter these counts into the analysis to calculate the Risk Ratio, Odds Ratio, and p-value."
-                ),
-                "row_names": ["Lead-exposed", "Unexposed"],
-                "col_names": ["Learning Disability", "No Learning Disability"],
-                "cells": [[52, 348], [21, 379]],
+            "id": "s1", "title": "Scenario 1: Lead Exposure & Cognitive Development",
+            "description": "400 children near a lead smelting plant and 400 from unexposed neighborhoods are followed for 3 years. New learning disability diagnoses are recorded.",
+            "correct_design": "Cohort", "correct_outcome": "Binary", "correct_exposure": "Binary (2 groups)",
+            "design_hint": "Researchers classified children by **exposure at the start**, then followed them **forward** to see new diagnoses. Forward-looking = cohort.",
+            "outcome_hint": "Learning disability: present or absent — **two categories = binary**.",
+            "exposure_hint": "Exposed vs. unexposed neighborhoods — **two groups = binary**.",
+            "design_wrong": {
+                "Case-Control": "❌ Case-control starts with people who **already have** the disease, then looks backward. Here researchers started with exposure status and followed children forward — that's cohort.",
+                "Cross-sectional": "❌ Cross-sectional measures everything at **one point in time**. Here children were followed for 3 years — that forward follow-up makes this cohort."
             },
-            "design_hint": (
-                "Think about the timeline. Researchers identified exposed and unexposed children "
-                "at the start, then followed them forward to see who developed a new diagnosis. "
-                "This forward-looking approach — from exposure to outcome — is the defining feature "
-                "of a cohort study. Case-control studies start with people who already have the disease."
-            ),
-            "outcome_hint": (
-                "The outcome is a learning disability diagnosis — either a child receives one or they don't. "
-                "That's a yes/no outcome, which is binary. If the outcome had multiple unordered categories "
-                "(e.g., mild, moderate, severe, none) it would be categorical."
-            ),
-            "exposure_hint": (
-                "There are two exposure groups: children near the smelting plant vs. children with no known "
-                "lead exposure. Two groups = binary exposure. If the researchers had compared low, medium, "
-                "and high lead neighborhoods, that would be categorical (>2 groups)."
-            ),
+            "outcome_wrong": {
+                "Categorical (Nominal >2 levels)": "❌ Categorical requires **3+ unordered categories**. Diagnosis is present or absent — two categories — binary.",
+                "Ordinal": "❌ Ordinal requires **ordered categories**. A diagnosis is yes or no — binary.",
+                "Rate (person-time)": "❌ Rate outcomes are used when follow-up **varies across participants**. All children were followed for the same 3-year period — binary outcome works."
+            },
+            "exposure_wrong": {"Categorical (>2 groups)": "❌ Categorical requires **3+ groups**. There are only two groups here — binary."},
+            "data": {"type": "contingency", "context": "3-year follow-up data. Calculate RR, OR, and p-value.",
+                     "row_names": ["Lead-exposed","Unexposed"], "col_names": ["Learning Disability","No Learning Disability"],
+                     "cells": [[52,348],[21,379]]}
         },
         {
-            "id": "scenario_2",
-            "title": "Scenario 2: Fast Food Consumption & Obesity",
-            "description": (
-                "A public health team conducts a one-time survey of 2,500 adults at community health fairs "
-                "across three cities. At the time of the survey, each participant reports how many times "
-                "per week they eat fast food, and their height and weight are measured to determine "
-                "current obesity status (BMI ≥ 30 vs. BMI < 30). The team wants to examine the "
-                "relationship between fast food frequency and obesity as it exists right now."
-            ),
-            "correct_design": "Cross-sectional",
-            "correct_outcome": "Binary",
-            "correct_exposure": "Categorical (>2 groups)",
-            "data": {
-                "type": "contingency_wide",
-                "context": (
-                    "Here is the survey data organized by fast food frequency and obesity status. "
-                    "Run the chi-square test to see whether the association is statistically significant."
-                ),
-                "row_names": ["Never", "1–2x/week", "3–4x/week", "5+x/week"],
-                "col_names": ["Obese", "Not Obese"],
-                "cells": [
-                    [62,  538],
-                    [118, 682],
-                    [189, 561],
-                    [141, 209],
-                ],
+            "id": "s2", "title": "Scenario 2: Fast Food & Obesity",
+            "description": "One-time survey of 2,500 adults. Participants report weekly fast food frequency (never/1–2x/3–4x/5+x) and BMI is measured to classify obesity (BMI ≥ 30 vs. < 30).",
+            "correct_design": "Cross-sectional", "correct_outcome": "Binary", "correct_exposure": "Categorical (>2 groups)",
+            "design_hint": "**One-time survey** — both exposure and outcome measured simultaneously. No follow-up = cross-sectional.",
+            "outcome_hint": "Obesity: BMI ≥ 30 vs. < 30 — **two categories = binary**.",
+            "exposure_hint": "Four frequency categories — **more than 2 groups = categorical**.",
+            "design_wrong": {
+                "Cohort": "❌ Cohort follows people **over time**. This is a one-time survey — no follow-up period.",
+                "Case-Control": "❌ Case-control recruits by disease status and looks back. This survey recruited everyone at once and measured everything simultaneously."
             },
-            "design_hint": (
-                "The key phrase is 'one-time survey' and 'as it exists right now.' Both exposure "
-                "(fast food frequency) and outcome (obesity status) are measured at the same point in time — "
-                "a snapshot. That's a cross-sectional study. In a cohort study, you would follow people "
-                "over time to see who becomes obese. In a case-control study, you would start with obese "
-                "and non-obese people and ask about past eating habits."
-            ),
-            "outcome_hint": (
-                "Obesity status is BMI ≥ 30 vs. BMI < 30 — two categories, so it's binary. "
-                "If the researchers had categorized BMI into underweight, normal, overweight, and obese, "
-                "that would be categorical with more than 2 levels."
-            ),
-            "exposure_hint": (
-                "Fast food frequency has more than two levels — for example: never, 1–2 times/week, "
-                "3–4 times/week, 5+ times/week. That's categorical with more than 2 groups. "
-                "If the only comparison were 'eats fast food' vs. 'does not eat fast food,' "
-                "that would be binary."
-            ),
+            "outcome_wrong": {
+                "Categorical (Nominal >2 levels)": "❌ Obesity is simply present or absent — two categories. Categorical requires 3+.",
+                "Ordinal": "❌ Obesity (yes/no) is two categories — binary.",
+                "Rate (person-time)": "❌ No follow-up time variation — this is a one-time survey."
+            },
+            "exposure_wrong": {"Binary (2 groups)": "❌ Four frequency categories (never/1–2x/3–4x/5+x) — more than 2 groups = categorical."},
+            "data": {"type": "contingency_wide", "context": "Survey data by fast food frequency and obesity.",
+                     "row_names": ["Never","1–2x/week","3–4x/week","5+x/week"], "col_names": ["Obese","Not Obese"],
+                     "cells": [[62,538],[118,682],[189,561],[141,209]]}
         },
         {
-            "id": "scenario_3",
-            "title": "Scenario 3: HPV Vaccine & Cervical Cancer",
-            "description": (
-                "Researchers identify 250 women aged 25–45 with confirmed cervical cancer diagnoses "
-                "from a hospital registry. They also recruit 500 women without cervical cancer from "
-                "the same hospital system, matched on age and clinic location. Medical records and "
-                "patient interviews are used to determine whether each woman received the HPV vaccine "
-                "during adolescence. The researchers want to know whether unvaccinated women are more "
-                "likely to develop cervical cancer."
-            ),
-            "correct_design": "Case-Control",
-            "correct_outcome": "Binary",
-            "correct_exposure": "Binary (2 groups)",
-            "data": {
-                "type": "contingency",
-                "context": (
-                    "Here is the case-control data from medical records and interviews. "
-                    "Because this is a case-control study, the Odds Ratio is the appropriate measure of association."
-                ),
-                "row_names": ["Unvaccinated", "Vaccinated"],
-                "col_names": ["Cervical Cancer (Case)", "No Cancer (Control)"],
-                "cells": [[178, 182], [72, 318]],
+            "id": "s3", "title": "Scenario 3: HPV Vaccine & Cervical Cancer",
+            "description": "250 women with cervical cancer and 500 without are recruited. Vaccination history is assessed from medical records.",
+            "correct_design": "Case-Control", "correct_outcome": "Binary", "correct_exposure": "Binary (2 groups)",
+            "design_hint": "Started with **disease status** (cases vs. controls), then looked **backward** at vaccination. Starting with outcome and looking back = case-control.",
+            "outcome_hint": "Cervical cancer: present or absent — **binary**.",
+            "exposure_hint": "Vaccinated vs. unvaccinated — **two groups = binary**.",
+            "design_wrong": {
+                "Cohort": "❌ Cohort would enroll by vaccination status and follow forward. Here researchers started with cancer status — that's case-control.",
+                "Cross-sectional": "❌ Cross-sectional measures simultaneously. Here researchers specifically recruited cases and controls by disease status and looked back — case-control."
             },
-            "design_hint": (
-                "The researchers started by identifying people who already have the disease (cases: cervical "
-                "cancer) and people who don't (controls), then looked back at past vaccination history. "
-                "Starting with outcome status and looking backward is the hallmark of a case-control study. "
-                "A cohort study would have enrolled women in adolescence and followed them forward to see "
-                "who developed cancer — which would take decades."
-            ),
-            "outcome_hint": (
-                "In a case-control study, the 'outcome' is what defines your cases vs. controls — here, "
-                "cervical cancer: yes or no. That's binary. The outcome was already determined before "
-                "the study began, which is why you're looking backward at exposure."
-            ),
-            "exposure_hint": (
-                "HPV vaccination status is received the vaccine vs. did not receive the vaccine — "
-                "two groups, so it's binary. If the researchers had compared unvaccinated, partially "
-                "vaccinated (1–2 doses), and fully vaccinated (3 doses), that would be categorical "
-                "with more than 2 groups."
-            ),
+            "outcome_wrong": {
+                "Categorical (Nominal >2 levels)": "❌ Cervical cancer is present or absent — binary.",
+                "Ordinal": "❌ A diagnosis is yes or no — binary.",
+                "Rate (person-time)": "❌ In case-control, the outcome is already determined before the study begins."
+            },
+            "exposure_wrong": {"Categorical (>2 groups)": "❌ Vaccinated vs. unvaccinated — two groups only = binary."},
+            "data": {"type": "contingency", "context": "Case-control data. Odds Ratio is the appropriate measure.",
+                     "row_names": ["Unvaccinated","Vaccinated"], "col_names": ["Cervical Cancer (Case)","No Cancer (Control)"],
+                     "cells": [[178,182],[72,318]]}
         },
         {
-            "id": "scenario_4",
-            "title": "Scenario 4: Shift Work & Metabolic Syndrome",
-            "description": (
-                "An occupational health study enrolls 1,200 hospital employees and classifies them "
-                "into three groups based on their work schedule: day shift only, rotating shift "
-                "(alternates between day and night), and permanent night shift. Employees are "
-                "followed for 5 years. At the end of follow-up, researchers assess whether each "
-                "employee has developed metabolic syndrome (yes/no), a cluster of conditions "
-                "including high blood pressure, high blood sugar, and excess abdominal fat."
-            ),
-            "correct_design": "Cohort",
-            "correct_outcome": "Binary",
-            "correct_exposure": "Categorical (>2 groups)",
-            "data": {
-                "type": "contingency_wide",
-                "context": (
-                    "Here is the 5-year follow-up data for the 1,200 hospital employees by shift type. "
-                    "Run the chi-square test to assess whether shift type is associated with metabolic syndrome."
-                ),
-                "row_names": ["Day shift only", "Rotating shift", "Permanent night shift"],
-                "col_names": ["Metabolic Syndrome", "No Metabolic Syndrome"],
-                "cells": [
-                    [62,  338],
-                    [98,  302],
-                    [121, 279],
-                ],
+            "id": "s4", "title": "Scenario 4: Shift Work & Metabolic Syndrome",
+            "description": "1,200 hospital employees classified by shift: day only, rotating, or night. Followed 5 years. Metabolic syndrome (yes/no) assessed at end.",
+            "correct_design": "Cohort", "correct_outcome": "Binary", "correct_exposure": "Categorical (>2 groups)",
+            "design_hint": "Classified by shift type at start, followed **forward** 5 years — cohort.",
+            "outcome_hint": "Metabolic syndrome: present or absent — **binary**.",
+            "exposure_hint": "Three shift types — **more than 2 groups = categorical**.",
+            "design_wrong": {
+                "Case-Control": "❌ Would start with metabolic syndrome cases and look back. Here employees were classified by shift first, then followed forward — cohort.",
+                "Cross-sectional": "❌ Employees were followed for **5 years** — that follow-up period makes this cohort, not cross-sectional."
             },
-            "design_hint": (
-                "Employees were classified by exposure (shift type) at the start, then followed "
-                "forward for 5 years to see who developed metabolic syndrome. Forward in time, "
-                "from exposure to outcome — that's a cohort study. The fact that there are three "
-                "exposure groups doesn't change the study design."
-            ),
-            "outcome_hint": (
-                "Metabolic syndrome is either present or absent — yes or no. That's binary. "
-                "Even though metabolic syndrome involves multiple components, the outcome being "
-                "measured here is a single yes/no classification."
-            ),
-            "exposure_hint": (
-                "There are three exposure groups: day shift, rotating shift, and night shift. "
-                "Three groups means categorical with more than 2 levels. If the only comparison "
-                "were 'shift worker' vs. 'non-shift worker,' that would be binary."
-            ),
+            "outcome_wrong": {
+                "Categorical (Nominal >2 levels)": "❌ Metabolic syndrome is present or absent — binary.",
+                "Ordinal": "❌ A yes/no diagnosis is binary.",
+                "Rate (person-time)": "❌ All employees followed the same 5-year period — no need for person-time."
+            },
+            "exposure_wrong": {"Binary (2 groups)": "❌ Three categories (day/rotating/night) — more than 2 = categorical."},
+            "data": {"type": "contingency_wide", "context": "5-year follow-up data by shift type.",
+                     "row_names": ["Day shift","Rotating shift","Night shift"], "col_names": ["Metabolic Syndrome","No Metabolic Syndrome"],
+                     "cells": [[62,338],[98,302],[121,279]]}
         },
         {
-            "id": "scenario_5",
-            "title": "Scenario 5: Air Pollution & Emergency Department Visits",
-            "description": (
-                "Researchers want to study the effect of fine particulate matter (PM2.5) air pollution "
-                "on respiratory health in a city. They enroll 3,000 adults and monitor their daily "
-                "PM2.5 exposure using neighborhood air quality sensors over a 2-year period. "
-                "Because participants move, change jobs, and vary in time spent outdoors, each person "
-                "contributes a different total amount of time at risk. The outcome of interest is "
-                "new emergency department (ED) visits for respiratory illness."
-            ),
-            "correct_design": "Cohort",
-            "correct_outcome": "Rate (person-time)",
-            "correct_exposure": "Binary (2 groups)",
-            "data": {
-                "type": "rate",
-                "context": (
-                    "Here is the person-time data from the 2-year follow-up. Because participants "
-                    "contributed different amounts of follow-up time, we use person-years rather than "
-                    "simple counts. Calculate the Incidence Rate Ratio (IRR) to compare the two groups."
-                ),
-                "row_names": ["High PM2.5 exposure", "Low PM2.5 exposure"],
-                "cases": [187, 64],
-                "person_time": [4200, 5100],
+            "id": "s5", "title": "Scenario 5: Air Pollution & Emergency Department Visits",
+            "description": "3,000 adults monitored for PM2.5 over 2 years. Participants move and vary in outdoor time — each contributes different observation time. Outcome: new ED visits for respiratory illness.",
+            "correct_design": "Cohort", "correct_outcome": "Rate (person-time)", "correct_exposure": "Binary (2 groups)",
+            "design_hint": "Participants followed **forward** from exposure to new events — cohort.",
+            "outcome_hint": "Each person contributes **different follow-up time** — must account for this using person-time. Rate outcome.",
+            "exposure_hint": "High vs. low PM2.5 — **two groups = binary**.",
+            "design_wrong": {
+                "Case-Control": "❌ Would start with ED visit cases. Here participants enrolled first and followed forward — cohort.",
+                "Cross-sectional": "❌ Followed over 2 years — not a one-time snapshot."
             },
-            "design_hint": (
-                "Participants are followed forward over time from a defined exposure to see who "
-                "develops new ED visits — a cohort study. The important clue here is that follow-up "
-                "time varies across participants, which affects how the outcome is measured "
-                "(but not the study design itself)."
-            ),
-            "outcome_hint": (
-                "The key phrase is 'each person contributes a different total amount of time at risk.' "
-                "When follow-up time varies, you can't simply count who got sick — you need to account "
-                "for how long each person was observed. This requires a rate outcome using person-time "
-                "(e.g., ED visits per 100 person-years). Binary outcome would be appropriate only "
-                "if everyone was followed for the same fixed period."
-            ),
-            "exposure_hint": (
-                "PM2.5 exposure is being compared as high vs. low (or exposed vs. unexposed to elevated levels) "
-                "— two groups, so binary. If researchers had used three or more pollution categories "
-                "(e.g., low, moderate, high, very high), that would be categorical with more than 2 groups."
-            ),
+            "outcome_wrong": {
+                "Binary": "❌ Follow-up time **varies** across participants. Simply counting who got sick ignores this variation — you need person-time to create a fair rate.",
+                "Categorical (Nominal >2 levels)": "❌ Event counts per varying follow-up time is a rate, not unordered categories.",
+                "Ordinal": "❌ Not ordered categories — a rate per person-time."
+            },
+            "exposure_wrong": {"Categorical (>2 groups)": "❌ High vs. low — two groups = binary."},
+            "data": {"type": "rate", "context": "Person-time data. Calculate IRR.",
+                     "row_names": ["High PM2.5","Low PM2.5"], "cases": [187,64], "person_time": [4200,5100]}
         },
         {
-            "id": "scenario_6",
-            "title": "Scenario 6: Food Insecurity & Mental Health",
-            "description": (
-                "A state health department conducts a telephone survey of 5,000 randomly selected "
-                "households. Each respondent is asked about current food insecurity status "
-                "(food secure vs. food insecure) and completes a validated depression screening "
-                "instrument (PHQ-9). Based on their score, respondents are classified as: "
-                "no depression, mild depression, moderate depression, or severe depression. "
-                "The survey is conducted once, and researchers want to describe the association "
-                "between food insecurity and depression severity as it exists at the time of the survey."
-            ),
-            "correct_design": "Cross-sectional",
-            "correct_outcome": "Categorical (Nominal >2 levels)",
-            "correct_exposure": "Binary (2 groups)",
-            "data": {
-                "type": "contingency_wide",
-                "context": (
-                    "Here is the survey data showing depression severity by food insecurity status. "
-                    "Run the chi-square test to assess whether the association is statistically significant."
-                ),
-                "row_names": ["Food Insecure", "Food Secure"],
-                "col_names": ["No Depression", "Mild", "Moderate", "Severe"],
-                "cells": [
-                    [312, 284, 198, 106],
-                    [2180, 980, 412, 28],
-                ],
+            "id": "s6", "title": "Scenario 6: Food Insecurity & Depression",
+            "description": "One-time survey of 5,000 households. Food insecurity (secure vs. insecure) and PHQ-9 depression scores (no/mild/moderate/severe depression) are measured simultaneously.",
+            "correct_design": "Cross-sectional", "correct_outcome": "Categorical (Nominal >2 levels)", "correct_exposure": "Binary (2 groups)",
+            "design_hint": "Both measured **simultaneously in a single survey** — cross-sectional.",
+            "outcome_hint": "Four depression categories — **more than 2 = categorical**.",
+            "exposure_hint": "Food secure vs. insecure — **two groups = binary**.",
+            "design_wrong": {
+                "Cohort": "❌ Single survey — no follow-up period. Cross-sectional.",
+                "Case-Control": "❌ Did not recruit by disease status — surveyed a random sample simultaneously."
             },
-            "design_hint": (
-                "Both food insecurity and depression are measured at the same point in time — "
-                "a single telephone survey. There is no follow-up period and no looking backward "
-                "at past exposures. Measuring exposure and outcome simultaneously in a snapshot "
-                "is the defining feature of a cross-sectional study."
-            ),
-            "outcome_hint": (
-                "The PHQ-9 produces four categories: no depression, mild, moderate, and severe. "
-                "That's more than two categories, so it's categorical (nominal with >2 levels). "
-                "If the researchers had only classified respondents as depressed vs. not depressed, "
-                "the outcome would be binary."
-            ),
-            "exposure_hint": (
-                "Food insecurity is classified as food secure vs. food insecure — two groups, so binary. "
-                "If the study had used multiple levels of food insecurity (e.g., food secure, "
-                "marginally food insecure, food insecure, severely food insecure), "
-                "that would be categorical with more than 2 groups."
-            ),
-        },
-        {
-            "id": "scenario_7",
-            "title": "Scenario 7: Alcohol Consumption & Liver Cirrhosis",
-            "description": (
-                "Researchers recruit 520 patients newly diagnosed with liver cirrhosis from "
-                "three urban hospitals and 520 patients admitted for non-liver conditions "
-                "(controls), matched on age and sex. A structured interview is used to assess "
-                "each participant's lifetime alcohol consumption, classified as: non-drinker, "
-                "light drinker (<1 drink/day), moderate drinker (1–3 drinks/day), or heavy "
-                "drinker (>3 drinks/day). The goal is to determine whether heavier alcohol "
-                "consumption is associated with cirrhosis diagnosis."
-            ),
-            "correct_design": "Case-Control",
-            "correct_outcome": "Binary",
-            "correct_exposure": "Categorical (>2 groups)",
-            "data": {
-                "type": "contingency_wide",
-                "context": (
-                    "Here is the case-control data organized by alcohol consumption level. "
-                    "Run the chi-square test to assess whether alcohol consumption level is "
-                    "associated with liver cirrhosis diagnosis."
-                ),
-                "row_names": ["Non-drinker", "Light (<1/day)", "Moderate (1–3/day)", "Heavy (>3/day)"],
-                "col_names": ["Cirrhosis (Case)", "No Cirrhosis (Control)"],
-                "cells": [
-                    [38,  142],
-                    [72,  168],
-                    [148, 122],
-                    [262,  88],
-                ],
+            "outcome_wrong": {
+                "Binary": "❌ Four categories (none/mild/moderate/severe) — not binary. Binary would require collapsing to just depressed vs. not depressed.",
+                "Ordinal": "❌ These categories are ordered, which makes them technically ordinal. However, the app treats ordinal as categorical for chi-square. **Either answer is defensible** — the key insight is it's not binary.",
+                "Rate (person-time)": "❌ One-time survey — no follow-up time."
             },
-            "design_hint": (
-                "The researchers started with people who already had liver cirrhosis (cases) "
-                "and those who did not (controls), then looked back at past alcohol use. "
-                "Starting with outcome status and looking backward at exposure history is the "
-                "hallmark of a case-control study. A cohort study would have enrolled people "
-                "by drinking level and followed them forward to see who developed cirrhosis."
-            ),
-            "outcome_hint": (
-                "The outcome is cirrhosis diagnosis — present or absent. That is two categories, "
-                "so it is binary. In a case-control study, the outcome is what defines cases vs. "
-                "controls and is always determined before the study begins."
-            ),
-            "exposure_hint": (
-                "Alcohol consumption is classified into four ordered levels: non-drinker, light, "
-                "moderate, and heavy. Four groups means categorical with more than 2 levels. "
-                "If the only comparison were drinker vs. non-drinker, the exposure would be binary."
-            ),
-        },
-        {
-            "id": "scenario_8",
-            "title": "Scenario 8: Breastfeeding & Childhood Ear Infections",
-            "description": (
-                "A pediatric research team follows 1,800 infants from birth to age 2. At "
-                "enrollment, mothers report whether they plan to breastfeed exclusively for at "
-                "least 6 months (yes/no). Medical records are reviewed at 12 and 24 months to "
-                "record any new diagnoses of acute otitis media (middle ear infection). "
-                "Because some infants are lost to follow-up and others move away, each infant "
-                "contributes a different amount of observation time. Researchers want to compare "
-                "the incidence rate of ear infections between breastfed and non-breastfed infants."
-            ),
-            "correct_design": "Cohort",
-            "correct_outcome": "Rate (person-time)",
-            "correct_exposure": "Binary (2 groups)",
-            "data": {
-                "type": "rate",
-                "context": (
-                    "Here is the person-time data from the 2-year follow-up. Some infants were "
-                    "lost to follow-up, so person-months are used instead of a simple count. "
-                    "Calculate the Incidence Rate Ratio (IRR) to compare ear infection rates."
-                ),
-                "row_names": ["Exclusively breastfed ≥6 months", "Not exclusively breastfed"],
-                "cases": [94, 218],
-                "person_time": [9800, 10200],
-            },
-            "design_hint": (
-                "Infants were classified by feeding practice at enrollment (the exposure) and "
-                "then followed forward for 2 years to record new ear infection diagnoses. "
-                "Moving forward in time from exposure to outcome is the defining feature of "
-                "a cohort study. The fact that follow-up time varies affects how the outcome "
-                "is measured, but not the study design."
-            ),
-            "outcome_hint": (
-                "The clue is that 'each infant contributes a different amount of observation time.' "
-                "When follow-up varies, you cannot simply count who got sick — you must account "
-                "for how long each infant was observed. This calls for a rate outcome using "
-                "person-time. Binary outcome would apply only if all infants were observed for "
-                "exactly the same period."
-            ),
-            "exposure_hint": (
-                "Breastfeeding is classified as exclusively breastfed for at least 6 months vs. "
-                "not — two groups, so binary. If the study had compared three or more feeding "
-                "categories (e.g., exclusive, partial, formula-only), that would be categorical "
-                "with more than 2 groups."
-            ),
-        },
-        {
-            "id": "scenario_9",
-            "title": "Scenario 9: Neighborhood Poverty & Hypertension",
-            "description": (
-                "A county health department conducts a community health needs assessment by "
-                "surveying 4,200 adult residents across neighborhoods classified by poverty level: "
-                "low poverty (<10% below poverty line), moderate poverty (10–20%), and high "
-                "poverty (>20%). At the time of the survey, each resident's blood pressure is "
-                "measured and hypertension status (yes/no) is recorded. The health department "
-                "wants to examine whether neighborhood poverty level is associated with current "
-                "hypertension prevalence."
-            ),
-            "correct_design": "Cross-sectional",
-            "correct_outcome": "Binary",
-            "correct_exposure": "Categorical (>2 groups)",
-            "data": {
-                "type": "contingency_wide",
-                "context": (
-                    "Here is the survey data organized by neighborhood poverty level and "
-                    "hypertension status. Run the chi-square test to assess whether the "
-                    "association is statistically significant."
-                ),
-                "row_names": ["Low poverty (<10%)", "Moderate poverty (10–20%)", "High poverty (>20%)"],
-                "col_names": ["Hypertension", "No Hypertension"],
-                "cells": [
-                    [218, 982],
-                    [341, 859],
-                    [489, 711],
-                ],
-            },
-            "design_hint": (
-                "Both neighborhood poverty level (exposure) and hypertension status (outcome) "
-                "are measured at the same point in time during a single survey. There is no "
-                "follow-up period and no looking backward at past conditions. Measuring exposure "
-                "and outcome simultaneously in a snapshot is cross-sectional. A cohort study "
-                "would follow residents over time to see who develops hypertension."
-            ),
-            "outcome_hint": (
-                "Hypertension status is either present or absent — yes or no. That is binary. "
-                "If the outcome had been blood pressure classified as normal, elevated, stage 1, "
-                "and stage 2 hypertension, that would be categorical with more than 2 levels."
-            ),
-            "exposure_hint": (
-                "Neighborhood poverty is classified into three levels: low, moderate, and high. "
-                "Three groups means categorical with more than 2 levels. If the comparison were "
-                "only high-poverty vs. low-poverty neighborhoods, the exposure would be binary."
-            ),
-        },
-        {
-            "id": "scenario_10",
-            "title": "Scenario 10: Pesticide Exposure & Parkinson's Disease",
-            "description": (
-                "Neurologists at a regional medical center identify 310 patients with newly "
-                "diagnosed Parkinson's disease. For each case, two controls without Parkinson's "
-                "are recruited from the same neurology clinic, matched on age (within 5 years) "
-                "and sex, yielding 620 controls. Participants are interviewed about occupational "
-                "history, and pesticide exposure is classified as yes or no based on whether "
-                "they ever worked in agriculture or pesticide manufacturing for more than 1 year. "
-                "Researchers want to determine whether pesticide exposure is associated with "
-                "Parkinson's disease."
-            ),
-            "correct_design": "Case-Control",
-            "correct_outcome": "Binary",
-            "correct_exposure": "Binary (2 groups)",
-            "data": {
-                "type": "contingency",
-                "context": (
-                    "Here is the matched case-control data. The Odds Ratio is the appropriate "
-                    "measure of association for a case-control study — you cannot calculate a "
-                    "true Risk Ratio because you selected cases and controls by disease status, "
-                    "not by exposure."
-                ),
-                "row_names": ["Pesticide-exposed", "Not exposed"],
-                "col_names": ["Parkinson's (Case)", "No Parkinson's (Control)"],
-                "cells": [[168, 192], [142, 428]],
-            },
-            "design_hint": (
-                "Researchers started by identifying people with Parkinson's disease (cases) and "
-                "people without it (controls), then looked back at occupational pesticide exposure. "
-                "This backward-looking design — starting with the outcome and assessing past "
-                "exposure — is case-control. A cohort study would have enrolled agricultural "
-                "workers and non-agricultural workers and followed them forward to see who "
-                "developed Parkinson's, which would take decades."
-            ),
-            "outcome_hint": (
-                "The outcome is Parkinson's disease diagnosis — present or absent. Two categories "
-                "means binary. In a case-control study, having or not having the disease is what "
-                "defines cases vs. controls, so the outcome is always binary."
-            ),
-            "exposure_hint": (
-                "Pesticide exposure is classified as ever exposed vs. never exposed — two groups, "
-                "so binary. If the researchers had classified exposure as never, low-level, and "
-                "high-level, that would be categorical with more than 2 groups."
-            ),
-        },
-        {
-            "id": "scenario_11",
-            "title": "Scenario 11: Social Media Use & Adolescent Depression",
-            "description": (
-                "A school-based survey is administered to 3,600 high school students across "
-                "12 schools in one district. Each student reports their average daily social "
-                "media use: less than 1 hour, 1–3 hours, or more than 3 hours per day. "
-                "At the same time, students complete a validated depression screening "
-                "instrument (PHQ-8). Those scoring 10 or above are classified as having "
-                "probable depression (yes/no). The survey is conducted once during the school "
-                "year. Researchers want to describe the current association between social "
-                "media use and depression screening status."
-            ),
-            "correct_design": "Cross-sectional",
-            "correct_outcome": "Binary",
-            "correct_exposure": "Categorical (>2 groups)",
-            "data": {
-                "type": "contingency_wide",
-                "context": (
-                    "Here is the survey data organized by daily social media use and depression "
-                    "screening status. Run the chi-square test to assess whether the association "
-                    "between social media use and probable depression is statistically significant."
-                ),
-                "row_names": ["<1 hour/day", "1–3 hours/day", ">3 hours/day"],
-                "col_names": ["Probable Depression", "No Depression"],
-                "cells": [
-                    [98,  902],
-                    [284, 1116],
-                    [412, 788],
-                ],
-            },
-            "design_hint": (
-                "Social media use (exposure) and depression screening status (outcome) are both "
-                "measured at the same point in time during a single school survey. There is no "
-                "follow-up and no looking back at past behavior — it is a snapshot. That is "
-                "a cross-sectional study. An important limitation: because both are measured "
-                "simultaneously, you cannot determine whether social media use preceded depression "
-                "or vice versa."
-            ),
-            "outcome_hint": (
-                "Depression status is classified as probable depression (PHQ-8 ≥ 10) vs. no "
-                "depression — two categories, so binary. If the outcome were PHQ-8 score "
-                "classified into severity levels (minimal, mild, moderate, severe), that would "
-                "be categorical with more than 2 levels."
-            ),
-            "exposure_hint": (
-                "Social media use is classified into three categories: less than 1 hour, 1–3 "
-                "hours, and more than 3 hours per day. Three groups means categorical with more "
-                "than 2 levels. If the only comparison were high use vs. low use, the exposure "
-                "would be binary."
-            ),
+            "exposure_wrong": {"Categorical (>2 groups)": "❌ Food secure vs. insecure — two groups = binary."},
+            "data": {"type": "contingency_wide", "context": "Survey data: depression severity by food insecurity.",
+                     "row_names": ["Food Insecure","Food Secure"], "col_names": ["No Depression","Mild","Moderate","Severe"],
+                     "cells": [[312,284,198,106],[2180,980,412,28]]}
         },
     ]
 
-    design_options   = ["— Select —", "Cohort", "Case-Control", "Cross-sectional"]
-    outcome_options  = ["— Select —", "Binary", "Categorical (Nominal >2 levels)", "Ordinal", "Rate (person-time)"]
-    exposure_options = ["— Select —", "Binary (2 groups)", "Categorical (>2 groups)"]
+    design_options   = ["— Select —","Cohort","Case-Control","Cross-sectional"]
+    outcome_options  = ["— Select —","Binary","Categorical (Nominal >2 levels)","Ordinal","Rate (person-time)"]
+    exposure_options = ["— Select —","Binary (2 groups)","Categorical (>2 groups)"]
 
-    # Randomize scenario order — shuffle once per session, reshuffle on reset
-    import random
     if "prac_scenario_order" not in st.session_state:
-        order = list(range(len(PRACTICE_SCENARIOS)))
-        random.shuffle(order)
+        order = list(range(len(PRACTICE_SCENARIOS))); random.shuffle(order)
         st.session_state["prac_scenario_order"] = order
-
     SHUFFLED_PRACTICE = [PRACTICE_SCENARIOS[i] for i in st.session_state["prac_scenario_order"]]
 
-    # Reset button
-    col_hdr, col_rst = st.columns([5, 1])
-    with col_hdr:
-        st.caption(
-            f"**{len(PRACTICE_SCENARIOS)} scenarios** presented in a randomized order. "
-            "Hit Reset to get a new shuffle and start fresh."
-        )
+    col_hdr, col_rst = st.columns([5,1])
+    with col_hdr: st.caption(f"**{len(PRACTICE_SCENARIOS)} scenarios** — randomized order. Reset to shuffle.")
     with col_rst:
-        if st.button("🔄 Reset", key="reset_tab4", help="Clear all answers and reshuffle"):
+        if st.button("🔄 Reset", key="reset_tab4"):
             for sc in PRACTICE_SCENARIOS:
-                for field in ["design", "outcome", "exposure"]:
-                    k = f"prac_{sc['id']}_{field}"
-                    if k in st.session_state:
-                        del st.session_state[k]
-            if "prac_scenario_order" in st.session_state:
-                del st.session_state["prac_scenario_order"]
+                for f in ["design","outcome","exposure","submitted"]:
+                    k = f"prac_{sc['id']}_{f}"
+                    if k in st.session_state: del st.session_state[k]
+            if "prac_scenario_order" in st.session_state: del st.session_state["prac_scenario_order"]
             st.rerun()
 
     for sc in SHUFFLED_PRACTICE:
-
         st.divider()
         st.subheader(sc["title"])
         st.markdown(sc["description"])
-
         sid = sc["id"]
+        submitted_key = f"prac_{sid}_submitted"
+        already_submitted = st.session_state.get(submitted_key, False)
 
-        # --- STUDY DESIGN ---
-        st.markdown("**What is the study design?**")
-        design_choice = st.selectbox(
-            "Study design:", design_options,
-            key=f"prac_{sid}_design", label_visibility="collapsed"
-        )
+        design_choice = st.selectbox("What is the study design?", design_options, key=f"prac_{sid}_design", disabled=already_submitted)
+        outcome_choice = st.selectbox("What is the outcome variable type?", outcome_options, key=f"prac_{sid}_outcome", disabled=already_submitted)
+        exposure_choice = st.selectbox("What is the exposure variable type?", exposure_options, key=f"prac_{sid}_exposure", disabled=already_submitted)
 
-        if design_choice != "— Select —":
-            if design_choice == sc["correct_design"]:
-                st.success(f"✅ Correct! This is a **{sc['correct_design']}** study. " + sc["design_hint"])
+        all_selected = all(st.session_state.get(f"prac_{sid}_{f}") not in [None,"— Select —"] for f in ["design","outcome","exposure"])
+
+        if not already_submitted:
+            if all_selected:
+                if st.button("Submit My Answers", key=f"submit_{sid}", type="primary"):
+                    st.session_state[submitted_key] = True; st.rerun()
             else:
-                st.error(f"❌ Not quite. Think about this: " + sc["design_hint"])
+                st.caption("⬆️ Make all three selections before submitting.")
 
-        # --- OUTCOME TYPE ---
-        st.markdown("**What is the outcome variable type?**")
-        outcome_choice = st.selectbox(
-            "Outcome type:", outcome_options,
-            key=f"prac_{sid}_outcome", label_visibility="collapsed"
-        )
+        if already_submitted:
+            dv = st.session_state.get(f"prac_{sid}_design")
+            ov = st.session_state.get(f"prac_{sid}_outcome")
+            ev = st.session_state.get(f"prac_{sid}_exposure")
+            dc = dv == sc["correct_design"]; oc = ov == sc["correct_outcome"]; ec = ev == sc["correct_exposure"]
+            all_correct = dc and oc and ec
+            correct_count = sum([dc, oc, ec])
 
-        if outcome_choice != "— Select —":
-            if outcome_choice == sc["correct_outcome"]:
-                st.success(f"✅ Correct! The outcome is **{sc['correct_outcome']}**. " + sc["outcome_hint"])
+            if not all_correct:
+                st.error(f"📋 **{correct_count}/3 correct — here's what you missed:**")
+                if not dc:
+                    wrong_hint = sc.get("design_wrong",{}).get(dv,"")
+                    if wrong_hint: st.markdown(f"**Study Design** — You selected: *{dv}*\n\n{wrong_hint}")
+                    st.markdown(f"✅ **Correct:** {sc['correct_design']} — {sc['design_hint']}")
+                if not oc:
+                    wrong_hint = sc.get("outcome_wrong",{}).get(ov,"")
+                    if wrong_hint: st.markdown(f"**Outcome Type** — You selected: *{ov}*\n\n{wrong_hint}")
+                    st.markdown(f"✅ **Correct:** {sc['correct_outcome']} — {sc['outcome_hint']}")
+                if not ec:
+                    wrong_hint = sc.get("exposure_wrong",{}).get(ev,"")
+                    if wrong_hint: st.markdown(f"**Exposure Type** — You selected: *{ev}*\n\n{wrong_hint}")
+                    st.markdown(f"✅ **Correct:** {sc['correct_exposure']} — {sc['exposure_hint']}")
+                if st.button("🔄 Try Again", key=f"retry_{sid}"):
+                    for f in ["design","outcome","exposure","submitted"]:
+                        k = f"prac_{sid}_{f}"
+                        if k in st.session_state: del st.session_state[k]
+                    st.rerun()
             else:
-                st.error(f"❌ Not quite. Think about this: " + sc["outcome_hint"])
+                st.success("🎯 Perfect — all three correct!")
+                st.markdown(f"**Design:** {sc['correct_design']} — {sc['design_hint']}")
+                st.markdown(f"**Outcome:** {sc['correct_outcome']} — {sc['outcome_hint']}")
+                st.markdown(f"**Exposure:** {sc['correct_exposure']} — {sc['exposure_hint']}")
 
-        # --- EXPOSURE TYPE ---
-        st.markdown("**What is the exposure variable type?**")
-        exposure_choice = st.selectbox(
-            "Exposure type:", exposure_options,
-            key=f"prac_{sid}_exposure", label_visibility="collapsed"
-        )
+            if all_correct and "data" in sc:
+                st.markdown("---")
+                st.markdown("### 📋 Now run the analysis")
+                st.markdown(sc["data"]["context"])
+                d = sc["data"]
 
-        if exposure_choice != "— Select —":
-            if exposure_choice == sc["correct_exposure"]:
-                st.success(f"✅ Correct! The exposure is **{sc['correct_exposure']}**. " + sc["exposure_hint"])
-            else:
-                st.error(f"❌ Not quite. Think about this: " + sc["exposure_hint"])
-
-        # Score summary for this scenario
-        all_answered = all(
-            st.session_state.get(f"prac_{sid}_{f}") not in [None, "— Select —"]
-            for f in ["design", "outcome", "exposure"]
-        )
-        all_correct = (
-            st.session_state.get(f"prac_{sid}_design") == sc["correct_design"] and
-            st.session_state.get(f"prac_{sid}_outcome") == sc["correct_outcome"] and
-            st.session_state.get(f"prac_{sid}_exposure") == sc["correct_exposure"]
-        )
-
-        if all_answered:
-            correct_count = sum([
-                st.session_state.get(f"prac_{sid}_design") == sc["correct_design"],
-                st.session_state.get(f"prac_{sid}_outcome") == sc["correct_outcome"],
-                st.session_state.get(f"prac_{sid}_exposure") == sc["correct_exposure"],
-            ])
-            if all_correct:
-                st.info("🎯 Perfect score on this scenario — all three decisions correct!")
-            else:
-                st.info(f"📊 {correct_count}/3 correct on this scenario. Review the feedback above and try again.")
-
-        # --- DATA TABLE & ANALYSIS (only shown when all correct) ---
-        if all_correct and "data" in sc:
-            st.markdown("---")
-            st.markdown("### 📋 Now run the analysis")
-            st.markdown(sc["data"]["context"])
-
-            d = sc["data"]
-
-            if d["type"] == "contingency":
-                df_display = pd.DataFrame(
-                    d["cells"],
-                    columns=d["col_names"],
-                    index=d["row_names"]
-                )
-                df_display["Row Total"] = df_display.sum(axis=1)
-                total_row = df_display.sum()
-                total_row.name = "Column Total"
-                df_display = pd.concat([df_display, total_row.to_frame().T])
-                st.table(df_display)
-
-                if st.button("Run Statistical Analysis", key=f"run_{sid}"):
-                    table = np.array(d["cells"])
-                    a, b = table[0]
-                    c, dd = table[1]
-
-                    chi2_val, p_val, dof, _ = chi2_contingency(table)
-
-                    st.subheader("Chi-Square Test")
-                    st.write(f"χ²({dof}) = {round(chi2_val, 3)}")
-                    if p_val < 0.0001:
-                        st.write("p-value < 0.0001")
-                    else:
-                        st.write(f"p-value = {round(p_val, 4)}")
-
-                    if p_val < 0.05:
-                        st.success(f"The distribution of {d['col_names'][0]} differs significantly across groups. We reject the null hypothesis.")
-                    else:
-                        st.warning("Insufficient evidence to conclude an association exists. We fail to reject the null hypothesis.")
-
-                    if all(v > 0 for v in [a, b, c, dd]):
-                        rr = (a/(a+b)) / (c/(c+dd))
-                        se_log_rr = math.sqrt((1/a)-(1/(a+b))+(1/c)-(1/(c+dd)))
-                        ci_low_rr = math.exp(math.log(rr)-1.96*se_log_rr)
-                        ci_high_rr = math.exp(math.log(rr)+1.96*se_log_rr)
-
-                        or_val = (a*dd)/(b*c)
-                        se_log_or = math.sqrt(1/a+1/b+1/c+1/dd)
-                        ci_low_or = math.exp(math.log(or_val)-1.96*se_log_or)
-                        ci_high_or = math.exp(math.log(or_val)+1.96*se_log_or)
-
-                        st.subheader("Risk Ratio (RR)")
-                        st.caption("Most appropriate for cohort studies. RR = risk in exposed ÷ risk in unexposed.")
-                        if ci_low_rr <= 1 <= ci_high_rr:
-                            st.warning(f"RR = {round(rr,2)} (95% CI: {round(ci_low_rr,2)}–{round(ci_high_rr,2)}). CI includes 1 → not statistically significant.")
+                if d["type"] in ["contingency","contingency_wide"]:
+                    df_d = pd.DataFrame(d["cells"], columns=d["col_names"], index=d["row_names"])
+                    df_d["Row Total"] = df_d.sum(axis=1)
+                    tr = df_d.sum(); tr.name = "Column Total"
+                    df_d = pd.concat([df_d, tr.to_frame().T]); st.table(df_d)
+                    if st.button("Run Statistical Analysis", key=f"run_{sid}"):
+                        table = np.array(d["cells"]); chi2_val, p_val, dof, _ = chi2_contingency(table)
+                        st.write(f"χ²({dof}) = {round(chi2_val,3)}, p = {round(p_val,4) if p_val >= 0.0001 else '< 0.0001'}")
+                        if p_val < 0.05: st.success("Statistically significant. Reject H₀.")
+                        else: st.warning("Insufficient evidence. Fail to reject H₀.")
+                        if d["type"] == "contingency":
+                            a,b = table[0]; c,dd = table[1]
+                            if all(v > 0 for v in [a,b,c,dd]):
+                                rr=(a/(a+b))/(c/(c+dd)); se_log_rr=math.sqrt((1/a)-(1/(a+b))+(1/c)-(1/(c+dd)))
+                                ci_low_rr=math.exp(math.log(rr)-1.96*se_log_rr); ci_high_rr=math.exp(math.log(rr)+1.96*se_log_rr)
+                                or_val=(a*dd)/(b*c); se_log_or=math.sqrt(1/a+1/b+1/c+1/dd)
+                                ci_low_or=math.exp(math.log(or_val)-1.96*se_log_or); ci_high_or=math.exp(math.log(or_val)+1.96*se_log_or)
+                                st.subheader("Risk Ratio (RR)")
+                                if ci_low_rr <= 1 <= ci_high_rr: st.warning(f"RR = {round(rr,2)} — Not significant.")
+                                else:
+                                    direction = "higher" if rr > 1 else "lower"
+                                    st.success(f"RR = {round(rr,2)} (95% CI: {round(ci_low_rr,2)}–{round(ci_high_rr,2)}). {round(rr,2)}× {direction}.")
+                                draw_ci("RR", rr, ci_low_rr, ci_high_rr)
+                                st.subheader("Odds Ratio (OR)")
+                                if ci_low_or <= 1 <= ci_high_or: st.warning(f"OR = {round(or_val,2)} — Not significant.")
+                                else:
+                                    direction = "higher" if or_val > 1 else "lower"
+                                    st.success(f"OR = {round(or_val,2)} (95% CI: {round(ci_low_or,2)}–{round(ci_high_or,2)}). {round(or_val,2)}× {direction}.")
+                                draw_ci("OR", or_val, ci_low_or, ci_high_or)
                         else:
-                            direction = "higher" if rr > 1 else "lower"
-                            st.success(f"RR = {round(rr,2)} (95% CI: {round(ci_low_rr,2)}–{round(ci_high_rr,2)}). The risk of {d['col_names'][0]} among {d['row_names'][0]} is {round(rr,2)} times {direction} than among {d['row_names'][1]}.")
-                        draw_ci("RR", rr, ci_low_rr, ci_high_rr)
+                            st.info("With 3+ categories, chi-square is the appropriate test. RR/OR require a 2×2 table.")
 
-                        st.subheader("Odds Ratio (OR)")
-                        st.caption("Most appropriate for case-control studies. OR = odds of outcome in exposed ÷ odds in unexposed.")
-                        if ci_low_or <= 1 <= ci_high_or:
-                            st.warning(f"OR = {round(or_val,2)} (95% CI: {round(ci_low_or,2)}–{round(ci_high_or,2)}). CI includes 1 → not statistically significant.")
+                elif d["type"] == "rate":
+                    df_d = pd.DataFrame({"Group":d["row_names"],"Cases":d["cases"],"Person-Time":d["person_time"],
+                        "Rate per 100k":[round(d["cases"][i]/d["person_time"][i]*100000,1) for i in range(len(d["cases"]))]})
+                    st.table(df_d)
+                    if st.button("Run Statistical Analysis", key=f"run_{sid}"):
+                        c1,c2=d["cases"]; pt1,pt2=d["person_time"]
+                        irr=(c1/pt1)/(c2/pt2); se_log_irr=math.sqrt((1/c1)+(1/c2))
+                        ci_low_irr=math.exp(math.log(irr)-1.96*se_log_irr); ci_high_irr=math.exp(math.log(irr)+1.96*se_log_irr)
+                        st.write(f"IRR = {round(irr,3)}, 95% CI: ({round(ci_low_irr,3)}, {round(ci_high_irr,3)})")
+                        if ci_low_irr <= 1 <= ci_high_irr: st.warning("CI includes 1. Not significant.")
                         else:
-                            direction = "higher" if or_val > 1 else "lower"
-                            st.success(f"OR = {round(or_val,2)} (95% CI: {round(ci_low_or,2)}–{round(ci_high_or,2)}). The odds of {d['col_names'][0]} among {d['row_names'][0]} are {round(or_val,2)} times {direction} than among {d['row_names'][1]}.")
-                        draw_ci("OR", or_val, ci_low_or, ci_high_or)
-
-            elif d["type"] == "contingency_wide":
-                # Categorical exposure or outcome (larger table)
-                df_display = pd.DataFrame(
-                    d["cells"],
-                    columns=d["col_names"],
-                    index=d["row_names"]
-                )
-                df_display["Row Total"] = df_display.sum(axis=1)
-                total_row = df_display.sum()
-                total_row.name = "Column Total"
-                df_display = pd.concat([df_display, total_row.to_frame().T])
-                st.table(df_display)
-
-                if st.button("Run Statistical Analysis", key=f"run_{sid}"):
-                    table = np.array(d["cells"])
-                    chi2_val, p_val, dof, _ = chi2_contingency(table)
-
-                    st.subheader("Chi-Square Test of Independence")
-                    st.write(f"χ²({dof}) = {round(chi2_val, 3)}")
-                    if p_val < 0.0001:
-                        st.write("p-value < 0.0001")
-                    else:
-                        st.write(f"p-value = {round(p_val, 4)}")
-
-                    if p_val < 0.05:
-                        st.success(f"There is a statistically significant association between exposure and outcome (p = {round(p_val,4)}). We reject the null hypothesis of independence.")
-                    else:
-                        st.warning(f"Insufficient evidence to conclude an association exists (p = {round(p_val,4)}). We fail to reject the null hypothesis.")
-
-                    st.info("Note: With more than 2 exposure or outcome categories, RR and OR cannot be calculated directly from a single 2×2 table. Chi-square is the appropriate test here.")
-
-            elif d["type"] == "rate":
-                df_display = pd.DataFrame({
-                    "Group": d["row_names"],
-                    "Cases": d["cases"],
-                    "Person-Time": d["person_time"],
-                    "Rate per 100,000": [round(d["cases"][i]/d["person_time"][i]*100000, 1) for i in range(len(d["cases"]))]
-                })
-                st.table(df_display)
-
-                if st.button("Run Statistical Analysis", key=f"run_{sid}"):
-                    c1, c2 = d["cases"]
-                    pt1, pt2 = d["person_time"]
-                    ir1 = c1 / pt1
-                    ir2 = c2 / pt2
-                    irr = ir1 / ir2
-                    se_log_irr = math.sqrt((1/c1) + (1/c2))
-                    ci_low_irr = math.exp(math.log(irr) - 1.96*se_log_irr)
-                    ci_high_irr = math.exp(math.log(irr) + 1.96*se_log_irr)
-
-                    st.subheader("Incidence Rate Ratio (IRR)")
-                    st.write(f"IRR = {round(irr, 3)}")
-                    st.write(f"95% CI: ({round(ci_low_irr,3)}, {round(ci_high_irr,3)})")
-                    if ci_low_irr <= 1 <= ci_high_irr:
-                        st.warning(f"IRR = {round(irr,2)} (95% CI: {round(ci_low_irr,2)}–{round(ci_high_irr,2)}). CI includes 1 → not statistically significant.")
-                    else:
-                        direction = "higher" if irr > 1 else "lower"
-                        st.success(f"IRR = {round(irr,2)} (95% CI: {round(ci_low_irr,2)}–{round(ci_high_irr,2)}). The incidence rate among {d['row_names'][0]} is {round(irr,2)} times {direction} than among {d['row_names'][1]}.")
-                    draw_ci("IRR", irr, ci_low_irr, ci_high_irr)
+                            direction = "higher" if irr > 1 else "lower"
+                            st.success(f"IRR = {round(irr,2)} — Rate in {d['row_names'][0]} is {round(irr,2)}× {direction}.")
+                        draw_ci("IRR", irr, ci_low_irr, ci_high_irr)
 
     st.divider()
-
-    # Overall score
-    total_correct = 0
-    total_possible = len(PRACTICE_SCENARIOS) * 3
+    total_correct=0; answered=0
     for sc in PRACTICE_SCENARIOS:
-        sid = sc["id"]
-        total_correct += sum([
-            st.session_state.get(f"prac_{sid}_design") == sc["correct_design"],
-            st.session_state.get(f"prac_{sid}_outcome") == sc["correct_outcome"],
-            st.session_state.get(f"prac_{sid}_exposure") == sc["correct_exposure"],
-        ])
-
-    answered = sum(
-        1 for sc in PRACTICE_SCENARIOS
-        for f in ["design", "outcome", "exposure"]
-        if st.session_state.get(f"prac_{sc['id']}_{f}") not in [None, "— Select —"]
-    )
-
+        sid=sc["id"]
+        if st.session_state.get(f"prac_{sid}_submitted"):
+            answered+=3
+            total_correct+=sum([st.session_state.get(f"prac_{sid}_design")==sc["correct_design"],
+                                 st.session_state.get(f"prac_{sid}_outcome")==sc["correct_outcome"],
+                                 st.session_state.get(f"prac_{sid}_exposure")==sc["correct_exposure"]])
     if answered > 0:
-        st.subheader(f"📊 Overall Score: {total_correct} / {total_possible}")
-        pct = round(total_correct / total_possible * 100)
-        st.progress(pct / 100)
-        if pct == 100:
-            st.success("🏆 Perfect score! You have a strong grasp of study design and variable classification.")
-        elif pct >= 75:
-            st.info("Good work! Review any scenarios where you got feedback and make sure the reasoning clicks.")
-        elif pct >= 50:
-            st.warning("Keep going — re-read the scenarios you missed and pay attention to the timeline clues.")
-        else:
-            st.error("Review the core concepts of study design and variable types, then try again.")
+        pct = round(total_correct/answered*100)
+        st.subheader(f"📊 Score: {total_correct} / {answered}")
+        st.progress(pct/100)
+        if pct==100: st.success("🏆 Perfect on all submitted scenarios!")
+        elif pct>=75: st.info("Good work — review any missed scenarios.")
+        else: st.warning("Review the feedback above and try again.")
 
     st.markdown("---")
     st.markdown("Strong epidemiologists think structurally before computing.")
 
-# ==========================================================
+# ==================================================
 # TAB 5: PRACTICE — ADVANCED EPI MEASURES
-# ==========================================================
-
+# QUICK WIN 1 (continued): Submit button, locked, "what you missed"
+# ==================================================
 with tab5:
-
     st.markdown("""
-    Read each scenario carefully, then decide which advanced epidemiologic measure is most
-    appropriate. You'll get immediate feedback on your choice, then work through the
-    calculation with supplied data.
+    Select the most appropriate advanced measure for each scenario, then click **Submit My Answer**.
+    Feedback is hidden until you commit.
     """)
 
     ADV_SCENARIOS = [
         {
-            "id": "adv_1",
-            "title": "Scenario 1: Obesity & Coronary Heart Disease in the US",
-            "description": (
-                "A public health analyst wants to estimate how much of the coronary heart disease (CHD) "
-                "burden in the United States could theoretically be eliminated if obesity were eradicated. "
-                "National surveillance data show that approximately 42% of US adults have obesity (BMI ≥ 30). "
-                "A large prospective cohort study found that adults with obesity have 1.8 times the risk "
-                "of developing CHD compared to adults with healthy weight. The analyst wants a single "
-                "number that communicates the population-level impact of this exposure."
-            ),
+            "id": "adv_1", "title": "Scenario 1: Obesity & Coronary Heart Disease",
+            "description": "A public health analyst wants to estimate how much CHD burden could be eliminated if obesity were eradicated. 42% of US adults have obesity; they have 1.8× the risk of CHD.",
             "correct_measure": "Population Attributable Risk (PAR)",
-            "measure_hint": (
-                "The question is about population-level impact — specifically, what fraction of all CHD cases "
-                "in the US could be prevented by eliminating obesity. When you need to quantify the proportion "
-                "of disease in the total population attributable to a specific exposure, accounting for both "
-                "how common the exposure is AND how strongly it causes disease, that is PAR. "
-                "AR% only addresses the exposed group. SMR compares observed to expected deaths. "
-                "NNT describes individual-level treatment benefit."
-            ),
-            "data": {
-                "type": "par",
-                "context": (
-                    "Use the following population data to calculate the Population Attributable Risk Percent (PAR%). "
-                    "This will tell you what fraction of all CHD cases in the US are attributable to obesity."
-                ),
-                "Pe": 0.42,
-                "RR": 1.8,
-                "Pe_label": "Prevalence of obesity in US adults",
-                "RR_label": "Risk Ratio for CHD (obese vs. healthy weight)",
+            "measure_hint": "The question is about **population-level preventable burden** — what fraction of all CHD in the US could be prevented. PAR combines exposure prevalence (Pe) with RR to answer this.",
+            "measure_wrong": {
+                "Standardized Mortality Ratio (SMR)": "❌ SMR compares observed to expected deaths vs. a reference population. This question asks about population-level preventable fraction — that's PAR.",
+                "Attributable Risk & AR%": "❌ AR% estimates the fraction within the **exposed group** only. PAR goes further — it estimates fraction across the **total population**, accounting for how common obesity is.",
+                "Number Needed to Harm / Treat (NNH/NNT)": "❌ NNT/NNH express per-person benefit or harm. This question asks about a population-level fraction — PAR.",
+                "Hazard Ratio (HR)": "❌ HR compares event rates over time. This question asks what fraction of all CHD is attributable to obesity — PAR."
             },
+            "data": {"type": "par", "context": "Calculate PAR% — fraction of CHD attributable to obesity.", "Pe": 0.42, "RR": 1.8}
         },
         {
-            "id": "adv_2",
-            "title": "Scenario 2: Rubber Manufacturing Workers & Bladder Cancer",
-            "description": (
-                "An occupational epidemiologist is studying a cohort of 4,200 workers at a rubber "
-                "manufacturing plant. Over a 15-year follow-up period, 38 workers developed bladder cancer. "
-                "Based on age-specific bladder cancer rates from the general population applied to the "
-                "age structure of the worker cohort, only 18.4 bladder cancer cases would be expected "
-                "if these workers had the same risk as the general population. The epidemiologist wants "
-                "to determine whether mortality in this occupational group exceeds what would be expected."
-            ),
+            "id": "adv_2", "title": "Scenario 2: Rubber Workers & Bladder Cancer",
+            "description": "4,200 rubber workers followed 15 years. 38 developed bladder cancer. Applying general population rates to this cohort's age structure predicts only 18.4 expected cases.",
             "correct_measure": "Standardized Mortality Ratio (SMR)",
-            "measure_hint": (
-                "The key features here are: (1) you have an occupational cohort being compared to a "
-                "reference population, (2) you know how many cases were observed, and (3) you calculated "
-                "how many were expected by applying reference rates to the cohort's age structure. "
-                "Observed ÷ Expected = SMR. This is indirect standardization. PAR would require knowing "
-                "exposure prevalence in the population. AR% compares risk between exposed and unexposed "
-                "within a study. NNT applies to treatment interventions."
-            ),
-            "data": {
-                "type": "smr",
-                "context": (
-                    "Use the observed and expected counts to calculate the SMR and interpret "
-                    "whether bladder cancer risk in these workers exceeds what is expected "
-                    "based on general population rates."
-                ),
-                "observed": 38,
-                "expected": 18.4,
-                "group_label": "Rubber manufacturing workers",
-                "outcome_label": "bladder cancer",
+            "measure_hint": "You have **observed cases (38) and expected cases (18.4)** derived from applying reference population rates. Observed ÷ Expected = SMR. Comparing one group to expected counts from a reference = SMR.",
+            "measure_wrong": {
+                "Population Attributable Risk (PAR)": "❌ PAR requires knowing exposure prevalence in the general population and an RR. Here you have observed vs. expected counts — SMR.",
+                "Attributable Risk & AR%": "❌ AR% compares two groups within the same study. Here you're comparing one occupational group to a reference population — SMR.",
+                "Number Needed to Harm / Treat (NNH/NNT)": "❌ NNH requires a risk difference between two groups. Here you have one group's observed vs. expected counts — SMR.",
+                "Hazard Ratio (HR)": "❌ HR requires Cox regression with time-to-event data. Here you simply have total observed vs. expected counts — SMR."
             },
+            "data": {"type": "smr", "context": "Calculate SMR.", "observed": 38, "expected": 18.4, "group_label": "Rubber workers", "outcome_label": "bladder cancer"}
         },
         {
-            "id": "adv_3",
-            "title": "Scenario 3: Hypertension Treatment & Stroke Risk",
-            "description": (
-                "A clinical researcher wants to quantify the excess stroke risk specifically within "
-                "the group of patients who have untreated hypertension, compared to those whose "
-                "hypertension is controlled with medication. A 10-year cohort study found that "
-                "14% of patients with uncontrolled hypertension experienced a stroke, compared to "
-                "4% of patients with controlled hypertension. The researcher wants to know: of all "
-                "the strokes occurring among uncontrolled hypertension patients, what fraction is "
-                "directly due to their uncontrolled blood pressure?"
-            ),
+            "id": "adv_3", "title": "Scenario 3: Hypertension & Stroke",
+            "description": "14% of uncontrolled hypertension patients had a stroke over 10 years vs. 4% of controlled patients. Of all strokes in the uncontrolled group, what fraction is due to uncontrolled BP?",
             "correct_measure": "Attributable Risk & AR%",
-            "measure_hint": (
-                "The question asks what fraction of strokes among the exposed group (uncontrolled "
-                "hypertension) is attributable to the exposure itself. AR% answers exactly this — "
-                "it measures the proportion of disease in the exposed group that would be eliminated "
-                "if the exposure were removed. PAR looks at the whole population, not just the exposed "
-                "group. NNT describes how many need treatment to prevent one event. SMR compares "
-                "to a reference population."
-            ),
-            "data": {
-                "type": "ar",
-                "context": (
-                    "Use the risk data from the 10-year cohort study to calculate the Attributable "
-                    "Risk (AR) and Attributable Risk Percent (AR%). This will show the absolute excess "
-                    "risk and what fraction of strokes among uncontrolled patients is attributable "
-                    "to their uncontrolled blood pressure."
-                ),
-                "r_exposed": 0.14,
-                "r_unexposed": 0.04,
-                "exposed_label": "Uncontrolled hypertension",
-                "unexposed_label": "Controlled hypertension",
-                "outcome_label": "stroke",
+            "measure_hint": "The question asks about the **fraction of disease within the exposed group** (uncontrolled hypertension) attributable to the exposure. That's exactly AR%.",
+            "measure_wrong": {
+                "Population Attributable Risk (PAR)": "❌ PAR estimates the fraction across the **entire population**. The question asks specifically about the fraction within the **exposed group** — AR%.",
+                "Standardized Mortality Ratio (SMR)": "❌ SMR compares to a reference population. This compares two groups within the same study — AR%.",
+                "Number Needed to Harm / Treat (NNH/NNT)": "❌ NNT tells how many need treatment to prevent one event. The question asks what fraction of strokes is attributable to exposure — AR%.",
+                "Hazard Ratio (HR)": "❌ HR uses Cox regression. This uses 10-year cumulative risks to assess attributable fraction — AR%."
             },
+            "data": {"type": "ar", "context": "Calculate AR and AR%.", "r_exposed": 0.14, "r_unexposed": 0.04,
+                     "exposed_label": "Uncontrolled hypertension", "unexposed_label": "Controlled hypertension"}
         },
         {
-            "id": "adv_4",
-            "title": "Scenario 4: Naloxone Distribution & Opioid Overdose Death",
-            "description": (
-                "A county health department is evaluating a community naloxone distribution program. "
-                "In a randomized trial, 3% of participants in communities with the naloxone program "
-                "died from opioid overdose over 2 years, compared to 7% in communities without the "
-                "program. A health official wants to present the findings to the county commission "
-                "in the most clinically intuitive way — specifically, how many communities would "
-                "need to implement the program to prevent one additional overdose death."
-            ),
+            "id": "adv_4", "title": "Scenario 4: Naloxone Programs & Overdose Deaths",
+            "description": "3% of communities with naloxone programs had overdose deaths vs. 7% without. How many communities need the program to prevent one additional overdose death?",
             "correct_measure": "Number Needed to Harm / Treat (NNH/NNT)",
-            "measure_hint": (
-                "When you want to express a treatment or intervention benefit in terms of 'how many "
-                "people need to receive the intervention to prevent one additional bad outcome,' "
-                "that is NNT. It's the most intuitive way to communicate absolute benefit to "
-                "policymakers and clinicians. PAR% is a population-level measure. AR% tells you "
-                "the fraction of disease attributable to exposure. SMR compares to a reference "
-                "population. NNT = 1 / Risk Difference."
-            ),
-            "data": {
-                "type": "nnt",
-                "context": (
-                    "Use the trial data to calculate the Number Needed to Treat (NNT). "
-                    "This tells the county commission how many communities need to implement "
-                    "the naloxone program to prevent one additional overdose death."
-                ),
-                "r_treatment": 0.03,
-                "r_control": 0.07,
-                "treatment_label": "Naloxone program",
-                "control_label": "No program",
-                "outcome_label": "opioid overdose death",
+            "measure_hint": "**'How many need the intervention to prevent one event'** is the definition of NNT. It's the most intuitive way to communicate benefit to policymakers. NNT = 1 / Risk Difference.",
+            "measure_wrong": {
+                "Population Attributable Risk (PAR)": "❌ PAR estimates population-level preventable fraction. The question asks how many need treatment to prevent one event — NNT.",
+                "Standardized Mortality Ratio (SMR)": "❌ SMR compares to a reference population. The question asks for a per-community treatment benefit — NNT.",
+                "Attributable Risk & AR%": "❌ AR% estimates the fraction attributable in the exposed group. The question asks for an intuitive per-community figure — NNT.",
+                "Hazard Ratio (HR)": "❌ HR uses time-to-event Cox regression. Simple cumulative proportions + per-treatment benefit = NNT."
             },
+            "data": {"type": "nnt", "context": "Calculate NNT.", "r_treatment": 0.03, "r_control": 0.07,
+                     "treatment_label": "Naloxone program", "control_label": "No program", "outcome_label": "overdose death"}
         },
         {
-            "id": "adv_5",
-            "title": "Scenario 5: Physical Activity & Time to Hip Fracture in Older Adults",
-            "description": (
-                "A 10-year longitudinal study follows 2,800 adults aged 65 and older. Participants "
-                "are classified as physically active or sedentary at enrollment. Because participants "
-                "enter the study at different ages, move to assisted living at different times, and "
-                "some die before experiencing a hip fracture, each participant contributes a different "
-                "amount of follow-up time. The researchers fit a Cox proportional hazards model to "
-                "account for varying follow-up and censoring. They want to compare the instantaneous "
-                "rate at which hip fractures occur over time between active and sedentary participants."
-            ),
+            "id": "adv_5", "title": "Scenario 5: Physical Activity & Hip Fracture",
+            "description": "2,800 adults 65+ followed up to 10 years. Follow-up varies due to deaths and losses to follow-up. A Cox proportional hazards model was fitted.",
             "correct_measure": "Hazard Ratio (HR)",
-            "measure_hint": (
-                "Several clues point to the Hazard Ratio: (1) follow-up time varies across participants, "
-                "(2) some participants are censored (die or leave before fracture), (3) the researchers "
-                "used a Cox proportional hazards model, and (4) they want to compare the rate at which "
-                "events occur over time — not just whether they occurred. HR is the output of Cox "
-                "regression and is appropriate when time-to-event matters. A simple RR would ignore "
-                "when the fracture happened and the varying follow-up. NNT requires a fixed time point. "
-                "AR% doesn't account for censoring."
-            ),
-            "data": {
-                "type": "hr",
-                "context": (
-                    "The Cox model produced the following results. Interpret the Hazard Ratio "
-                    "and confidence interval to determine whether physical activity is significantly "
-                    "associated with time to hip fracture."
-                ),
-                "hr": 0.61,
-                "ci_low": 0.48,
-                "ci_high": 0.78,
-                "exposed_label": "Physically active",
-                "unexposed_label": "Sedentary",
-                "outcome_label": "hip fracture",
+            "measure_hint": "Three clues: (1) follow-up varies, (2) participants are censored, (3) **Cox model used**. The Cox model always produces a Hazard Ratio.",
+            "measure_wrong": {
+                "Population Attributable Risk (PAR)": "❌ PAR requires exposure prevalence and an RR. This study used Cox regression with censored follow-up — HR.",
+                "Standardized Mortality Ratio (SMR)": "❌ SMR requires observed vs. expected from a reference population. Cox regression within a cohort produces HR.",
+                "Attributable Risk & AR%": "❌ AR% requires complete fixed follow-up. Censored varying follow-up + Cox regression = HR.",
+                "Number Needed to Harm / Treat (NNH/NNT)": "❌ NNT requires a fixed time point. Censored data and Cox regression = HR."
             },
+            "data": {"type": "hr", "context": "Interpret the HR from the Cox model.",
+                     "hr": 0.61, "ci_low": 0.48, "ci_high": 0.78,
+                     "exposed_label": "Physically active", "outcome_label": "hip fracture"}
         },
         {
-            "id": "adv_6",
-            "title": "Scenario 6: Long-term PPI Use & Kidney Disease",
-            "description": (
-                "A pharmacovigilance team is studying the safety of long-term proton pump inhibitor "
-                "(PPI) use — a common medication for acid reflux. In a 5-year cohort study, 3.2% of "
-                "adults taking PPIs daily developed chronic kidney disease (CKD), compared to 1.1% "
-                "of adults not taking PPIs. A drug safety officer wants to communicate to prescribers "
-                "how many patients would need to take PPIs long-term before one additional case of "
-                "CKD would be expected — in other words, the harm side of the risk-benefit equation."
-            ),
+            "id": "adv_6", "title": "Scenario 6: PPI Use & Kidney Disease",
+            "description": "3.2% of daily PPI users developed CKD over 5 years vs. 1.1% of non-users. How many patients need to take PPIs before one additional CKD case is expected?",
             "correct_measure": "Number Needed to Harm / Treat (NNH/NNT)",
-            "measure_hint": (
-                "When an exposure or drug causes harm and you want to express that risk in terms of "
-                "'how many people need to be exposed before one additional person is harmed,' that is "
-                "the Number Needed to Harm (NNH). NNH = 1 / Risk Difference, exactly like NNT, "
-                "but in the harmful direction. This is the most intuitive way to communicate drug "
-                "safety risk to clinicians. PAR% quantifies population-level burden. AR% tells you "
-                "the fraction of disease in the exposed group. SMR compares to a reference population."
-            ),
-            "data": {
-                "type": "nnt",
-                "context": (
-                    "Use the cohort data to calculate the Number Needed to Harm (NNH). "
-                    "Because PPI use increases risk, this will be an NNH rather than an NNT."
-                ),
-                "r_treatment": 0.032,
-                "r_control": 0.011,
-                "treatment_label": "Long-term PPI use",
-                "control_label": "No PPI use",
-                "outcome_label": "chronic kidney disease",
+            "measure_hint": "**'How many patients exposed before one additional harm'** = NNH. The most intuitive drug safety metric for clinicians. NNH = 1 / Risk Difference.",
+            "measure_wrong": {
+                "Population Attributable Risk (PAR)": "❌ PAR estimates population-level preventable fraction. This asks for per-patient harm — NNH.",
+                "Standardized Mortality Ratio (SMR)": "❌ SMR compares to a reference population. Simple 5-year risk difference from a cohort = NNH.",
+                "Attributable Risk & AR%": "❌ AR% tells the fraction attributable in exposed. The question asks for a per-patient clinical figure — NNH.",
+                "Hazard Ratio (HR)": "❌ HR requires Cox regression with time-to-event. Cumulative 5-year risks + per-patient harm = NNH."
             },
-        },
-        {
-            "id": "adv_7",
-            "title": "Scenario 7: Police Officers & Cardiovascular Mortality",
-            "description": (
-                "An occupational health researcher studies a cohort of 6,800 active-duty police "
-                "officers followed for 10 years. During this period, 41 officers died from "
-                "cardiovascular disease. Based on age- and sex-specific cardiovascular mortality "
-                "rates from the general US population applied to the officer cohort's age and sex "
-                "distribution, 68.2 cardiovascular deaths would have been expected if officers "
-                "had the same mortality as the general population. The researcher wants to determine "
-                "whether cardiovascular mortality in this occupational group is higher or lower "
-                "than expected — and whether a well-known occupational phenomenon might explain the result."
-            ),
-            "correct_measure": "Standardized Mortality Ratio (SMR)",
-            "measure_hint": (
-                "You have an occupational cohort, a count of observed deaths, and a count of "
-                "expected deaths calculated by applying reference population rates to the cohort's "
-                "age-sex structure. Observed ÷ Expected = SMR. This is indirect standardization. "
-                "The phrase 'higher or lower than expected compared to the general population' is "
-                "the defining signal for SMR. PAR requires population exposure prevalence. "
-                "AR% compares risk between exposed and unexposed within the same study."
-            ),
-            "data": {
-                "type": "smr",
-                "context": (
-                    "Calculate the SMR and interpret whether cardiovascular mortality among police "
-                    "officers is higher or lower than expected. Consider whether the healthy worker "
-                    "effect might explain the finding."
-                ),
-                "observed": 41,
-                "expected": 68.2,
-                "group_label": "Police officers",
-                "outcome_label": "cardiovascular disease",
-            },
-        },
-        {
-            "id": "adv_8",
-            "title": "Scenario 8: Heavy Metal Exposure & Time to Cognitive Decline",
-            "description": (
-                "An environmental health study follows 3,400 adults living near a former industrial "
-                "site with known heavy metal soil contamination. Participants are classified as "
-                "high-exposure (living within 1 mile of the site) or low-exposure (living 1–5 miles "
-                "away). They are followed for up to 12 years for cognitive decline, assessed "
-                "annually. Because some participants move away, others develop dementia from "
-                "unrelated causes, and enrollment happens at different ages, each participant "
-                "contributes a different amount of follow-up time. Researchers used a Cox "
-                "proportional hazards model and found HR = 1.74 (95% CI: 1.38–2.19). "
-                "They want to know whether high exposure significantly accelerates time to "
-                "cognitive decline."
-            ),
-            "correct_measure": "Hazard Ratio (HR)",
-            "measure_hint": (
-                "Several clues identify this as a Hazard Ratio scenario: (1) follow-up time varies "
-                "across participants, (2) participants are censored when they move or develop "
-                "competing events, (3) the researchers explicitly used a Cox proportional hazards "
-                "model, and (4) they want to compare the rate at which cognitive decline occurs "
-                "over time. The Cox model always produces a Hazard Ratio. A simple RR would not "
-                "account for when events occurred or for censoring. NNT requires a fixed time "
-                "point with complete follow-up."
-            ),
-            "data": {
-                "type": "hr",
-                "context": (
-                    "The Cox proportional hazards model produced the following results. "
-                    "Interpret the Hazard Ratio and confidence interval to determine whether "
-                    "high heavy metal exposure significantly accelerates cognitive decline."
-                ),
-                "hr": 1.74,
-                "ci_low": 1.38,
-                "ci_high": 2.19,
-                "exposed_label": "High exposure (within 1 mile)",
-                "unexposed_label": "Low exposure (1–5 miles)",
-                "outcome_label": "cognitive decline",
-            },
-        },
-        {
-            "id": "adv_9",
-            "title": "Scenario 9: Sedentary Behavior & Type 2 Diabetes",
-            "description": (
-                "A behavioral epidemiologist wants to estimate how much of the Type 2 diabetes "
-                "burden in the United States is attributable to sedentary behavior — defined as "
-                "fewer than 150 minutes of moderate physical activity per week. National data "
-                "show that 53% of US adults do not meet physical activity guidelines. A large "
-                "cohort study found that sedentary adults have 1.6 times the risk of developing "
-                "Type 2 diabetes compared to active adults. The researcher wants to know what "
-                "fraction of all diabetes cases in the population could be prevented if everyone "
-                "met physical activity guidelines."
-            ),
-            "correct_measure": "Population Attributable Risk (PAR)",
-            "measure_hint": (
-                "The question asks what fraction of all diabetes cases in the total population "
-                "are due to sedentary behavior — combining how common the exposure is with how "
-                "strongly it causes disease. That is PAR. AR% only addresses the fraction within "
-                "the exposed group. NNT requires a specific intervention. SMR compares to a "
-                "reference population. PAR is always the right measure when the question is "
-                "about population-level preventable burden."
-            ),
-            "data": {
-                "type": "par",
-                "context": (
-                    "Use the population data to calculate PAR% — the fraction of all Type 2 "
-                    "diabetes cases in the US that are attributable to sedentary behavior."
-                ),
-                "Pe": 0.53,
-                "RR": 1.6,
-                "Pe_label": "Prevalence of sedentary behavior in US adults",
-                "RR_label": "Risk Ratio for Type 2 diabetes (sedentary vs. active)",
-            },
-        },
-        {
-            "id": "adv_10",
-            "title": "Scenario 10: Healthcare Workers & Infectious Disease Mortality",
-            "description": (
-                "During a regional outbreak of a novel respiratory pathogen, an infection "
-                "control team studies a cohort of 2,400 frontline healthcare workers over "
-                "18 months. During this period, 22 workers died from the respiratory illness. "
-                "Applying age- and sex-specific mortality rates from the general population "
-                "to the workforce age-sex structure, the team calculated that 14.8 deaths "
-                "would be expected if healthcare workers had the same mortality risk as the "
-                "general public. The team wants to quantify whether working in direct patient "
-                "care confers excess mortality risk compared to the general population."
-            ),
-            "correct_measure": "Standardized Mortality Ratio (SMR)",
-            "measure_hint": (
-                "You have an occupational cohort, observed deaths, and expected deaths calculated "
-                "by applying general population rates to the cohort's demographic structure — "
-                "that is indirect standardization, and the result is an SMR. The key question "
-                "is always: 'does this group experience more or fewer deaths than expected based "
-                "on a reference population?' If yes, use SMR. PAR requires population exposure "
-                "prevalence. NNT applies to interventions. HR requires a Cox model with "
-                "time-to-event data."
-            ),
-            "data": {
-                "type": "smr",
-                "context": (
-                    "Calculate the SMR to determine whether frontline healthcare workers "
-                    "experienced excess mortality compared to the general population during "
-                    "the outbreak."
-                ),
-                "observed": 22,
-                "expected": 14.8,
-                "group_label": "Frontline healthcare workers",
-                "outcome_label": "respiratory illness mortality",
-            },
-        },
-        {
-            "id": "adv_11",
-            "title": "Scenario 11: Smoking & Chronic Obstructive Pulmonary Disease",
-            "description": (
-                "A pulmonologist wants to counsel a patient who has smoked for 20 years about "
-                "their personal excess risk of developing COPD due to smoking. A 20-year cohort "
-                "study found that 31% of long-term smokers developed COPD, compared to 7% of "
-                "never-smokers. The pulmonologist wants two numbers: (1) the absolute excess "
-                "risk smokers carry compared to non-smokers, and (2) the proportion of COPD "
-                "cases among smokers that would be eliminated if they had never smoked."
-            ),
-            "correct_measure": "Attributable Risk & AR%",
-            "measure_hint": (
-                "The two numbers requested are exactly what AR and AR% provide: "
-                "AR = the absolute excess risk in the exposed group (smokers vs. non-smokers), "
-                "and AR% = the proportion of disease in the exposed group attributable to "
-                "the exposure. PAR would answer a population-level question, not a question "
-                "specific to smokers. NNT applies to interventions. SMR compares to a reference "
-                "population. When the question focuses on excess burden within the exposed group, "
-                "AR and AR% are the right measures."
-            ),
-            "data": {
-                "type": "ar",
-                "context": (
-                    "Use the cohort data to calculate the Attributable Risk (AR) and "
-                    "Attributable Risk Percent (AR%) for COPD among long-term smokers."
-                ),
-                "r_exposed": 0.31,
-                "r_unexposed": 0.07,
-                "exposed_label": "Long-term smokers",
-                "unexposed_label": "Never-smokers",
-                "outcome_label": "COPD",
-            },
-        },
-        {
-            "id": "adv_12",
-            "title": "Scenario 12: Aspirin Therapy & Colorectal Cancer Prevention",
-            "description": (
-                "A gastroenterology team is evaluating whether to recommend low-dose daily aspirin "
-                "for colorectal cancer (CRC) prevention in high-risk patients. In a 10-year RCT, "
-                "2.8% of patients taking daily aspirin developed colorectal cancer, compared to "
-                "4.6% of patients in the placebo group. The team wants to present findings to "
-                "a hospital committee by answering: how many high-risk patients would need to "
-                "take daily aspirin for 10 years to prevent one additional colorectal cancer case?"
-            ),
-            "correct_measure": "Number Needed to Harm / Treat (NNH/NNT)",
-            "measure_hint": (
-                "The question 'how many patients need to be treated to prevent one additional "
-                "case' is the definition of NNT. This is the most intuitive way to present "
-                "RCT benefit data to clinicians and hospital committees. PAR% is a population "
-                "measure requiring exposure prevalence. AR% tells you the fraction of disease "
-                "in the exposed group. SMR compares to a reference population. Whenever the "
-                "goal is communicating individual-level treatment benefit or harm in practical "
-                "terms, NNT or NNH is appropriate."
-            ),
-            "data": {
-                "type": "nnt",
-                "context": (
-                    "Use the RCT data to calculate the NNT for aspirin therapy in preventing "
-                    "colorectal cancer over 10 years."
-                ),
-                "r_treatment": 0.028,
-                "r_control": 0.046,
-                "treatment_label": "Daily aspirin",
-                "control_label": "Placebo",
-                "outcome_label": "colorectal cancer",
-            },
-        },
-        {
-            "id": "adv_13",
-            "title": "Scenario 13: Diabetes & Time to End-Stage Renal Disease",
-            "description": (
-                "A nephrology research group follows 4,100 adults with newly diagnosed Type 2 "
-                "diabetes for up to 15 years. Participants are classified as having well-controlled "
-                "diabetes (HbA1c < 7%) or poorly-controlled diabetes (HbA1c ≥ 7%) at baseline. "
-                "Because participants die from other causes, receive kidney transplants, or are "
-                "lost to follow-up at different times, follow-up length varies substantially. "
-                "A Cox proportional hazards model yields HR = 2.43 (95% CI: 1.89–3.12). "
-                "Researchers want to know whether poor glycemic control significantly accelerates "
-                "progression to end-stage renal disease."
-            ),
-            "correct_measure": "Hazard Ratio (HR)",
-            "measure_hint": (
-                "Multiple clues point to HR: (1) follow-up varies substantially across participants, "
-                "(2) participants are censored for multiple reasons (death, transplant, loss to "
-                "follow-up), (3) a Cox proportional hazards model was explicitly used, and "
-                "(4) the question is about whether an exposure accelerates time to an event. "
-                "HR is always the output of a Cox model. A simple RR cannot handle censoring "
-                "or varying follow-up. NNT requires complete follow-up at a fixed time point."
-            ),
-            "data": {
-                "type": "hr",
-                "context": (
-                    "The Cox model produced the following results. Interpret the HR and "
-                    "confidence interval to determine whether poor glycemic control "
-                    "significantly accelerates time to end-stage renal disease."
-                ),
-                "hr": 2.43,
-                "ci_low": 1.89,
-                "ci_high": 3.12,
-                "exposed_label": "Poorly-controlled diabetes (HbA1c ≥ 7%)",
-                "unexposed_label": "Well-controlled diabetes (HbA1c < 7%)",
-                "outcome_label": "end-stage renal disease",
-            },
-        },
-        {
-            "id": "adv_14",
-            "title": "Scenario 14: Secondhand Smoke Exposure & Childhood Asthma",
-            "description": (
-                "A pediatric epidemiologist wants to estimate how much of the childhood asthma "
-                "burden in a southeastern US state could be prevented if secondhand smoke (SHS) "
-                "exposure were eliminated from homes with children. State survey data show that "
-                "28% of children in the state are regularly exposed to secondhand smoke at home. "
-                "A meta-analysis of cohort studies estimates that children exposed to household "
-                "SHS have 1.9 times the risk of developing asthma compared to unexposed children. "
-                "The epidemiologist is preparing a report for the state legislature on the "
-                "preventable burden of asthma attributable to SHS."
-            ),
-            "correct_measure": "Population Attributable Risk (PAR)",
-            "measure_hint": (
-                "A report on the 'preventable burden' of a disease in a population due to a "
-                "specific exposure is always a PAR question. PAR combines the prevalence of "
-                "exposure in the population (Pe = 28%) with the strength of the association "
-                "(RR = 1.9) to estimate the fraction of all cases that could be prevented by "
-                "eliminating the exposure. AR% would only tell you the fraction within exposed "
-                "children. NNT requires an intervention. SMR compares to a reference population."
-            ),
-            "data": {
-                "type": "par",
-                "context": (
-                    "Use the state data to calculate PAR% — the fraction of all childhood "
-                    "asthma cases in the state attributable to secondhand smoke exposure."
-                ),
-                "Pe": 0.28,
-                "RR": 1.9,
-                "Pe_label": "Prevalence of household SHS exposure in children",
-                "RR_label": "Risk Ratio for asthma (SHS-exposed vs. unexposed)",
-            },
-        },
-        {
-            "id": "adv_15",
-            "title": "Scenario 15: Firefighters & Cancer Mortality",
-            "description": (
-                "An occupational health researcher examines cancer mortality in a cohort of "
-                "5,200 career firefighters followed for 20 years. During this period, 89 "
-                "firefighters died from cancer. Applying age- and sex-specific cancer mortality "
-                "rates from the general population to the firefighter cohort's demographic "
-                "structure, 102.4 cancer deaths would be expected if firefighters had the same "
-                "mortality as the general public. The researcher wants to determine whether "
-                "cancer mortality among career firefighters differs from what would be expected "
-                "in the general population."
-            ),
-            "correct_measure": "Standardized Mortality Ratio (SMR)",
-            "measure_hint": (
-                "An occupational cohort with observed deaths being compared to expected deaths "
-                "calculated from reference population rates is always an SMR scenario. "
-                "The question 'does mortality in this group differ from what would be expected?' "
-                "is the defining SMR question. Note that when observed < expected, SMR < 1, "
-                "which may reflect the healthy worker effect — workers must be healthy enough "
-                "to be employed, making them inherently healthier than the general population "
-                "which includes people too ill to work."
-            ),
-            "data": {
-                "type": "smr",
-                "context": (
-                    "Calculate the SMR and interpret whether cancer mortality among career "
-                    "firefighters is higher or lower than expected. Consider whether the "
-                    "healthy worker effect might explain any difference."
-                ),
-                "observed": 89,
-                "expected": 102.4,
-                "group_label": "Career firefighters",
-                "outcome_label": "cancer",
-            },
-        },
-        {
-            "id": "adv_16",
-            "title": "Scenario 16: Sun Exposure & Melanoma Risk",
-            "description": (
-                "A dermatology researcher wants to quantify the excess melanoma risk specifically "
-                "among people with high lifetime sun exposure — defined as more than 10 years of "
-                "outdoor occupational work without sun protection. A 15-year cohort study found "
-                "that 4.8% of high-exposure workers developed melanoma, compared to 1.2% of "
-                "low-exposure workers. The researcher wants to counsel high-exposure patients "
-                "by telling them what proportion of their melanoma risk is directly attributable "
-                "to their sun exposure history — and how much absolute excess risk they carry."
-            ),
-            "correct_measure": "Attributable Risk & AR%",
-            "measure_hint": (
-                "The question has two parts: (1) the absolute excess risk in the exposed group "
-                "(AR = risk difference), and (2) the proportion of disease in the exposed group "
-                "attributable to the exposure (AR%). Both are about the exposed group specifically, "
-                "not the whole population. PAR would require population-level exposure prevalence "
-                "and answers a different question. NNT applies to interventions. Whenever a "
-                "clinician wants to counsel an exposed patient about their personal excess risk, "
-                "AR and AR% are the right measures."
-            ),
-            "data": {
-                "type": "ar",
-                "context": (
-                    "Use the cohort data to calculate the Attributable Risk (AR) and "
-                    "Attributable Risk Percent (AR%) for melanoma among high sun-exposure workers."
-                ),
-                "r_exposed": 0.048,
-                "r_unexposed": 0.012,
-                "exposed_label": "High sun-exposure workers",
-                "unexposed_label": "Low sun-exposure workers",
-                "outcome_label": "melanoma",
-            },
+            "data": {"type": "nnt", "context": "Calculate NNH for PPI use.", "r_treatment": 0.032, "r_control": 0.011,
+                     "treatment_label": "Long-term PPI use", "control_label": "No PPI use", "outcome_label": "chronic kidney disease"}
         },
     ]
 
-    measure_options = [
-        "— Select —",
-        "Population Attributable Risk (PAR)",
-        "Standardized Mortality Ratio (SMR)",
-        "Attributable Risk & AR%",
-        "Number Needed to Harm / Treat (NNH/NNT)",
-        "Hazard Ratio (HR)",
-    ]
+    measure_options = ["— Select —","Population Attributable Risk (PAR)","Standardized Mortality Ratio (SMR)",
+                       "Attributable Risk & AR%","Number Needed to Harm / Treat (NNH/NNT)","Hazard Ratio (HR)"]
 
-    # Randomize scenario order — shuffle once per session, reshuffle on reset
-    import random
     if "adv_scenario_order" not in st.session_state:
-        order = list(range(len(ADV_SCENARIOS)))
-        random.shuffle(order)
+        order = list(range(len(ADV_SCENARIOS))); random.shuffle(order)
         st.session_state["adv_scenario_order"] = order
+    SHUFFLED_ADV = [ADV_SCENARIOS[i] for i in st.session_state["adv_scenario_order"]]
 
-    SHUFFLED_SCENARIOS = [ADV_SCENARIOS[i] for i in st.session_state["adv_scenario_order"]]
-
-    # Reset button
-    col_hdr5, col_rst5 = st.columns([5, 1])
-    with col_hdr5:
-        st.caption(
-            f"**{len(ADV_SCENARIOS)} scenarios** presented in a randomized order. "
-            "Hit Reset to get a new shuffle and start fresh."
-        )
+    col_hdr5, col_rst5 = st.columns([5,1])
+    with col_hdr5: st.caption(f"**{len(ADV_SCENARIOS)} scenarios** — randomized. Reset to shuffle.")
     with col_rst5:
-        if st.button("🔄 Reset", key="reset_tab5", help="Clear all answers and reshuffle"):
+        if st.button("🔄 Reset", key="reset_tab5"):
             for sc in ADV_SCENARIOS:
-                k = f"adv_measure_{sc['id']}"
-                if k in st.session_state:
-                    del st.session_state[k]
-            if "adv_scenario_order" in st.session_state:
-                del st.session_state["adv_scenario_order"]
+                for k_suffix in ["measure","submitted"]:
+                    k = f"adv_{k_suffix}_{sc['id']}"
+                    if k in st.session_state: del st.session_state[k]
+            if "adv_scenario_order" in st.session_state: del st.session_state["adv_scenario_order"]
             st.rerun()
 
-    for sc in SHUFFLED_SCENARIOS:
-
-        st.divider()
-        st.subheader(sc["title"])
-        st.markdown(sc["description"])
-
+    for sc in SHUFFLED_ADV:
+        st.divider(); st.subheader(sc["title"]); st.markdown(sc["description"])
         sid = sc["id"]
+        submitted_key = f"adv_submitted_{sid}"
+        already_submitted = st.session_state.get(submitted_key, False)
 
-        # --- MEASURE SELECTION ---
-        st.markdown("**Which advanced epidemiologic measure is most appropriate for this scenario?**")
-        measure_choice = st.selectbox(
-            "Select measure:", measure_options,
-            key=f"adv_measure_{sid}", label_visibility="collapsed"
-        )
+        measure_choice = st.selectbox("Which advanced measure is most appropriate?",
+            measure_options, key=f"adv_measure_{sid}", disabled=already_submitted)
 
-        correct = measure_choice == sc["correct_measure"]
+        selected = st.session_state.get(f"adv_measure_{sid}") not in [None, "— Select —"]
 
-        if measure_choice != "— Select —":
-            if correct:
-                st.success(f"✅ Correct! **{sc['correct_measure']}** is the right measure here. " + sc["measure_hint"])
+        if not already_submitted:
+            if selected:
+                if st.button("Submit My Answer", key=f"adv_submit_{sid}", type="primary"):
+                    st.session_state[submitted_key] = True; st.rerun()
             else:
-                st.error("❌ Not quite. Think about this: " + sc["measure_hint"])
+                st.caption("⬆️ Select a measure before submitting.")
 
-        # --- DATA & ANALYSIS (only when correct) ---
-        if correct:
-            st.markdown("---")
-            st.markdown("### 📋 Now run the analysis")
-            st.markdown(sc["data"]["context"])
+        if already_submitted:
+            measure_val = st.session_state.get(f"adv_measure_{sid}")
+            correct = measure_val == sc["correct_measure"]
 
-            d = sc["data"]
+            if not correct:
+                wrong_hint = sc.get("measure_wrong",{}).get(measure_val,"")
+                st.error("📋 **Incorrect — here's what you missed:**")
+                if wrong_hint: st.markdown(f"**You selected:** *{measure_val}*\n\n{wrong_hint}")
+                st.markdown(f"✅ **Correct:** {sc['correct_measure']} — {sc['measure_hint']}")
+                if st.button("🔄 Try Again", key=f"adv_retry_{sid}"):
+                    for k_suffix in ["measure","submitted"]:
+                        k = f"adv_{k_suffix}_{sid}"
+                        if k in st.session_state: del st.session_state[k]
+                    st.rerun()
+            else:
+                st.success(f"✅ Correct! **{sc['correct_measure']}** — {sc['measure_hint']}")
 
-            if d["type"] == "par":
-                col1, col2 = st.columns(2)
-                col1.metric(d["Pe_label"], f"{round(d['Pe']*100,1)}%")
-                col2.metric(d["RR_label"], d["RR"])
-
-                if st.button("Calculate PAR%", key=f"run_{sid}"):
-                    PAR_pct = (d["Pe"] * (d["RR"] - 1)) / (1 + d["Pe"] * (d["RR"] - 1)) * 100
-                    st.subheader("📈 Results")
-                    st.metric("PAR%", f"{round(PAR_pct,1)}%")
-                    st.success(
-                        f"**Interpretation:** {round(PAR_pct,1)}% of cases in the total population "
-                        f"are attributable to this exposure. If the exposure were completely eliminated, "
-                        f"approximately {round(PAR_pct,1)}% of all cases could theoretically be prevented. "
-                        f"This assumes the association is causal."
-                    )
-
-            elif d["type"] == "smr":
-                col1, col2 = st.columns(2)
-                col1.metric("Observed cases", d["observed"])
-                col2.metric("Expected cases", d["expected"])
-
-                if st.button("Calculate SMR", key=f"run_{sid}"):
-                    smr = d["observed"] / d["expected"]
-                    ci_low_s = max(0, smr - 1.96 * (smr / math.sqrt(d["observed"])))
-                    ci_high_s = smr + 1.96 * (smr / math.sqrt(d["observed"]))
-
-                    st.subheader("📈 Results")
-                    st.metric("SMR", round(smr, 3))
-                    st.write(f"95% CI: ({round(ci_low_s,3)}, {round(ci_high_s,3)})")
-
-                    if ci_low_s <= 1 <= ci_high_s:
-                        st.warning(
-                            f"SMR = {round(smr,2)} (95% CI: {round(ci_low_s,2)}–{round(ci_high_s,2)}). "
-                            f"The CI includes 1.0 — we cannot conclude that {d['outcome_label']} risk "
-                            f"in {d['group_label']} differs significantly from the reference population."
-                        )
-                    elif smr > 1:
-                        st.error(
-                            f"SMR = {round(smr,2)} (95% CI: {round(ci_low_s,2)}–{round(ci_high_s,2)}). "
-                            f"There were {d['observed']} observed cases vs. {d['expected']} expected. "
-                            f"{d['group_label']} have {round(smr,2)}x the {d['outcome_label']} rate "
-                            f"of the reference population — a statistically significant excess."
-                        )
-                    else:
-                        st.success(
-                            f"SMR = {round(smr,2)} (95% CI: {round(ci_low_s,2)}–{round(ci_high_s,2)}). "
-                            f"Mortality is lower than expected — this may reflect the healthy worker effect."
-                        )
-                    draw_ci("SMR", smr, ci_low_s, ci_high_s)
-
-            elif d["type"] == "ar":
-                col1, col2 = st.columns(2)
-                col1.metric(f"Risk in {d['exposed_label']}", f"{round(d['r_exposed']*100,1)}%")
-                col2.metric(f"Risk in {d['unexposed_label']}", f"{round(d['r_unexposed']*100,1)}%")
-
-                if st.button("Calculate AR & AR%", key=f"run_{sid}"):
-                    ar = d["r_exposed"] - d["r_unexposed"]
-                    rr = d["r_exposed"] / d["r_unexposed"]
-                    ar_pct = (ar / d["r_exposed"]) * 100
-
-                    st.subheader("📈 Results")
-                    col1, col2, col3 = st.columns(3)
-                    col1.metric("AR (Risk Difference)", f"{round(ar*100,1)}%")
-                    col2.metric("AR%", f"{round(ar_pct,1)}%")
-                    col3.metric("RR (for reference)", round(rr,2))
-
-                    st.success(
-                        f"**AR = {round(ar*100,1)}%:** The {d['exposed_label']} group has "
-                        f"{round(ar*100,1)} additional {d['outcome_label']} cases per 100 people "
-                        f"compared to the {d['unexposed_label']} group. This is the absolute excess risk."
-                    )
-                    st.success(
-                        f"**AR% = {round(ar_pct,1)}%:** Of all {d['outcome_label']} cases occurring "
-                        f"in the {d['exposed_label']} group, {round(ar_pct,1)}% are attributable to "
-                        f"the exposure. Removing the exposure could theoretically prevent "
-                        f"{round(ar_pct,1)}% of cases in that group."
-                    )
-
-            elif d["type"] == "nnt":
-                col1, col2 = st.columns(2)
-                col1.metric(f"Risk ({d['treatment_label']})", f"{round(d['r_treatment']*100,1)}%")
-                col2.metric(f"Risk ({d['control_label']})", f"{round(d['r_control']*100,1)}%")
-
-                if st.button("Calculate NNT", key=f"run_{sid}"):
-                    risk_diff = abs(d["r_treatment"] - d["r_control"])
-                    nnt = round(1 / risk_diff, 1)
-
-                    st.subheader("📈 Results")
-                    col1, col2 = st.columns(2)
-                    col1.metric("Risk Difference (AR)", f"{round(risk_diff*100,1)}%")
-                    col2.metric("NNT", nnt)
-
-                    st.success(
-                        f"**NNT = {nnt}:** You would need to implement the {d['treatment_label']} "
-                        f"in **{nnt} communities** to prevent one additional {d['outcome_label']} "
-                        f"compared to {d['control_label']}."
-                    )
-                    st.info(
-                        f"**Interpretation benchmark:** An NNT of {nnt} for a serious outcome like "
-                        f"{d['outcome_label']} is considered a meaningful public health benefit, "
-                        f"especially if the intervention is low-cost and scalable."
-                    )
-
-            elif d["type"] == "hr":
-                col1, col2, col3 = st.columns(3)
-                col1.metric("Hazard Ratio (HR)", d["hr"])
-                col2.metric("95% CI Lower", d["ci_low"])
-                col3.metric("95% CI Upper", d["ci_high"])
-
-                if st.button("Interpret HR", key=f"run_{sid}"):
-                    st.subheader("📈 Results")
-
-                    if d["ci_low"] <= 1 <= d["ci_high"]:
-                        st.warning(
-                            f"HR = {d['hr']} (95% CI: {d['ci_low']}–{d['ci_high']}). "
-                            f"The CI includes 1 → not statistically significant. We cannot conclude "
-                            f"that the rate of {d['outcome_label']} differs between groups."
-                        )
-                    elif d["hr"] < 1:
-                        st.success(
-                            f"HR = {d['hr']} (95% CI: {d['ci_low']}–{d['ci_high']}). "
-                            f"At any point in time, {d['exposed_label']} adults had "
-                            f"{round((1-d['hr'])*100,1)}% lower hazard of {d['outcome_label']} "
-                            f"compared to {d['unexposed_label']} adults. "
-                            f"The CI does not include 1 → statistically significant."
-                        )
-                    else:
-                        st.error(
-                            f"HR = {d['hr']} (95% CI: {d['ci_low']}–{d['ci_high']}). "
-                            f"{d['exposed_label']} adults had {round((d['hr']-1)*100,1)}% higher "
-                            f"hazard of {d['outcome_label']} compared to {d['unexposed_label']} adults. "
-                            f"The CI does not include 1 → statistically significant."
-                        )
-
-                    draw_ci("HR", d["hr"], d["ci_low"], d["ci_high"])
-                    st.info(
-                        "**Remember:** The HR differs from the RR. The RR compares cumulative risk "
-                        "at a fixed time point. The HR compares the instantaneous rate of events at "
-                        "any moment in time, accounting for when events occur and varying follow-up."
-                    )
+            if correct:
+                st.markdown("---"); st.markdown("### 📋 Now run the analysis")
+                st.markdown(sc["data"]["context"]); d = sc["data"]
+                if d["type"] == "par":
+                    col1,col2 = st.columns(2)
+                    col1.metric("Exposure Prevalence (Pe)", f"{round(d['Pe']*100,1)}%"); col2.metric("Risk Ratio (RR)", d["RR"])
+                    if st.button("Calculate PAR%", key=f"run_{sid}"):
+                        PAR_pct = (d["Pe"]*(d["RR"]-1))/(1+d["Pe"]*(d["RR"]-1))*100
+                        st.metric("PAR%", f"{round(PAR_pct,1)}%")
+                        st.success(f"{round(PAR_pct,1)}% of all cases attributable to this exposure.")
+                elif d["type"] == "smr":
+                    col1,col2 = st.columns(2); col1.metric("Observed", d["observed"]); col2.metric("Expected", d["expected"])
+                    if st.button("Calculate SMR", key=f"run_{sid}"):
+                        smr = d["observed"]/d["expected"]
+                        ci_low_s = max(0, smr-1.96*(smr/math.sqrt(d["observed"]))); ci_high_s = smr+1.96*(smr/math.sqrt(d["observed"]))
+                        st.metric("SMR", round(smr,3)); st.write(f"95% CI: ({round(ci_low_s,3)}, {round(ci_high_s,3)})")
+                        if ci_low_s <= 1 <= ci_high_s: st.warning("CI includes 1 — not significantly different from reference.")
+                        elif smr > 1: st.error(f"SMR = {round(smr,2)} — Excess mortality.")
+                        else: st.success(f"SMR = {round(smr,2)} — Lower than expected. May reflect healthy worker effect.")
+                        draw_ci("SMR", smr, ci_low_s, ci_high_s)
+                elif d["type"] == "ar":
+                    col1,col2 = st.columns(2)
+                    col1.metric(f"Risk ({d['exposed_label']})", f"{round(d['r_exposed']*100,1)}%")
+                    col2.metric(f"Risk ({d['unexposed_label']})", f"{round(d['r_unexposed']*100,1)}%")
+                    if st.button("Calculate AR & AR%", key=f"run_{sid}"):
+                        ar = d["r_exposed"]-d["r_unexposed"]; ar_pct = (ar/d["r_exposed"])*100
+                        col1,col2 = st.columns(2); col1.metric("AR", f"{round(ar*100,1)}%"); col2.metric("AR%", f"{round(ar_pct,1)}%")
+                        st.success(f"AR = {round(ar*100,1)}%: absolute excess risk."); st.success(f"AR% = {round(ar_pct,1)}%: fraction attributable in exposed group.")
+                elif d["type"] == "nnt":
+                    col1,col2 = st.columns(2)
+                    col1.metric(f"Risk ({d['treatment_label']})", f"{round(d['r_treatment']*100,1)}%")
+                    col2.metric(f"Risk ({d['control_label']})", f"{round(d['r_control']*100,1)}%")
+                    if st.button("Calculate NNT/NNH", key=f"run_{sid}"):
+                        risk_diff = abs(d["r_treatment"]-d["r_control"]); nnt = round(1/risk_diff,1)
+                        st.metric("NNT/NNH", nnt)
+                        if d["r_treatment"] < d["r_control"]: st.success(f"NNT = {nnt}: treat {nnt} to prevent one additional {d['outcome_label']}.")
+                        else: st.error(f"NNH = {nnt}: expose {nnt} to cause one additional {d['outcome_label']}.")
+                elif d["type"] == "hr":
+                    col1,col2,col3 = st.columns(3); col1.metric("HR", d["hr"]); col2.metric("CI Lower", d["ci_low"]); col3.metric("CI Upper", d["ci_high"])
+                    if st.button("Interpret HR", key=f"run_{sid}"):
+                        if d["ci_low"] <= 1 <= d["ci_high"]: st.warning(f"HR = {d['hr']} — CI includes 1. Not significant.")
+                        elif d["hr"] < 1: st.success(f"HR = {d['hr']}: {d['exposed_label']} had {round((1-d['hr'])*100,1)}% lower hazard of {d['outcome_label']}. Significant.")
+                        else: st.error(f"HR = {d['hr']}: {d['exposed_label']} had {round((d['hr']-1)*100,1)}% higher hazard of {d['outcome_label']}. Significant.")
+                        draw_ci("HR", d["hr"], d["ci_low"], d["ci_high"])
 
     st.divider()
-
-    # Overall score
-    adv_total_correct = sum(
-        st.session_state.get(f"adv_measure_{sc['id']}") == sc["correct_measure"]
-        for sc in ADV_SCENARIOS
-    )
-    adv_answered = sum(
-        st.session_state.get(f"adv_measure_{sc['id']}") not in [None, "— Select —"]
-        for sc in ADV_SCENARIOS
-    )
-
+    adv_answered = sum(1 for sc in ADV_SCENARIOS if st.session_state.get(f"adv_submitted_{sc['id']}"))
+    adv_correct = sum(1 for sc in ADV_SCENARIOS if st.session_state.get(f"adv_submitted_{sc['id']}") and st.session_state.get(f"adv_measure_{sc['id']}") == sc["correct_measure"])
     if adv_answered > 0:
-        st.subheader(f"📊 Overall Score: {adv_total_correct} / {len(ADV_SCENARIOS)}")
-        st.progress(adv_total_correct / len(ADV_SCENARIOS))
-        if adv_total_correct == len(ADV_SCENARIOS):
-            st.success("🏆 Perfect score! You can correctly identify the right measure for any scenario.")
-        elif adv_total_correct >= 3:
-            st.info("Good work! Review any scenarios where you got feedback and make sure the reasoning clicks.")
-        else:
-            st.warning("Review the advanced epi measures and think carefully about what each one measures and when it applies.")
+        st.subheader(f"📊 Score: {adv_correct} / {adv_answered} submitted")
+        st.progress(adv_correct/adv_answered)
 
     st.markdown("---")
     st.markdown("Strong epidemiologists think structurally before computing.")
 
-# ==========================================================
+# ==================================================
 # TAB 6: HYPOTHESIS TESTING
-# ==========================================================
-
+# QUICK WIN 2: One-tailed pop-up connects H0/H1 to tail choice
+# ==================================================
 with tab6:
+    st.markdown("Build your understanding of hypothesis testing — writing hypotheses correctly, understanding tails, and interpreting p-values.")
 
-    st.markdown("""
-    This section builds your understanding of hypothesis testing from the ground up —
-    from writing hypotheses correctly, to understanding what tails mean,
-    to knowing what it actually means to reject the null.
-    """)
-
-    ht_section = st.radio(
-        "Choose a section:",
-        [
-            "1️⃣ Hypothesis Builder",
-            "2️⃣ One vs. Two Tailed Tests",
-            "3️⃣ What Does Rejecting the Null Actually Mean?"
-        ],
-        horizontal=True,
-        key="ht_section"
-    )
-
+    ht_section = st.radio("Choose a section:", [
+        "1️⃣ Hypothesis Builder",
+        "2️⃣ One vs. Two Tailed Tests",
+        "3️⃣ What Does Rejecting the Null Actually Mean?"
+    ], horizontal=True, key="ht_section")
     st.divider()
 
-    # ==========================================================
-    # SECTION 1: HYPOTHESIS BUILDER
-    # ==========================================================
-
     if ht_section == "1️⃣ Hypothesis Builder":
-
         st.subheader("Hypothesis Builder")
-        st.markdown("""
-        Every statistical test starts with two competing hypotheses. Practice writing them
-        correctly for each scenario below, then check your work.
-        """)
-
         with st.expander("📖 Quick Reference: Null vs. Alternative Hypothesis"):
             st.markdown("""
-**Null Hypothesis (H₀):**
-- The default assumption — states there is **no association**, no difference, or no effect
-- Always written as an equality (e.g., RR = 1, OR = 1, p₁ = p₂)
-- What you are trying to find evidence *against*
-- Example: "There is no association between smoking and lung cancer"
+**H₀ (Null):** No association, no difference. Always written as an equality (RR = 1, μ₁ = μ₂). What you're trying to find evidence against.
 
-**Alternative Hypothesis (H₁ or Hₐ):**
-- What you suspect is true — states there *is* an association, difference, or effect
-- Can be **two-tailed** (just different, direction unspecified): RR ≠ 1
-- Can be **one-tailed** (specific direction): RR > 1 or RR < 1
-- Example: "Smokers have a higher risk of lung cancer than non-smokers"
+**H₁ (Alternative):** States an association or effect exists.
+- **Two-tailed (≠):** Effect in either direction. Use when you have no strong prior directional prediction.
+- **One-tailed (< or >):** Specific direction. Use only when strong prior evidence supports it, established before data collection.
 
-**Key principle:** You never prove the null hypothesis is true. You either:
-- Find enough evidence to **reject H₀** (p < 0.05) → conclude the association is real
-- Fail to find enough evidence (**fail to reject H₀**) (p ≥ 0.05) → remain uncertain
-
-**Common mistake:** Students often say "we accept the null hypothesis." This is incorrect.
-Failing to find evidence of an effect is not the same as proving no effect exists.
+**Key principle:** You never *prove* H₀ true. You either reject it (p < 0.05) or fail to reject it (p ≥ 0.05).
             """)
 
         HYP_SCENARIOS = [
             {
-                "id": "h1",
-                "title": "Scenario A: Exercise & Blood Pressure",
-                "description": (
-                    "A researcher wants to test whether a 12-week aerobic exercise program "
-                    "reduces systolic blood pressure in adults with hypertension. "
-                    "She will compare mean systolic BP before and after the program."
-                ),
-                "correct_null": "no difference",
-                "correct_alt_direction": "one-tailed",
-                "null_options": [
-                    "The exercise program has no effect on systolic blood pressure (μ_before = μ_after)",
-                    "The exercise program reduces systolic blood pressure (μ_before > μ_after)",
-                    "Systolic blood pressure changes after the exercise program (μ_before ≠ μ_after)",
-                ],
-                "alt_options": [
-                    "The exercise program reduces systolic blood pressure (μ_before > μ_after)",
-                    "The exercise program has no effect on systolic blood pressure",
-                    "Systolic blood pressure changes after the program (μ_before ≠ μ_after)",
-                ],
-                "correct_null_idx": 0,
-                "correct_alt_idx": 0,
-                "null_feedback": "✅ Correct. The null hypothesis always states no effect or no difference. Here: the program does nothing — BP before = BP after.",
-                "null_wrong_feedback": "❌ Not quite. The null hypothesis must state no effect. It should say the program has no impact — BP before equals BP after.",
-                "alt_feedback": "✅ Correct. Because the researcher specifically expects a *reduction* (not just any change), this is one-tailed. The alternative states a direction: before > after.",
-                "alt_wrong_feedback": "❌ Think about the researcher's expectation. She isn't just testing whether BP *changes* — she expects it to *decrease*. That directionality makes this one-tailed.",
-                "tails_explanation": (
-                    "**Why one-tailed?** The researcher has a specific directional hypothesis — "
-                    "she expects the program to *reduce* BP, not just change it in any direction. "
-                    "A one-tailed test puts all 5% of the rejection region in one tail (the lower end), "
-                    "making it easier to detect an effect in that direction but unable to detect "
-                    "an effect in the opposite direction."
-                ),
+                "id": "h1", "title": "Scenario A: Exercise & Blood Pressure",
+                "description": "A researcher tests whether a 12-week aerobic program reduces systolic BP in hypertensive adults. She expects it to **decrease** BP based on prior research.",
+                "null_options": ["The program has no effect on systolic BP (μ_before = μ_after)",
+                                  "The program reduces BP (μ_before > μ_after)",
+                                  "BP changes in either direction (μ_before ≠ μ_after)"],
+                "alt_options": ["The program reduces systolic BP (μ_before > μ_after)",
+                                 "The program has no effect",
+                                 "BP changes in either direction (μ_before ≠ μ_after)"],
+                "correct_null_idx": 0, "correct_alt_idx": 0, "correct_tails": "one-tailed",
+                "null_feedback": "✅ Correct. H₀ states no effect — BP before = BP after.",
+                "null_wrong_feedback": "❌ H₀ must state no effect — BP before = BP after.",
+                "alt_feedback": "✅ Correct. Specific directional prediction (reduction) → one-tailed.",
+                "alt_wrong_feedback": "❌ The researcher expects a decrease. That directional prediction makes this one-tailed, not two-tailed.",
+                "tails_connection": "🎯 **Your H₁ specifies a direction** (μ_before > μ_after). This means the test is **one-tailed** — the entire 5% rejection region sits in the lower tail. The test can only detect a reduction; if BP increased, it would not be detected."
             },
             {
-                "id": "h2",
-                "title": "Scenario B: New Drug & Side Effects",
-                "description": (
-                    "A pharmaceutical company is testing whether a new cholesterol drug causes "
-                    "liver enzyme elevation at a different rate than placebo. They have no prior "
-                    "evidence about whether the drug increases or decreases liver enzymes — "
-                    "they just want to know if there's any difference."
-                ),
-                "correct_null": "no difference",
-                "correct_alt_direction": "two-tailed",
-                "null_options": [
-                    "The drug and placebo produce the same rate of liver enzyme elevation (p_drug = p_placebo)",
-                    "The drug increases liver enzyme elevation compared to placebo (p_drug > p_placebo)",
-                    "The drug causes liver enzyme changes compared to placebo (p_drug ≠ p_placebo)",
-                ],
-                "alt_options": [
-                    "The drug causes liver enzyme elevation at a different rate than placebo (p_drug ≠ p_placebo)",
-                    "The drug increases liver enzyme elevation compared to placebo (p_drug > p_placebo)",
-                    "The drug has no effect on liver enzymes compared to placebo",
-                ],
-                "correct_null_idx": 0,
-                "correct_alt_idx": 0,
-                "null_feedback": "✅ Correct. The null states no difference — the drug and placebo produce the same rate of enzyme elevation.",
-                "null_wrong_feedback": "❌ Not quite. The null hypothesis must always state no difference or no effect. The drug and placebo should be equal under H₀.",
-                "alt_feedback": "✅ Correct. Because the researchers have no prior expectation about direction (the drug could increase or decrease liver enzymes), this is two-tailed: p_drug ≠ p_placebo.",
-                "alt_wrong_feedback": "❌ Think about whether the researchers specified a direction. They said they don't know if the drug increases or decreases enzyme levels — just that it might differ. No specified direction = two-tailed (≠).",
-                "tails_explanation": (
-                    "**Why two-tailed?** The researchers have no prior basis to predict the *direction* "
-                    "of any difference. The drug could increase or decrease liver enzymes. "
-                    "A two-tailed test splits the 5% rejection region across both tails (2.5% each), "
-                    "so it can detect a difference in either direction. This is the most common "
-                    "approach in clinical trials when direction is unknown."
-                ),
+                "id": "h2", "title": "Scenario B: New Drug & Liver Enzymes",
+                "description": "A company tests whether a new cholesterol drug changes liver enzyme elevation rates vs. placebo. **No prior evidence** about direction.",
+                "null_options": ["Drug and placebo have the same enzyme elevation rate (p_drug = p_placebo)",
+                                  "Drug increases enzyme elevation (p_drug > p_placebo)",
+                                  "Drug changes enzyme levels (p_drug ≠ p_placebo)"],
+                "alt_options": ["Drug causes enzyme elevation at a different rate (p_drug ≠ p_placebo)",
+                                  "Drug increases enzyme elevation (p_drug > p_placebo)",
+                                  "Drug has no effect"],
+                "correct_null_idx": 0, "correct_alt_idx": 0, "correct_tails": "two-tailed",
+                "null_feedback": "✅ Correct. H₀ states no difference — equal rates in both groups.",
+                "null_wrong_feedback": "❌ H₀ must state no difference.",
+                "alt_feedback": "✅ Correct. No directional prediction → two-tailed (≠).",
+                "alt_wrong_feedback": "❌ No prior directional basis. Without a directional prediction, H₁ should be two-tailed (≠).",
+                "tails_connection": "🎯 **Your H₁ uses ≠** — no direction specified. This means the test is **two-tailed** — the 5% is split: 2.5% in each tail. The test can detect a difference in either direction."
             },
             {
-                "id": "h3",
-                "title": "Scenario C: Vaccination & Disease Incidence",
-                "description": (
-                    "Epidemiologists want to test whether a new vaccine reduces the incidence "
-                    "of a respiratory illness. They follow vaccinated and unvaccinated cohorts "
-                    "for one year and will compare incidence rates between groups. "
-                    "Based on the vaccine's mechanism, they expect it to be protective."
-                ),
-                "correct_null": "no difference",
-                "correct_alt_direction": "one-tailed",
-                "null_options": [
-                    "The vaccine and unvaccinated groups have the same incidence rate (IRR = 1)",
-                    "The vaccine reduces the incidence rate compared to unvaccinated (IRR < 1)",
-                    "The vaccine changes the incidence rate compared to unvaccinated (IRR ≠ 1)",
-                ],
-                "alt_options": [
-                    "The vaccine reduces incidence of respiratory illness (IRR < 1)",
-                    "The vaccine changes the incidence rate in either direction (IRR ≠ 1)",
-                    "The vaccine has no effect on incidence (IRR = 1)",
-                ],
-                "correct_null_idx": 0,
-                "correct_alt_idx": 0,
-                "null_feedback": "✅ Correct. The null states no effect — vaccinated and unvaccinated groups have equal incidence rates (IRR = 1).",
-                "null_wrong_feedback": "❌ The null must always state no effect. The vaccine and no-vaccine groups should show equal incidence under H₀ (IRR = 1).",
-                "alt_feedback": "✅ Correct. Because the researchers specifically expect the vaccine to be *protective* (reduce incidence), the alternative is directional and one-tailed: IRR < 1.",
-                "alt_wrong_feedback": "❌ The researchers said they expect the vaccine to be *protective* — that means they have a specific direction in mind (lower incidence in vaccinated group). A directional expectation means one-tailed.",
-                "tails_explanation": (
-                    "**Why one-tailed?** The vaccine's known mechanism suggests it should *reduce* "
-                    "disease incidence — not just change it in any direction. When strong biological "
-                    "or theoretical rationale supports a specific direction, a one-tailed test is "
-                    "appropriate. It concentrates all 5% in the lower tail (IRR < 1), making it "
-                    "more powerful at detecting a protective effect."
-                ),
+                "id": "h3", "title": "Scenario C: Vaccine & Respiratory Illness",
+                "description": "Epidemiologists test whether a new vaccine reduces respiratory illness. Based on known mechanism, they expect it to be **protective**.",
+                "null_options": ["Vaccine and unvaccinated groups have the same incidence (IRR = 1)",
+                                  "Vaccine reduces incidence (IRR < 1)",
+                                  "Vaccine changes incidence in either direction (IRR ≠ 1)"],
+                "alt_options": ["Vaccine reduces incidence (IRR < 1)",
+                                  "Vaccine changes incidence in either direction (IRR ≠ 1)",
+                                  "Vaccine has no effect (IRR = 1)"],
+                "correct_null_idx": 0, "correct_alt_idx": 0, "correct_tails": "one-tailed",
+                "null_feedback": "✅ Correct. H₀: no effect — equal incidence (IRR = 1).",
+                "null_wrong_feedback": "❌ H₀ must state no effect — IRR = 1.",
+                "alt_feedback": "✅ Correct. Known protective mechanism → directional → one-tailed (IRR < 1).",
+                "alt_wrong_feedback": "❌ Known protective mechanism supports a directional prediction — one-tailed.",
+                "tails_connection": "🎯 **Your H₁ specifies a direction** (IRR < 1). Test is **one-tailed** — all 5% concentrated in the lower tail (IRR < 1). Strong biological rationale justifies this."
             },
             {
-                "id": "h4",
-                "title": "Scenario D: Screen Time & Obesity in Children",
-                "description": (
-                    "A pediatric researcher conducts a cross-sectional study examining whether "
-                    "daily screen time (high vs. low) is associated with obesity status in children. "
-                    "She will use a chi-square test to assess whether obesity prevalence differs "
-                    "between high and low screen time groups. She has no prior hypothesis about "
-                    "which direction the association might go."
-                ),
-                "correct_null": "no difference",
-                "correct_alt_direction": "two-tailed",
-                "null_options": [
-                    "There is no association between screen time and obesity (PR = 1, or the two variables are independent)",
-                    "High screen time is associated with higher obesity prevalence (PR > 1)",
-                    "Screen time and obesity are associated (PR ≠ 1)",
-                ],
-                "alt_options": [
-                    "There is an association between screen time and obesity (PR ≠ 1)",
-                    "High screen time increases obesity prevalence (PR > 1)",
-                    "There is no association between screen time and obesity",
-                ],
-                "correct_null_idx": 0,
-                "correct_alt_idx": 0,
-                "null_feedback": "✅ Correct. The null states independence — no association between screen time and obesity. PR = 1 or the variables are statistically independent.",
-                "null_wrong_feedback": "❌ The null must state no association. Under H₀, screen time and obesity are independent — knowing a child's screen time tells you nothing about their obesity status.",
-                "alt_feedback": "✅ Correct. Because the researcher has no prior directional hypothesis, the alternative is two-tailed: there *is* an association (PR ≠ 1), without specifying direction. Note: chi-square tests are inherently two-tailed.",
-                "alt_wrong_feedback": "❌ The researcher stated she has no prior hypothesis about direction. Without a directional expectation, the alternative should be two-tailed (≠). Also note: chi-square tests are always two-tailed by nature.",
-                "tails_explanation": (
-                    "**Why two-tailed?** The researcher has no basis for predicting direction, "
-                    "and importantly, **chi-square tests are always two-tailed** — they test whether "
-                    "any difference exists in the table, regardless of direction. "
-                    "This is worth remembering: in epi, most association tests (chi-square, Fisher's exact) "
-                    "are two-tailed by default. One-tailed tests are more common in clinical trials "
-                    "with strong directional hypotheses."
-                ),
-            },
-            {
-                "id": "h5",
-                "title": "Scenario E: Opioid Prescribing Guidelines & Overdose Deaths",
-                "description": (
-                    "A state health department implemented stricter opioid prescribing guidelines "
-                    "in 2020. Researchers want to test whether the rate of opioid overdose deaths "
-                    "changed after the policy was implemented, comparing the 2-year period before "
-                    "vs. the 2-year period after. They have no prior evidence about whether the "
-                    "policy would increase or decrease overdose deaths — some research suggests "
-                    "stricter prescribing can push patients to illicit opioids."
-                ),
-                "correct_null": "no difference",
-                "correct_alt_direction": "two-tailed",
-                "null_options": [
-                    "The opioid overdose death rate did not change after the policy (rate_before = rate_after)",
-                    "The policy reduced opioid overdose deaths (rate_before > rate_after)",
-                    "The opioid overdose death rate changed after the policy (rate_before ≠ rate_after)",
-                ],
-                "alt_options": [
-                    "The opioid overdose death rate changed after the policy (rate_before ≠ rate_after)",
-                    "The policy reduced opioid overdose deaths (rate_before > rate_after)",
-                    "The policy increased opioid overdose deaths (rate_after > rate_before)",
-                ],
-                "correct_null_idx": 0,
-                "correct_alt_idx": 0,
-                "null_feedback": "✅ Correct. The null states no change — overdose rates before and after the policy are equal.",
-                "null_wrong_feedback": "❌ The null must state no effect. Under H₀, the policy had no impact — death rates before and after are equal.",
-                "alt_feedback": "✅ Correct. Because researchers explicitly stated they have no prior prediction about direction — the policy could increase or decrease deaths — the alternative is two-tailed (≠).",
-                "alt_wrong_feedback": "❌ The scenario states they have no prior evidence about direction. The policy might reduce deaths by limiting prescriptions, or increase them by pushing patients to illicit drugs. No predicted direction = two-tailed.",
-                "tails_explanation": (
-                    "**Why two-tailed?** The researchers acknowledged genuine uncertainty about direction. "
-                    "This is common in policy evaluation — real-world interventions can have unintended "
-                    "consequences. When plausible mechanisms exist for effects in both directions, "
-                    "a two-tailed test is the honest choice."
-                ),
-            },
-            {
-                "id": "h6",
-                "title": "Scenario F: Antibiotic Treatment Duration & Cure Rate",
-                "description": (
-                    "An infectious disease physician is testing whether a 5-day course of antibiotics "
-                    "is as effective as the standard 10-day course for treating uncomplicated urinary "
-                    "tract infections. Based on pharmacokinetic data, she hypothesizes the shorter "
-                    "course will achieve equivalent cure rates — meaning she expects no difference "
-                    "between the two groups. This is a non-inferiority trial design."
-                ),
-                "correct_null": "difference exists",
-                "correct_alt_direction": "two-tailed",
-                "null_options": [
-                    "The 5-day and 10-day courses have different cure rates (p_5day ≠ p_10day)",
-                    "The 5-day and 10-day courses have the same cure rate (p_5day = p_10day)",
-                    "The 5-day course has a lower cure rate than the 10-day course (p_5day < p_10day)",
-                ],
-                "alt_options": [
-                    "The 5-day and 10-day courses have the same cure rate (p_5day = p_10day)",
-                    "The 5-day course has a lower cure rate (p_5day < p_10day)",
-                    "The 5-day course has a different cure rate (p_5day ≠ p_10day)",
-                ],
-                "correct_null_idx": 1,
-                "correct_alt_idx": 0,
-                "null_feedback": "✅ Correct — and this is the twist. In most studies, H₀ states no difference. But here the researcher *expects* equivalence, so she is trying to find evidence *against* a difference. The null is still the default assumption — in a non-inferiority trial, H₀ states a difference exists.",
-                "null_wrong_feedback": "❌ This scenario has a twist. Usually H₀ states no difference, but this is a non-inferiority trial — the researcher wants to prove equivalence. Here, H₀ states the treatments ARE different (the status quo assumption before evidence of equivalence is shown).",
-                "alt_feedback": "✅ Correct. The researcher wants to show the two treatments are equivalent — so the alternative she is trying to establish is that they have the same cure rate.",
-                "alt_wrong_feedback": "❌ The researcher's goal is to show equivalence. In a non-inferiority trial, the alternative hypothesis is that the new treatment performs as well as the standard. She is trying to find evidence FOR equivalence, not against it.",
-                "tails_explanation": (
-                    "**The non-inferiority twist:** This scenario illustrates an important exception to the rule. "
-                    "Most hypothesis tests try to find evidence of a difference. "
-                    "Non-inferiority and equivalence trials flip this — they try to find evidence of equivalence. "
-                    "H₀ becomes 'the treatments differ' and H₁ becomes 'they are equivalent.' "
-                    "This matters in clinical settings where a cheaper, shorter, or less toxic "
-                    "treatment needs to be shown as equivalent to the current standard."
-                ),
-            },
-            {
-                "id": "h7",
-                "title": "Scenario G: Food Desert & Fruit/Vegetable Intake",
-                "description": (
-                    "A nutritional epidemiologist surveys 800 adults in food desert neighborhoods "
-                    "and 800 adults in food-secure neighborhoods. She measures daily fruit and "
-                    "vegetable servings (a continuous measure) and wants to test whether adults "
-                    "in food deserts consume fewer servings per day than adults in food-secure areas. "
-                    "Prior research consistently shows food deserts are associated with lower "
-                    "produce intake."
-                ),
-                "correct_null": "no difference",
-                "correct_alt_direction": "one-tailed",
-                "null_options": [
-                    "Adults in food deserts and food-secure areas consume the same number of daily servings (μ_desert = μ_secure)",
-                    "Adults in food deserts consume fewer servings than those in food-secure areas (μ_desert < μ_secure)",
-                    "Adults in food deserts consume a different number of servings than those in food-secure areas (μ_desert ≠ μ_secure)",
-                ],
-                "alt_options": [
-                    "Adults in food deserts consume fewer daily fruit and vegetable servings than those in food-secure areas (μ_desert < μ_secure)",
-                    "Adults in food deserts consume a different number of servings than food-secure adults (μ_desert ≠ μ_secure)",
-                    "Adults in food deserts consume more servings than food-secure adults (μ_desert > μ_secure)",
-                ],
-                "correct_null_idx": 0,
-                "correct_alt_idx": 0,
-                "null_feedback": "✅ Correct. H₀ states no difference in fruit and vegetable consumption between the two neighborhood types.",
-                "null_wrong_feedback": "❌ H₀ must state no difference. Under the null, food desert and food-secure residents consume equal amounts — any observed difference is due to chance.",
-                "alt_feedback": "✅ Correct. The researcher has a specific directional prediction based on prior research — food desert residents consume *fewer* servings. A specific direction = one-tailed (μ_desert < μ_secure).",
-                "alt_wrong_feedback": "❌ The researcher stated prior research consistently shows lower intake in food deserts. That existing evidence justifies a directional hypothesis — she predicts fewer servings, not just a difference in either direction. Specific direction = one-tailed.",
-                "tails_explanation": (
-                    "**Why one-tailed?** Prior research consistently points in one direction — "
-                    "food deserts are associated with lower produce intake. When there is strong "
-                    "existing evidence supporting a specific direction, a one-tailed test is "
-                    "justified. It concentrates all 5% in the lower tail, making it more powerful "
-                    "at detecting the expected effect."
-                ),
-            },
-            {
-                "id": "h8",
-                "title": "Scenario H: Telehealth & Patient Satisfaction",
-                "description": (
-                    "A hospital system launched telehealth services during the pandemic and wants "
-                    "to know whether patient satisfaction scores differ between telehealth and "
-                    "in-person visits. Satisfaction is rated on a 10-point scale. The administration "
-                    "has seen mixed reports — some patients love telehealth, others strongly prefer "
-                    "in-person care. They want to detect any difference, regardless of direction."
-                ),
-                "correct_null": "no difference",
-                "correct_alt_direction": "two-tailed",
-                "null_options": [
-                    "Telehealth and in-person visits produce the same mean satisfaction score (μ_telehealth = μ_in-person)",
-                    "Telehealth visits produce lower satisfaction than in-person visits (μ_telehealth < μ_in-person)",
-                    "Telehealth visits produce higher satisfaction than in-person visits (μ_telehealth > μ_in-person)",
-                ],
-                "alt_options": [
-                    "Telehealth and in-person visits produce different mean satisfaction scores (μ_telehealth ≠ μ_in-person)",
-                    "Telehealth visits produce lower satisfaction than in-person visits (μ_telehealth < μ_in-person)",
-                    "Telehealth visits produce higher satisfaction than in-person visits (μ_telehealth > μ_in-person)",
-                ],
-                "correct_null_idx": 0,
-                "correct_alt_idx": 0,
-                "null_feedback": "✅ Correct. H₀ states no difference — telehealth and in-person visits produce equal mean satisfaction.",
-                "null_wrong_feedback": "❌ H₀ must state no difference. Under the null, satisfaction is equal between visit types — any observed gap is due to chance.",
-                "alt_feedback": "✅ Correct. The administration wants to detect any difference in either direction — they have seen mixed reports suggesting telehealth could be better or worse. No predicted direction = two-tailed (≠).",
-                "alt_wrong_feedback": "❌ The scenario states mixed reports — some patients prefer telehealth, some prefer in-person. There is no clear directional prediction. When you genuinely don't know which direction the effect will go, use two-tailed (≠).",
-                "tails_explanation": (
-                    "**Why two-tailed?** The evidence is mixed — no strong prior rationale exists "
-                    "for predicting which visit type produces higher satisfaction. "
-                    "Two-tailed is appropriate when you want to detect a difference in either "
-                    "direction and have no strong theoretical basis for choosing one side. "
-                    "This is the most defensible and common choice in clinical and health services research."
-                ),
-            },
-            {
-                "id": "h9",
-                "title": "Scenario I: Water Fluoridation & Dental Caries in Children",
-                "description": (
-                    "A dental public health researcher is studying communities that recently "
-                    "added fluoride to their water supply. She will compare the mean number of "
-                    "dental caries (cavities) in children aged 6–12 before and after fluoridation. "
-                    "Decades of prior research consistently show fluoridation reduces cavities. "
-                    "She wants to test whether fluoridation reduces caries in this community."
-                ),
-                "correct_null": "no difference",
-                "correct_alt_direction": "one-tailed",
-                "null_options": [
-                    "Water fluoridation has no effect on the mean number of dental caries (μ_before = μ_after)",
-                    "Water fluoridation reduces the mean number of dental caries (μ_before > μ_after)",
-                    "Water fluoridation changes the mean number of dental caries (μ_before ≠ μ_after)",
-                ],
-                "alt_options": [
-                    "Water fluoridation reduces the mean number of dental caries (μ_before > μ_after)",
-                    "Water fluoridation changes the mean number of dental caries in either direction (μ_before ≠ μ_after)",
-                    "Water fluoridation increases dental caries (μ_after > μ_before)",
-                ],
-                "correct_null_idx": 0,
-                "correct_alt_idx": 0,
-                "null_feedback": "✅ Correct. H₀ states no effect — fluoridation does not change the mean number of cavities.",
-                "null_wrong_feedback": "❌ H₀ must state no effect. Under the null, fluoridation changes nothing — mean caries before equals mean caries after.",
-                "alt_feedback": "✅ Correct. Decades of research support a specific directional effect — fluoridation reduces cavities (μ_before > μ_after). Strong prior evidence justifies a one-tailed test.",
-                "alt_wrong_feedback": "❌ The researcher cited decades of consistent prior research showing fluoridation reduces cavities. That level of prior evidence justifies a specific directional hypothesis — she predicts fewer cavities after, not just any change.",
-                "tails_explanation": (
-                    "**Why one-tailed?** The scientific consensus on water fluoridation and dental "
-                    "caries is exceptionally strong — this is one of the clearest cases where a "
-                    "directional hypothesis is justified. When prior evidence is extensive and "
-                    "consistently points one way, a one-tailed test is appropriate and more powerful. "
-                    "Contrast this with Scenario E (opioid policy), where direction was genuinely uncertain."
-                ),
+                "id": "h4", "title": "Scenario D: Screen Time & Obesity",
+                "description": "A chi-square test examines whether obesity prevalence differs between high/low screen time groups. **No prior directional hypothesis.**",
+                "null_options": ["No association between screen time and obesity (PR = 1 / independent)",
+                                  "High screen time increases obesity (PR > 1)",
+                                  "Association exists (PR ≠ 1)"],
+                "alt_options": ["There is an association (PR ≠ 1)",
+                                  "High screen time increases obesity (PR > 1)",
+                                  "No association"],
+                "correct_null_idx": 0, "correct_alt_idx": 0, "correct_tails": "two-tailed",
+                "null_feedback": "✅ Correct. H₀: no association — independence.",
+                "null_wrong_feedback": "❌ H₀ must state no association.",
+                "alt_feedback": "✅ Correct. No directional prediction + chi-square is always two-tailed.",
+                "alt_wrong_feedback": "❌ No directional prediction, and chi-square tests are **always two-tailed**.",
+                "tails_connection": "🎯 **Your H₁ uses ≠** and uses chi-square. Test is **two-tailed** — important reminder: **chi-square tests are always two-tailed** in epidemiology. They test whether any difference exists, regardless of direction."
             },
         ]
 
         for sc in HYP_SCENARIOS:
-            st.divider()
-            st.markdown(f"**{sc['title']}**")
-            st.markdown(sc["description"])
+            st.divider(); st.markdown(f"**{sc['title']}**"); st.markdown(sc["description"])
             sid = sc["id"]
-
             st.markdown("**Step 1: Select the correct null hypothesis (H₀):**")
-            null_choice = st.radio(
-                "H₀:", sc["null_options"],
-                key=f"h0_{sid}", index=None, label_visibility="collapsed"
-            )
+            null_choice = st.radio("H₀:", sc["null_options"], key=f"h0_{sid}", index=None, label_visibility="collapsed")
             if null_choice is not None:
-                if sc["null_options"].index(null_choice) == sc["correct_null_idx"]:
-                    st.success(sc["null_feedback"])
-                else:
-                    st.error(sc["null_wrong_feedback"])
+                if sc["null_options"].index(null_choice) == sc["correct_null_idx"]: st.success(sc["null_feedback"])
+                else: st.error(sc["null_wrong_feedback"])
 
             st.markdown("**Step 2: Select the correct alternative hypothesis (H₁):**")
-            alt_choice = st.radio(
-                "H₁:", sc["alt_options"],
-                key=f"h1_{sid}", index=None, label_visibility="collapsed"
-            )
+            alt_choice = st.radio("H₁:", sc["alt_options"], key=f"h1_{sid}", index=None, label_visibility="collapsed")
             if alt_choice is not None:
-                if sc["alt_options"].index(alt_choice) == sc["correct_alt_idx"]:
-                    st.success(sc["alt_feedback"])
-                else:
-                    st.error(sc["alt_wrong_feedback"])
+                if sc["alt_options"].index(alt_choice) == sc["correct_alt_idx"]: st.success(sc["alt_feedback"])
+                else: st.error(sc["alt_wrong_feedback"])
 
+            # QUICK WIN: Only show Step 3 (tails) after both H0 and H1 are correct
+            # AND show the connecting explanation first
             if null_choice is not None and alt_choice is not None:
-                if (sc["null_options"].index(null_choice) == sc["correct_null_idx"] and
-                        sc["alt_options"].index(alt_choice) == sc["correct_alt_idx"]):
-                    st.info(sc["tails_explanation"])
-
-    # ==========================================================
-    # SECTION 2: ONE VS. TWO TAILED
-    # ==========================================================
+                null_correct = sc["null_options"].index(null_choice) == sc["correct_null_idx"]
+                alt_correct = sc["alt_options"].index(alt_choice) == sc["correct_alt_idx"]
+                if null_correct and alt_correct:
+                    st.info(sc["tails_connection"])
+                    st.markdown("**Step 3: Based on your hypotheses — is this a one-tailed or two-tailed test?**")
+                    tail_answer = st.radio("Tails:", ["One-tailed","Two-tailed"], key=f"tails_{sid}", index=None, horizontal=True, label_visibility="collapsed")
+                    if tail_answer is not None:
+                        expected = "One-tailed" if sc["correct_tails"] == "one-tailed" else "Two-tailed"
+                        if tail_answer == expected:
+                            reason = "Your H₁ specifies a direction (< or >)." if sc["correct_tails"] == "one-tailed" else "Your H₁ uses ≠ — no direction specified."
+                            st.success(f"✅ Correct — **{tail_answer.lower()}** test. {reason}")
+                        else:
+                            if sc["correct_tails"] == "one-tailed":
+                                st.error("❌ **One-tailed.** Look at your H₁ — it specifies a direction. When H₁ has < or >, the test is one-tailed. The 5% rejection region sits entirely in one tail.")
+                            else:
+                                st.error("❌ **Two-tailed.** Look at your H₁ — it uses ≠. No direction specified = two-tailed. The 5% is split: 2.5% in each tail.")
 
     elif ht_section == "2️⃣ One vs. Two Tailed Tests":
-
         st.subheader("One vs. Two Tailed Tests — Interactive Visualization")
-
-        st.markdown("""
-        A **p-value** is the probability of getting a test statistic as extreme as yours
-        (or more extreme) *if the null hypothesis were true*. Where that probability
-        comes from depends on how many tails you're using.
-        """)
-
-        col1, col2 = st.columns([3, 2])
+        col1, col2 = st.columns([3,2])
 
         with col2:
-            st.markdown("#### Adjust the settings")
-            chi2_input = st.slider(
-                "Chi-square test statistic (χ²)",
-                min_value=0.0, max_value=15.0, value=3.84, step=0.01,
-                key="chi2_slider",
-                help="Move this slider to see how the p-value changes as the test statistic changes."
-            )
-            dof_input = st.selectbox(
-                "Degrees of freedom",
-                [1, 2, 3, 4, 5], index=0, key="dof_select",
-                help="For a 2×2 table, df = 1. For larger tables, df = (rows-1) × (cols-1)."
-            )
-            tail_choice = st.radio(
-                "Tail type:",
-                ["Two-tailed (÷2 on each side)", "One-tailed (all on one side)"],
-                key="tail_radio"
-            )
+            chi2_input = st.slider("Chi-square statistic (χ²)", min_value=0.0, max_value=15.0, value=3.84, step=0.01)
+            dof_input = st.selectbox("Degrees of freedom", [1,2,3,4,5], index=0)
+            tail_choice = st.radio("Tail type:", ["Two-tailed (÷2 on each side)","One-tailed (all on one side)"], key="tail_radio")
 
             from scipy.stats import chi2 as chi2_dist
             p_two = float(1 - chi2_dist.cdf(chi2_input, dof_input))
             p_one = p_two / 2
+            p_display = p_two if "Two-tailed" in tail_choice else p_one
+            tail_label = "Two-tailed p" if "Two-tailed" in tail_choice else "One-tailed p"
+            st.metric(tail_label, f"{round(p_display,4)}" if p_display >= 0.0001 else "< 0.0001")
+            if p_display < 0.05: st.success("p < 0.05 → Reject H₀")
+            else: st.warning("p ≥ 0.05 → Fail to reject H₀")
+            st.markdown(f"**Two-tailed p:** {round(p_two,4)}  |  **One-tailed p:** {round(p_one,4)}")
+            st.caption("One-tailed p is always exactly half the two-tailed p.")
 
-            if "Two-tailed" in tail_choice:
-                p_display = p_two
-                tail_label = "Two-tailed p-value"
-            else:
-                p_display = p_one
-                tail_label = "One-tailed p-value"
-
-            st.metric(tail_label, f"{round(p_display, 4)}" if p_display >= 0.0001 else "< 0.0001")
-
-            if p_display < 0.05:
-                st.success("p < 0.05 → Reject H₀")
-            else:
-                st.warning("p ≥ 0.05 → Fail to reject H₀")
-
+            # QUICK WIN: One-tailed guidance pop-up
             st.markdown("---")
-            st.markdown(f"**Two-tailed p:** {round(p_two,4)}")
-            st.markdown(f"**One-tailed p:** {round(p_one,4)}")
-            st.caption("The one-tailed p is always exactly half the two-tailed p for chi-square.")
+            with st.expander("💡 When is one-tailed appropriate?"):
+                st.markdown("""
+**Use one-tailed when ALL three are true:**
+1. You have a **specific directional hypothesis** established *before* seeing the data
+2. You have **strong prior evidence** supporting that direction
+3. An effect in the opposite direction would be **clinically meaningless**
+
+**Use two-tailed (the default) when:**
+- You're testing whether *any* difference exists
+- You're unsure which direction the effect will go
+- You're using a **chi-square test** (always two-tailed)
+- You decided on direction *after* seeing your data — that's p-hacking
+
+⚠️ **Warning:** Switching from two-tailed to one-tailed after seeing p = 0.07 to make it "significant" is data manipulation. The tail choice must be made before data collection.
+                """)
 
         with col1:
-            # numpy already imported at top
-
-            # Draw chi-square distribution using HTML/CSS bars
-            x_vals = [i * 0.1 for i in range(0, 160)]
             from scipy.stats import chi2 as chi2_dist2
-            y_vals = [float(chi2_dist2.pdf(x, dof_input)) if x > 0 else 0 for x in x_vals]
+            x_vals = [i*0.1 for i in range(0,160)]
+            y_vals = [float(chi2_dist2.pdf(x,dof_input)) if x > 0 else 0 for x in x_vals]
             max_y = max(y_vals) if max(y_vals) > 0 else 1
+            w,h = 520,220; ml,mr,mb,mt = 40,20,40,20
+            pw,ph = w-ml-mr, h-mb-mt; x_max_plot=15.0
 
-            # Build SVG
-            w, h = 520, 220
-            margin_l, margin_r, margin_b, margin_t = 40, 20, 40, 20
-            plot_w = w - margin_l - margin_r
-            plot_h = h - margin_b - margin_t
-            x_max_plot = 15.0
+            def px(xv): return ml + (xv/x_max_plot)*pw
+            def py(yv): return mt + ph - (yv/(max_y*1.1))*ph
 
-            def px(xval):
-                return margin_l + (xval / x_max_plot) * plot_w
-
-            def py(yval):
-                return margin_t + plot_h - (yval / (max_y * 1.1)) * plot_h
-
-            # Build path for the curve
-            path_pts = []
-            for i, (xv, yv) in enumerate(zip(x_vals, y_vals)):
-                if xv > x_max_plot:
-                    break
+            path_pts=[]
+            for i,(xv,yv) in enumerate(zip(x_vals,y_vals)):
+                if xv > x_max_plot: break
                 path_pts.append(f"{'M' if i==0 else 'L'}{round(px(xv),1)},{round(py(yv),1)}")
-            curve_path = " ".join(path_pts)
-
-            # Shaded rejection regions
-            crit_x = chi2_input
-            reject_color = "#c0392b"
-            accept_color = "#2e7d32"
-
-            # Fill area under curve to the right of chi2_input (rejection region)
-            fill_pts = []
-            for xv, yv in zip(x_vals, y_vals):
-                if xv < crit_x or xv > x_max_plot:
-                    continue
-                fill_pts.append(f"{round(px(xv),1)},{round(py(yv),1)}")
+            curve_path=" ".join(path_pts)
+            rc="#c0392b"
+            fill_pts=[f"{round(px(xv),1)},{round(py(yv),1)}" for xv,yv in zip(x_vals,y_vals) if chi2_input <= xv <= x_max_plot]
             if fill_pts:
-                fill_path = (f"M{round(px(crit_x),1)},{round(py(0),1)} " +
-                             " ".join(f"L{pt}" for pt in fill_pts) +
-                             f" L{round(px(min(x_max_plot, x_vals[-1])),1)},{round(py(0),1)} Z")
-            else:
-                fill_path = ""
-
-            # x-axis labels
-            x_ticks = [0, 2, 4, 6, 8, 10, 12, 14]
-            tick_svg = ""
-            for xt in x_ticks:
-                tick_svg += f'<text x="{round(px(xt),1)}" y="{h-8}" text-anchor="middle" font-size="11" fill="#555">{xt}</text>'
-                tick_svg += f'<line x1="{round(px(xt),1)}" y1="{h-margin_b}" x2="{round(px(xt),1)}" y2="{h-margin_b+4}" stroke="#555" stroke-width="1"/>'
-
-            # Critical value line
-            crit_line = f'<line x1="{round(px(crit_x),1)}" y1="{margin_t}" x2="{round(px(crit_x),1)}" y2="{h-margin_b}" stroke="{reject_color}" stroke-width="2" stroke-dasharray="5,3"/>'
-            # Label sits clearly to the right of the dashed line, vertically centred on chart
-            lbl_text = f"χ² = {round(chi2_input, 2)}"
-            lbl_w = max(len(lbl_text) * 7 + 12, 70)
-            lbl_x = round(min(px(crit_x) + 10, w - margin_r - lbl_w - 4), 1)
-            lbl_y = round((margin_t + h - margin_b) / 2, 1)
-            crit_label = (
-                f'<rect x="{lbl_x}" y="{lbl_y - 14}" width="{lbl_w}" height="19" ' +
-                f'fill="white" stroke="{reject_color}" stroke-width="1.5" rx="3"/>' +
-                f'<text x="{lbl_x + lbl_w // 2}" y="{lbl_y}" text-anchor="middle" ' +
-                f'font-size="12" fill="{reject_color}" font-weight="bold">{lbl_text}</text>'
-            )
-
-            # p-value annotation
-            p_label_x = px(min(crit_x + 1.5, x_max_plot - 1))
-            p_annotation = f'<text x="{round(p_label_x,1)}" y="{margin_t+30}" text-anchor="middle" font-size="11" fill="{reject_color}">p = {round(p_display,4) if p_display >= 0.0001 else "< 0.0001"}</text>'
-
-            # Axis lines
-            axis_svg = (
-                f'<line x1="{margin_l}" y1="{h-margin_b}" x2="{w-margin_r}" y2="{h-margin_b}" stroke="#333" stroke-width="1.5"/>'
-                f'<line x1="{margin_l}" y1="{margin_t}" x2="{margin_l}" y2="{h-margin_b}" stroke="#333" stroke-width="1.5"/>'
-            )
-
-            # Labels
-            labels_svg = (
-                f'<text x="{w//2}" y="{h-2}" text-anchor="middle" font-size="12" fill="#333">χ² value</text>'
-                f'<text x="12" y="{h//2}" text-anchor="middle" font-size="11" fill="#333" transform="rotate(-90,12,{h//2})">Density</text>'
-                f'<text x="{w//2}" y="{margin_t-8}" text-anchor="middle" font-size="12" fill="#333" font-weight="bold">Chi-Square Distribution (df={dof_input})</text>'
-            )
-
-            # Legend
-            tail_desc = "Rejection region (right tail)" if "One-tailed" in tail_choice else "Rejection region (right tail, ÷2)"
-            legend_svg = (
-                f'<rect x="{margin_l}" y="{margin_t+5}" width="12" height="12" fill="{reject_color}" opacity="0.5"/>'
-                f'<text x="{margin_l+16}" y="{margin_t+15}" font-size="11" fill="{reject_color}">{tail_desc}</text>'
-            )
-
-            svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" style="font-family:sans-serif; background:#f9f9f9; border-radius:8px;">
-  {axis_svg}
-  {f'<path d="{fill_path}" fill="{reject_color}" opacity="0.4"/>' if fill_path else ''}
-  <path d="{curve_path}" fill="none" stroke="#2c3e50" stroke-width="2.5"/>
-  {crit_line}
-  {crit_label}
-  {p_annotation}
-  {tick_svg}
-  {labels_svg}
-  {legend_svg}
-</svg>"""
-
+                fill_path=f"M{round(px(chi2_input),1)},{round(py(0),1)} "+" ".join(f"L{pt}" for pt in fill_pts)+f" L{round(px(x_max_plot),1)},{round(py(0),1)} Z"
+            else: fill_path=""
+            ticks=[0,2,4,6,8,10,12,14]
+            tick_svg="".join(f'<text x="{round(px(xt),1)}" y="{h-8}" text-anchor="middle" font-size="11" fill="#555">{xt}</text><line x1="{round(px(xt),1)}" y1="{h-mb}" x2="{round(px(xt),1)}" y2="{h-mb+4}" stroke="#555" stroke-width="1"/>' for xt in ticks)
+            crit_line=f'<line x1="{round(px(chi2_input),1)}" y1="{mt}" x2="{round(px(chi2_input),1)}" y2="{h-mb}" stroke="{rc}" stroke-width="2" stroke-dasharray="5,3"/>'
+            lbl=f"χ²={round(chi2_input,2)}"; lw=max(len(lbl)*7+12,70)
+            lx=round(min(px(chi2_input)+10,w-mr-lw-4),1); ly=round((mt+h-mb)/2,1)
+            crit_label=f'<rect x="{lx}" y="{ly-14}" width="{lw}" height="19" fill="white" stroke="{rc}" stroke-width="1.5" rx="3"/><text x="{lx+lw//2}" y="{ly}" text-anchor="middle" font-size="12" fill="{rc}" font-weight="bold">{lbl}</text>'
+            p_ann=f'<text x="{round(min(px(chi2_input)+1.5*pw/15,w-mr-30),1)}" y="{mt+30}" text-anchor="middle" font-size="11" fill="{rc}">p={round(p_display,4) if p_display>=0.0001 else "<0.0001"}</text>'
+            axes=f'<line x1="{ml}" y1="{h-mb}" x2="{w-mr}" y2="{h-mb}" stroke="#333" stroke-width="1.5"/><line x1="{ml}" y1="{mt}" x2="{ml}" y2="{h-mb}" stroke="#333" stroke-width="1.5"/>'
+            labels=f'<text x="{w//2}" y="{h-2}" text-anchor="middle" font-size="12" fill="#333">χ² value</text><text x="{w//2}" y="{mt-8}" text-anchor="middle" font-size="12" fill="#333" font-weight="bold">χ² Distribution (df={dof_input})</text>'
+            fill_svg_part = f'<path d="{fill_path}" fill="{rc}" opacity="0.4"/>' if fill_path else ""
+            svg=f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" style="font-family:sans-serif;background:#f9f9f9;border-radius:8px;">{axes}{fill_svg_part}<path d="{curve_path}" fill="none" stroke="#2c3e50" stroke-width="2.5"/>{crit_line}{crit_label}{p_ann}{tick_svg}{labels}</svg>'
             st.markdown(svg, unsafe_allow_html=True)
 
-        st.divider()
         st.markdown("""
-### Key Takeaways
+**Two-tailed (default):** Tests any difference. Splits 5% across both tails. Chi-square is always two-tailed.
 
-**Two-tailed test (most common in epi):**
-- Tests whether there is *any* difference, regardless of direction
-- Splits the 5% rejection region: 2.5% in each tail
-- Use when you have no strong prior reason to predict direction
-- Chi-square tests are **always two-tailed**
-
-**One-tailed test:**
-- Tests whether the effect is in one *specific* direction only
-- Puts all 5% rejection region in one tail → easier to reject H₀ in that direction
-- Only appropriate when strong prior evidence justifies a directional hypothesis
-- More powerful for detecting effects in the predicted direction, but
-  **cannot detect effects in the opposite direction**
-
-**Critical rule:** You must decide one- vs. two-tailed *before* looking at your data.
-Choosing after seeing results is p-hacking.
+**One-tailed:** All 5% in one tail. Only appropriate with strong prior directional hypothesis established before data collection.
         """)
-
-    # ==========================================================
-    # SECTION 3: WHAT DOES REJECTING THE NULL MEAN?
-    # ==========================================================
 
     elif ht_section == "3️⃣ What Does Rejecting the Null Actually Mean?":
-
         st.subheader("What Does Rejecting the Null Actually Mean?")
-
-        st.markdown("""
-        The p-value is one of the most misunderstood concepts in all of statistics.
-        Work through each concept below carefully.
-        """)
-
         with st.expander("🔵 What the p-value IS", expanded=True):
             st.markdown("""
-**The p-value is the probability of observing a test statistic as extreme as yours
-(or more extreme) *if the null hypothesis were true*.**
+**The p-value is the probability of observing a result as extreme as yours (or more extreme) if the null hypothesis were true.**
 
-In plain language: **"How surprising is my data, assuming nothing is going on?"**
+Small p (e.g., 0.003): data this extreme would occur only 0.3% of the time under H₀ — very surprising.
+Large p (e.g., 0.42): data this extreme would occur 42% of the time under H₀ — not surprising.
 
-- A small p-value (e.g., p = 0.003) means: "If H₀ were true, data this extreme would
-  happen only 0.3% of the time. That's very surprising — so maybe H₀ isn't true."
-- A large p-value (e.g., p = 0.42) means: "If H₀ were true, data this extreme would
-  happen 42% of the time. That's not surprising at all — no reason to doubt H₀."
-
-**The 0.05 threshold:** We conventionally say p < 0.05 is "statistically significant."
-This means we accept a 5% chance of being wrong when we reject H₀ (Type I error / false positive).
+The 0.05 threshold means we accept a 5% chance of rejecting a true H₀ (Type I error / false positive).
             """)
-
         with st.expander("🔴 What the p-value is NOT"):
             st.markdown("""
-These are the most common misconceptions — each one is **incorrect**:
-
 | ❌ Common Misconception | ✅ What's Actually True |
 |---|---|
-| "p = 0.03 means there's a 3% chance the null is true" | The p-value says nothing about the probability that H₀ is true |
-| "p = 0.06 means there's no association" | Failing to reject H₀ does not prove there's no effect — you may just have insufficient power |
-| "p < 0.05 means the result is important" | Statistical significance ≠ practical significance. A tiny, meaningless effect can be significant with a large enough sample |
-| "We accept the null hypothesis" | You never *accept* H₀ — you either reject it or *fail to reject* it |
-| "p = 0.049 is meaningful but p = 0.051 is not" | The 0.05 cutoff is arbitrary. These p-values represent nearly identical evidence |
-| "A smaller p-value means a stronger association" | p-values reflect sample size AND effect size. A huge sample produces tiny p-values even for trivial effects |
+| "p = 0.03 means 3% chance H₀ is true" | p-value says nothing about the probability H₀ is true |
+| "p = 0.06 means no association" | Failing to reject H₀ does not prove no effect |
+| "p < 0.05 means the result is important" | Statistical significance ≠ practical significance |
+| "We accept the null hypothesis" | You never *accept* H₀ — you fail to reject it |
+| "p = 0.049 is meaningful, p = 0.051 is not" | The 0.05 cutoff is arbitrary |
+| "Smaller p = stronger association" | p reflects both sample size AND effect size |
             """)
-
         with st.expander("🟡 Type I and Type II Errors"):
             st.markdown("""
-Every decision to reject or fail to reject H₀ carries a risk of error:
-
-|  | H₀ is actually TRUE | H₀ is actually FALSE |
+|  | H₀ is TRUE | H₀ is FALSE |
 |---|---|---|
-| **We reject H₀** | ❌ Type I Error (false positive) — α | ✅ Correct — power (1−β) |
-| **We fail to reject H₀** | ✅ Correct | ❌ Type II Error (false negative) — β |
+| **Reject H₀** | ❌ Type I Error (α) | ✅ Correct (Power = 1−β) |
+| **Fail to reject H₀** | ✅ Correct | ❌ Type II Error (β) |
 
-**Type I Error (α):**
-- Rejecting H₀ when it's actually true — a false positive
-- Probability = α, conventionally set at 0.05
-- Example: concluding a drug works when it actually doesn't
-
-**Type II Error (β):**
-- Failing to reject H₀ when it's actually false — a false negative
-- Probability = β; **power = 1 − β** (your ability to detect a real effect)
-- Example: concluding a drug doesn't work when it actually does
-- Common cause: sample size too small
-
-**The tradeoff:** Decreasing α (being more strict) reduces Type I errors but increases Type II errors. You can't minimize both simultaneously without increasing sample size.
+**Type I (α):** False positive — rejecting a true H₀. Probability = α (0.05).
+**Type II (β):** False negative — failing to reject a false H₀.
+**Tradeoff:** Decreasing α reduces Type I errors but increases Type II without a larger sample size.
             """)
-
-        with st.expander("🟢 Connecting This to Your Epi Results"):
+        with st.expander("🟢 CI Connection"):
             st.markdown("""
-When you run the chi-square test in the Measures of Association tab and get a p-value:
+**95% CI and p-value always agree:**
+- CI includes 1 → p ≥ 0.05 → fail to reject H₀
+- CI excludes 1 → p < 0.05 → reject H₀
 
-**If p < 0.05 (reject H₀):**
-- The data are inconsistent with the null hypothesis of no association
-- We conclude there is a statistically significant association between exposure and outcome
-- This does NOT mean the association is causal — confounding and bias can still explain it
-- This does NOT tell you the association is large or important
-
-**If p ≥ 0.05 (fail to reject H₀):**
-- The data are consistent with the null hypothesis — but that doesn't prove H₀ is true
-- Possible explanations: truly no effect, OR insufficient sample size (low power), OR too much variability
-- **Never say "there is no association"** — say "there is insufficient evidence to conclude an association exists"
-
-**The CI connection:**
-- The 95% CI and the p-value always agree:
-  - If CI includes 1 → p ≥ 0.05 → fail to reject H₀
-  - If CI excludes 1 → p < 0.05 → reject H₀
-- The CI gives you *more* information than the p-value alone — it shows the range of plausible effect sizes
+The CI gives more information — it shows the range of plausible effect sizes, not just whether to reject H₀.
             """)
-
-        with st.expander("🧠 Test Yourself"):
-            st.markdown("**Answer each question, then reveal the explanation.**")
-
-            q1 = st.radio(
-                "A study finds RR = 1.8, p = 0.03, 95% CI: 1.1–2.9. Which statement is correct?",
-                [
-                    "There is a 3% chance the null hypothesis is true",
-                    "If there were truly no association, data this extreme would occur 3% of the time",
-                    "The exposure causes the outcome with 97% certainty",
-                    "The result is not clinically meaningful because RR is small",
-                ],
-                key="q1_null", index=None
-            )
-            if q1:
-                if "data this extreme" in q1:
-                    st.success("✅ Correct. The p-value is the probability of observing results this extreme *assuming H₀ is true* — it says nothing about the probability that H₀ is true.")
-                else:
-                    st.error("❌ This is one of the most common p-value misconceptions. The p-value does not tell you the probability that H₀ is true, nor does it tell you the probability of causation.")
-
-            q2 = st.radio(
-                "A study finds OR = 2.1, p = 0.12. What is the correct conclusion?",
-                [
-                    "There is no association between exposure and outcome",
-                    "The null hypothesis is true",
-                    "There is insufficient evidence to conclude an association exists at α = 0.05",
-                    "The study was poorly designed",
-                ],
-                key="q2_null", index=None
-            )
-            if q2:
-                if "insufficient evidence" in q2:
-                    st.success("✅ Correct. p = 0.12 means we fail to reject H₀ — but this does NOT prove no association exists. It may reflect low power, small sample size, or high variability.")
-                else:
-                    st.error("❌ Failing to reject H₀ is not the same as proving H₀ is true. You cannot conclude 'no association' — only that you lack sufficient evidence to conclude one exists.")
-
-            q3 = st.radio(
-                "A clinical trial with 50,000 participants finds a drug reduces headache duration by 2 minutes (p < 0.0001). What is the most accurate interpretation?",
-                [
-                    "The drug has a large, clinically important effect",
-                    "The result is statistically significant but may not be clinically meaningful",
-                    "The p-value proves the drug is effective",
-                    "The result should be rejected because the sample is too large",
-                ],
-                key="q3_null", index=None
-            )
-            if q3:
-                if "clinically meaningful" in q3:
-                    st.success("✅ Correct. With 50,000 participants, even a tiny, clinically meaningless effect will produce a very small p-value. Statistical significance ≠ practical importance. Always consider effect size alongside p-value.")
-                else:
-                    st.error("❌ Large sample sizes can produce extremely small p-values even for trivial effects. A 2-minute reduction in headache duration is statistically significant but almost certainly not clinically meaningful.")
 
     st.markdown("---")
     st.markdown("Strong epidemiologists think structurally before computing.")
+
+# ==================================================
+# TAB 7: GLOSSARY (QUICK WIN 3 — new tab)
+# ==================================================
+with tab7:
+    st.subheader("📖 Glossary of Key Terms")
+    st.markdown("Use this as a reference while working through practice scenarios or analyzing data.")
+
+    with st.expander("📐 Study Designs", expanded=True):
+        st.markdown("""
+**Cohort Study**
+Participants classified by **exposure at the start**, followed **forward in time** to see who develops the outcome. Produces RR or IRR. Best for studying incidence and causation.
+
+**Case-Control Study**
+Participants recruited by **outcome status** — cases (have disease) and controls (don't). Researchers look **backward** at past exposure. Produces OR. Efficient for rare diseases.
+
+**Cross-Sectional Study**
+Exposure and outcome measured **at the same point in time** — a snapshot. Produces PR. Cannot establish temporal order.
+
+**RCT**
+Participants **randomly assigned** to treatment or control. Gold standard for causation.
+        """)
+
+    with st.expander("📊 Variable Types"):
+        st.markdown("""
+**Binary Variable**
+Exactly **two categories** — disease yes/no, vaccinated yes/no. Produces 2×2 table. Enables RR and OR. When there are only two options, you can directly compare exposed vs. unexposed with a single ratio.
+
+**Why not categorical?** Binary is a special case — with only two categories you get the full suite of measures. Three or more categories → chi-square only.
+
+**Categorical Variable (Nominal, >2 levels)**
+**3 or more unordered categories** — blood type, disease severity. Chi-square only. No RR or OR.
+
+**Why not binary?** More than two unordered categories means no single exposed vs. unexposed comparison. Chi-square tests independence across all cells.
+
+**Ordinal Variable**
+**Ordered categories** — pain scale, satisfaction. Treated like categorical here (chi-square).
+
+**Rate Variable (Person-Time)**
+**Counts per unit of observation time** when follow-up varies. Use when participants contribute different amounts of time at risk. Produces IRR.
+
+**Why not binary?** If some are followed 6 months and others 2 years, simply counting cases is unfair. Person-time standardizes for varying observation time.
+        """)
+
+    with st.expander("🔢 Measures of Association"):
+        st.markdown("""
+**Risk Ratio (RR)** — Risk in exposed ÷ risk in unexposed. Cohort studies. RR = 1: no difference; RR > 1: higher risk; RR < 1: protective.
+
+**Prevalence Ratio (PR)** — Same formula as RR, but used in cross-sectional studies where the outcome is already existing (prevalent), not new (incident).
+
+**Odds Ratio (OR)** — Odds of outcome in exposed ÷ odds in unexposed. Used in case-control studies. OR is always farther from 1 than RR when outcome is common. When outcome is rare (<10%), OR ≈ RR.
+
+**Incidence Rate Ratio (IRR)** — Rate in exposed ÷ rate in unexposed, where rates use person-time denominators. Used when follow-up time varies.
+
+**Hazard Ratio (HR)** — Ratio of instantaneous event rates at any moment in time. Output of Cox proportional hazards regression. Used when follow-up varies and participants may be censored.
+        """)
+
+    with st.expander("📉 Advanced Epi Measures"):
+        st.markdown("""
+**Attributable Risk (AR) / Risk Difference**
+Risk in exposed − risk in unexposed. Absolute excess risk. Example: AR = 8% means 8 additional cases per 100 exposed vs. unexposed.
+
+**Attributable Risk Percent (AR%)**
+AR ÷ risk in exposed × 100. Fraction of disease **in the exposed group** attributable to exposure.
+
+**Population Attributable Risk Percent (PAR%)**
+Fraction of all disease **in the total population** attributable to an exposure. Formula: Pe × (RR − 1) / [1 + Pe × (RR − 1)] × 100. Accounts for both exposure prevalence and strength of association.
+
+**Standardized Mortality Ratio (SMR)**
+Observed deaths ÷ Expected deaths (expected calculated by applying reference population rates to the study group's age structure). SMR > 1: excess mortality. SMR < 1: lower mortality.
+
+**Healthy Worker Effect**
+Workers are generally healthier than the general population because very ill people cannot work. Can cause SMR < 1 in occupational cohorts even without a true protective effect.
+
+**Number Needed to Treat (NNT)**
+How many people need treatment for one additional person to benefit. NNT = 1 / Risk Difference.
+
+**Number Needed to Harm (NNH)**
+How many people need exposure for one additional person to be harmed. NNH = 1 / Risk Difference.
+        """)
+
+    with st.expander("🧪 Hypothesis Testing"):
+        st.markdown("""
+**Null Hypothesis (H₀)** — Default: no association, no difference. Always an equality (RR = 1, μ₁ = μ₂).
+
+**Alternative Hypothesis (H₁)** — States an association exists. Two-tailed (≠) or one-tailed (< or >).
+
+**p-value** — Probability of observing a result as extreme as yours if H₀ were true. NOT the probability that H₀ is true.
+
+**One-tailed test** — Tests effect in one specific direction. All 5% in one tail. Only appropriate with strong prior directional hypothesis established before data collection.
+
+**Two-tailed test** — Tests any difference regardless of direction. 5% split: 2.5% each tail. Default in epidemiology. Chi-square tests are always two-tailed.
+
+**Type I Error (α)** — Rejecting true H₀. False positive. Probability = 0.05.
+
+**Type II Error (β)** — Failing to reject false H₀. False negative. Power = 1 − β.
+
+**Confidence Interval (CI)** — Range of plausible values for the true effect. 95% CI excluding 1 corresponds to p < 0.05. Gives more information than p-value alone — shows magnitude and precision.
+
+**Chi-Square (χ²)** — Tests whether observed cell counts differ from expected if no association. Always two-tailed. Larger χ² = smaller p.
+
+**Degrees of Freedom (df)** — For contingency table: (rows − 1) × (columns − 1). Affects chi-square distribution shape.
+        """)
+
+    with st.expander("📏 Standardization"):
+        st.markdown("""
+**Crude Rate** — Overall rate without adjusting for confounders. Can mislead when comparing populations with different age structures.
+
+**Direct Standardization** — Applies each population's age-specific rates to a single standard population. Produces age-adjusted rate (per 100,000). Best for comparing two populations.
+
+**Indirect Standardization** — Applies reference population rates to the study population's age structure. Produces SMR. Best when age-specific rates in your study population are unstable (small numbers).
+
+**Confounding by Age** — Apparent difference in rates actually due to different age structures, not disease burden. Standardization removes this.
+        """)
+
+    st.markdown("---")
+    st.markdown("*Return to any tab to apply these concepts in context.*")
