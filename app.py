@@ -730,9 +730,59 @@ with tab4:
                      "row_names": ["Food Insecure","Food Secure"], "col_names": ["No Depression","Mild","Moderate","Severe"],
                      "cells": [[312,284,198,106],[2180,980,412,28]]}
         },
+        {
+            "id": "s7", "title": "Scenario 7: Air Pollution Spikes & Myocardial Infarction",
+            "description": "Researchers identify 2,100 patients who were admitted to hospital with a confirmed myocardial infarction. For each patient, they compare PM2.5 air pollution levels in the hour before symptom onset (the hazard period) to PM2.5 levels at the same time of day one week earlier for the same patient (the control period). No separate control group is recruited.",
+            "correct_design": "Case-Crossover",
+            "correct_outcome": "Binary",
+            "correct_exposure": "Binary (2 groups)",
+            "design_hint": "Each MI patient is compared to **themselves** at a different time — no separate control group. The hazard period (just before the event) is contrasted with a control period (same person, no event). This self-matched structure is the defining feature of a **case-crossover** design.",
+            "outcome_hint": "MI occurred or did not occur during the hazard period — **two categories = binary**.",
+            "exposure_hint": "High vs. low PM2.5 exposure — **two groups = binary**.",
+            "design_wrong": {
+                "Cohort": "❌ A cohort study would group people by PM2.5 exposure level and follow them forward to see who had an MI. Here everyone already had an MI — there is no unexposed comparison group followed over time.",
+                "Case-Control": "❌ A standard case-control recruits a **separate control group** of people without the disease. Here there are no external controls — each case is compared to themselves at a different time. That self-matching is case-crossover.",
+                "Cross-sectional": "❌ Cross-sectional measures exposure and outcome simultaneously at one time point. Here researchers are comparing exposure across two time periods for the same person — that's case-crossover."
+            },
+            "outcome_wrong": {
+                "Categorical (Nominal >2 levels)": "❌ The outcome is MI: occurred or did not occur — two categories = binary.",
+                "Ordinal": "❌ MI is yes or no — binary.",
+                "Rate (person-time)": "❌ The comparison here is between two time windows for the same person, not varying follow-up time across participants."
+            },
+            "exposure_wrong": {"Categorical (>2 groups)": "❌ PM2.5 is classified as high vs. low — two groups = binary."},
+            "data": {"type": "contingency", "context": "Matched exposure data. OR is the appropriate measure — each person is their own control.",
+                     "row_names": ["High PM2.5 (hazard period)","Low PM2.5 (hazard period)"],
+                     "col_names": ["High PM2.5 (control period)","Low PM2.5 (control period)"],
+                     "cells": [[210, 480],[95, 1315]]}
+        },
+        {
+            "id": "s8", "title": "Scenario 8: Alcohol Consumption & Occupational Injury",
+            "description": "An occupational health team recruits 850 workers who sustained a workplace injury requiring medical attention. Each worker is asked about alcohol consumption in the 6 hours before the injury (the hazard period) and alcohol consumption during the same 6-hour window on a workday one week prior (the control period) — for the same worker. No non-injured workers are recruited.",
+            "correct_design": "Case-Crossover",
+            "correct_outcome": "Binary",
+            "correct_exposure": "Binary (2 groups)",
+            "design_hint": "Injured workers are compared to **themselves** at a prior time — same person, different exposure window. No separate control group of uninjured workers. Self-matched comparison across time periods = **case-crossover**.",
+            "outcome_hint": "Injury: occurred or did not occur — **binary**.",
+            "exposure_hint": "Alcohol consumed vs. not consumed in the 6-hour window — **two groups = binary**.",
+            "design_wrong": {
+                "Cohort": "❌ A cohort would follow workers from alcohol exposure forward to see who got injured. Here everyone is already injured — the comparison is between time periods for the same person.",
+                "Case-Control": "❌ Standard case-control would recruit uninjured workers as a separate control group. Here there are no external controls — each injured worker is their own control across two time windows. That's case-crossover.",
+                "Cross-sectional": "❌ Cross-sectional captures a single moment. Here each worker contributes two time windows — a hazard period and a control period — and exposure is compared across them."
+            },
+            "outcome_wrong": {
+                "Categorical (Nominal >2 levels)": "❌ Injury occurred or did not — two categories = binary.",
+                "Ordinal": "❌ Injury is yes or no — binary.",
+                "Rate (person-time)": "❌ The comparison is between two defined time windows per person, not varying follow-up time."
+            },
+            "exposure_wrong": {"Categorical (>2 groups)": "❌ Alcohol consumed vs. not consumed — two groups = binary."},
+            "data": {"type": "contingency", "context": "Matched exposure data. OR is appropriate — each worker is their own control.",
+                     "row_names": ["Alcohol: Yes (hazard period)","Alcohol: No (hazard period)"],
+                     "col_names": ["Alcohol: Yes (control period)","Alcohol: No (control period)"],
+                     "cells": [[38, 156],[47, 609]]}
+        },
     ]
 
-    design_options   = ["— Select —","Cohort","Case-Control","Cross-sectional"]
+    design_options   = ["— Select —","Cohort","Case-Control","Cross-sectional","Case-Crossover"]
     outcome_options  = ["— Select —","Binary","Categorical (Nominal >2 levels)","Ordinal","Rate (person-time)"]
     exposure_options = ["— Select —","Binary (2 groups)","Categorical (>2 groups)"]
 
@@ -975,6 +1025,22 @@ with tab5:
             },
             "data": {"type": "nnt", "context": "Calculate NNH for PPI use.", "r_treatment": 0.032, "r_control": 0.011,
                      "treatment_label": "Long-term PPI use", "control_label": "No PPI use", "outcome_label": "chronic kidney disease"}
+        },
+        {
+            "id": "adv_7", "title": "Scenario 7: Vigorous Exercise & Cardiac Arrest (Case-Crossover)",
+            "description": "A case-crossover study of 345 cardiac arrest survivors finds that vigorous exertion in the hour before arrest was 2.8 times more likely than during matched control periods (OR = 2.8). A cardiologist now asks: if 15% of the general population engages in regular vigorous exercise, what fraction of all cardiac arrests in the population could be attributed to this transient triggering effect?",
+            "correct_measure": "Population Attributable Risk (PAR)",
+            "measure_hint": "The question shifts from the individual OR to the **population-level preventable fraction** — what share of all cardiac arrests could be attributed to vigorous exertion as a trigger, given how common it is. PAR uses Pe (15% of population exercises vigorously) and RR ≈ OR (2.8) to answer this.",
+            "measure_wrong": {
+                "Standardized Mortality Ratio (SMR)": "❌ SMR compares observed to expected deaths vs. a reference population. This question asks what fraction of cardiac arrests in the general population is attributable to exercise — that's PAR.",
+                "Attributable Risk & AR%": "❌ AR% estimates the fraction of disease within the **exposed group** (exercisers) attributable to exercise. The question asks about the fraction across the **total population** — that's PAR.",
+                "Number Needed to Harm / Treat (NNH/NNT)": "❌ NNH asks how many people need exposure before one additional harm. The question asks what fraction of all cardiac arrests in the population are attributable to exercise — PAR.",
+                "Hazard Ratio (HR)": "❌ HR compares event rates over time using Cox regression. This study produced an OR from a case-crossover design, and the question asks about population-level attributable fraction — PAR."
+            },
+            "data": {"type": "par", "context": "Calculate PAR% — fraction of all cardiac arrests attributable to vigorous exertion as a trigger.",
+                     "Pe": 0.15, "RR": 2.8,
+                     "Pe_label": "Prevalence of regular vigorous exercise in population",
+                     "RR_label": "OR from case-crossover study (used as RR approximation)"}
         },
     ]
 
@@ -1370,8 +1436,7 @@ with tab7:
             st.markdown("**Starts with:** Outcome status")
             st.markdown("**Logic:** Recruit cases + controls → look backward at past exposure")
             st.markdown("**Always:** Uses existing disease status; cannot be prospective")
-            st.markdown("")
-            st.markdown("")
+            st.markdown("**Matched variant:** Cases and controls paired on confounders (age, sex). Same OR logic; controls confounding by design.")
             st.markdown("**Timeline:**")
             st.markdown("```\n① Past exposure (recalled)\n        ↑\n② Start here: disease yes/no\n```")
             st.info("Produces: **OR**")
@@ -1390,6 +1455,25 @@ with tab7:
             st.markdown("*Key question: Is exposure associated with current disease prevalence?*")
 
         st.markdown("---")
+        st.markdown("#### 🟪 Advanced Design: Case-Crossover Study")
+        st.markdown("A case-crossover study is a variant of the case-control design where **each case serves as their own control** — exposure during a hazard period immediately before the event is compared to exposure during a control period for the same person.")
+
+        ccol1, ccol2, ccol3 = st.columns(3)
+        with ccol1:
+            st.markdown("**Starts with:** Cases only (people who had the event)")
+            st.markdown("**Logic:** Compare each person's exposure at the time of the event vs. at a control time when no event occurred")
+        with ccol2:
+            st.markdown("**Timeline:**")
+            st.markdown("```\nControl period  →  Hazard period\n(same person,      (just before\n no event)          the event)\n```")
+            st.markdown("*Eliminates between-person confounding — each person is their own control*")
+        with ccol3:
+            st.markdown("**Best for:** Transient exposures with acute effects (e.g., air pollution spike → MI, alcohol → injury)")
+            st.markdown("**Not for:** Chronic, stable exposures where 'hazard period' concept doesn't apply")
+            st.markdown("Produces: **OR**")
+
+        st.markdown("*Key question: Was the person more exposed just before the event than during a typical period?*")
+
+        st.markdown("---")
         st.markdown("""
 **Cohort Study**
 Participants are classified by **exposure status**, and the study follows the logic of exposure → outcome. Can be **prospective** (data collected going forward) or **retrospective** (historical records used, but exposure still defined before outcome). The defining feature is grouping by exposure, not when data were collected. Produces RR or IRR.
@@ -1397,8 +1481,13 @@ Participants are classified by **exposure status**, and the study follows the lo
 **Case-Control Study**
 Participants recruited by **outcome status** — cases (have disease) and controls (don't). Researchers look **backward** at past exposure. Produces OR. Efficient for rare diseases.
 
+**Matched Case-Control:** A variant where each case is paired with one or more controls matched on potential confounders (e.g., age, sex, neighborhood). Matching controls confounding by design rather than analysis. The same OR logic applies, but analysis must account for the matched structure (conditional logistic regression).
+
 **Cross-Sectional Study**
 Exposure and outcome measured **at the same point in time** — a snapshot. Produces PR. Cannot establish temporal order.
+
+**Case-Crossover Study**
+Each case serves as **their own control** — the person's exposure just before their event (hazard period) is compared to their exposure at a matched control time when no event occurred. Eliminates between-person confounding on stable characteristics (age, sex, chronic health status) because the same person is compared to themselves. Best suited to **transient, short-acting exposures** with acute effects. Examples: air pollution spike and myocardial infarction, alcohol consumption and injury, vigorous exercise and cardiac arrest. Produces OR. Not appropriate when the exposure itself is stable or chronic, because there would be no meaningful contrast between hazard and control periods.
 
 **RCT**
 Participants **randomly assigned** to treatment or control. Gold standard for causation.
