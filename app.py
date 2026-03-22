@@ -451,12 +451,12 @@ with tab4:
             "id": "s1", "title": "Scenario 1: Lead Exposure & Cognitive Development",
             "description": "400 children near a lead smelting plant and 400 from unexposed neighborhoods are followed for 3 years. New learning disability diagnoses are recorded.",
             "correct_design": "Cohort", "correct_outcome": "Binary", "correct_exposure": "Binary (2 groups)",
-            "design_hint": "Researchers classified children by **exposure at the start**, then followed them **forward** to see new diagnoses. Forward-looking = cohort.",
+            "design_hint": "Researchers classified children by **exposure status**, then tracked who developed a new diagnosis. Grouping by exposure and following to outcome — regardless of whether data were collected prospectively or retrospectively — is the hallmark of a cohort study.",
             "outcome_hint": "Learning disability: present or absent — **two categories = binary**.",
             "exposure_hint": "Exposed vs. unexposed neighborhoods — **two groups = binary**.",
             "design_wrong": {
-                "Case-Control": "❌ Case-control starts with people who **already have** the disease, then looks backward. Here researchers started with exposure status and followed children forward — that's cohort.",
-                "Cross-sectional": "❌ Cross-sectional measures everything at **one point in time**. Here children were followed for 3 years — that forward follow-up makes this cohort."
+                "Case-Control": "❌ A case-control study starts with people who **already have** the disease, then looks backward at past exposure. Here researchers started with exposure status (lead vs. no lead) and tracked who developed a diagnosis — that's cohort.",
+                "Cross-sectional": "❌ A cross-sectional study measures exposure and outcome **at the same point in time**. Here children were followed over 3 years to capture new diagnoses — the separation between exposure classification and outcome measurement is what makes this a cohort."
             },
             "outcome_wrong": {
                 "Categorical (Nominal >2 levels)": "❌ Categorical requires **3+ unordered categories**. Diagnosis is present or absent — two categories — binary.",
@@ -497,7 +497,7 @@ with tab4:
             "outcome_hint": "Cervical cancer: present or absent — **binary**.",
             "exposure_hint": "Vaccinated vs. unvaccinated — **two groups = binary**.",
             "design_wrong": {
-                "Cohort": "❌ Cohort would enroll by vaccination status and follow forward. Here researchers started with cancer status — that's case-control.",
+                "Cohort": "❌ A cohort study would classify women by **vaccination status** and then track who developed cervical cancer. Here researchers started with cancer status (cases vs. controls) and looked back at vaccination history — that's case-control.",
                 "Cross-sectional": "❌ Cross-sectional measures simultaneously. Here researchers specifically recruited cases and controls by disease status and looked back — case-control."
             },
             "outcome_wrong": {
@@ -514,11 +514,11 @@ with tab4:
             "id": "s4", "title": "Scenario 4: Shift Work & Metabolic Syndrome",
             "description": "1,200 hospital employees classified by shift: day only, rotating, or night. Followed 5 years. Metabolic syndrome (yes/no) assessed at end.",
             "correct_design": "Cohort", "correct_outcome": "Binary", "correct_exposure": "Categorical (>2 groups)",
-            "design_hint": "Classified by shift type at start, followed **forward** 5 years — cohort.",
+            "design_hint": "Employees were classified by **exposure (shift type)** and followed to see who developed metabolic syndrome — the defining logic of a cohort study.",
             "outcome_hint": "Metabolic syndrome: present or absent — **binary**.",
             "exposure_hint": "Three shift types — **more than 2 groups = categorical**.",
             "design_wrong": {
-                "Case-Control": "❌ Would start with metabolic syndrome cases and look back. Here employees were classified by shift first, then followed forward — cohort.",
+                "Case-Control": "❌ A case-control study would start by recruiting people **with metabolic syndrome** (cases) and those without (controls), then look back at shift history. Here employees were classified by shift type first and the outcome was measured afterward — that's cohort.",
                 "Cross-sectional": "❌ Employees were followed for **5 years** — that follow-up period makes this cohort, not cross-sectional."
             },
             "outcome_wrong": {
@@ -535,11 +535,11 @@ with tab4:
             "id": "s5", "title": "Scenario 5: Air Pollution & Emergency Department Visits",
             "description": "3,000 adults monitored for PM2.5 over 2 years. Participants move and vary in outdoor time — each contributes different observation time. Outcome: new ED visits for respiratory illness.",
             "correct_design": "Cohort", "correct_outcome": "Rate (person-time)", "correct_exposure": "Binary (2 groups)",
-            "design_hint": "Participants followed **forward** from exposure to new events — cohort.",
+            "design_hint": "Participants were classified by **PM2.5 exposure level** and tracked to see who developed ED visits — exposure grouping → outcome measurement is the cohort logic.",
             "outcome_hint": "Each person contributes **different follow-up time** — must account for this using person-time. Rate outcome.",
             "exposure_hint": "High vs. low PM2.5 — **two groups = binary**.",
             "design_wrong": {
-                "Case-Control": "❌ Would start with ED visit cases. Here participants enrolled first and followed forward — cohort.",
+                "Case-Control": "❌ A case-control study would start by recruiting people **who already had ED visits** (cases) and look back at past pollution exposure. Here participants were classified by exposure level first and then followed for new events — that's cohort.",
                 "Cross-sectional": "❌ Followed over 2 years — not a one-time snapshot."
             },
             "outcome_wrong": {
@@ -1188,7 +1188,7 @@ with tab7:
     with st.expander("📐 Study Designs", expanded=True):
         st.markdown("""
 **Cohort Study**
-Participants classified by **exposure at the start**, followed **forward in time** to see who develops the outcome. Produces RR or IRR. Best for studying incidence and causation.
+Participants are classified by **exposure status**, and the study follows the logic of exposure → outcome. Can be **prospective** (data collected going forward) or **retrospective** (historical records used, but exposure still defined before outcome). The defining feature is grouping by exposure, not when data were collected. Produces RR or IRR.
 
 **Case-Control Study**
 Participants recruited by **outcome status** — cases (have disease) and controls (don't). Researchers look **backward** at past exposure. Produces OR. Efficient for rare diseases.
