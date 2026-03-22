@@ -1174,8 +1174,8 @@ with tab6:
 **H₀ (Null):** No association, no difference. Always written as an equality (RR = 1, μ₁ = μ₂). What you're trying to find evidence against.
 
 **H₁ (Alternative):** States an association or effect exists.
-- **Two-tailed (≠):** Effect in either direction. Use when you have no strong prior directional prediction.
-- **One-tailed (< or >):** Specific direction. Use only when strong prior evidence supports it, established before data collection.
+- **Two-tailed (≠):** You're not predicting which direction — just that a difference exists. Your 5% error tolerance is split across both directions (2.5% each). Use this as the default when you have no strong prior reason to predict direction.
+- **One-tailed (< or >):** You're predicting a specific direction before collecting data. All 5% of your error tolerance goes toward detecting an effect in that direction — making it more sensitive there, but blind to effects the other way. Only use when strong prior evidence supports the direction.
 
 **Key principle:** You never *prove* H₀ true. You either reject it (p < 0.05) or fail to reject it (p ≥ 0.05).
             """)
@@ -1195,7 +1195,7 @@ with tab6:
                 "null_wrong_feedback": "❌ H₀ must state no effect — BP before = BP after.",
                 "alt_feedback": "✅ Correct. Specific directional prediction (reduction) → one-tailed.",
                 "alt_wrong_feedback": "❌ The researcher expects a decrease. That directional prediction makes this one-tailed, not two-tailed.",
-                "tails_connection": "🎯 **Your H₁ specifies a direction** (μ_before > μ_after). This means the test is **one-tailed** — the entire 5% rejection region sits in the lower tail. The test can only detect a reduction; if BP increased, it would not be detected."
+                "tails_connection": "🎯 **Your H₁ specifies a direction** (μ_before > μ_after) — you predicted a reduction before collecting data. So this is a **one-tailed test**.\n\nIn plain terms: when we decide to reject H₀, we're willing to be wrong 5% of the time (that's α = 0.05). In a one-tailed test, you spend all of that 5% looking for an effect in the one direction you predicted. That makes you better at detecting an effect in that direction — but completely blind to effects in the opposite direction. If BP actually increased, this test could not detect it."
             },
             {
                 "id": "h2", "title": "Scenario B: New Drug & Liver Enzymes",
@@ -1211,7 +1211,7 @@ with tab6:
                 "null_wrong_feedback": "❌ H₀ must state no difference.",
                 "alt_feedback": "✅ Correct. No directional prediction → two-tailed (≠).",
                 "alt_wrong_feedback": "❌ No prior directional basis. Without a directional prediction, H₁ should be two-tailed (≠).",
-                "tails_connection": "🎯 **Your H₁ uses ≠** — no direction specified. This means the test is **two-tailed** — the 5% is split: 2.5% in each tail. The test can detect a difference in either direction."
+                "tails_connection": "🎯 **Your H₁ uses ≠** — you're not predicting which direction the effect will go, just that a difference exists. So this is a **two-tailed test**.\n\nIn plain terms: you still have the same 5% tolerance for being wrong, but now you split it — 2.5% goes toward detecting an increase, and 2.5% goes toward detecting a decrease. You can catch an effect in either direction, but because you're dividing your sensitivity, you need slightly stronger evidence to call it significant compared to a one-tailed test. That's the tradeoff."
             },
             {
                 "id": "h3", "title": "Scenario C: Vaccine & Respiratory Illness",
@@ -1227,7 +1227,7 @@ with tab6:
                 "null_wrong_feedback": "❌ H₀ must state no effect — IRR = 1.",
                 "alt_feedback": "✅ Correct. Known protective mechanism → directional → one-tailed (IRR < 1).",
                 "alt_wrong_feedback": "❌ Known protective mechanism supports a directional prediction — one-tailed.",
-                "tails_connection": "🎯 **Your H₁ specifies a direction** (IRR < 1). Test is **one-tailed** — all 5% concentrated in the lower tail (IRR < 1). Strong biological rationale justifies this."
+                "tails_connection": "🎯 **Your H₁ specifies a direction** (IRR < 1) — you predicted protection based on the vaccine's known mechanism. So this is a **one-tailed test**.\n\nIn plain terms: all of your 5% tolerance for error is focused on detecting a reduction in incidence. This makes the test more sensitive to finding a protective effect — but if the vaccine somehow increased incidence, this test would miss it entirely. One-tailed tests are only appropriate when strong prior evidence makes the direction clear before you collect data."
             },
             {
                 "id": "h4", "title": "Scenario D: Screen Time & Obesity",
@@ -1243,7 +1243,7 @@ with tab6:
                 "null_wrong_feedback": "❌ H₀ must state no association.",
                 "alt_feedback": "✅ Correct. No directional prediction + chi-square is always two-tailed.",
                 "alt_wrong_feedback": "❌ No directional prediction, and chi-square tests are **always two-tailed**.",
-                "tails_connection": "🎯 **Your H₁ uses ≠** and uses chi-square. Test is **two-tailed** — important reminder: **chi-square tests are always two-tailed** in epidemiology. They test whether any difference exists, regardless of direction."
+                "tails_connection": "🎯 **Your H₁ uses ≠** — no direction predicted. So this is a **two-tailed test**. And there's an important additional rule here: **chi-square tests are always two-tailed**, regardless of how the hypotheses are written.\n\nIn plain terms: a two-tailed test splits the 5% tolerance for error in both directions — 2.5% each way — so you can detect an association regardless of which group has higher prevalence. Chi-square tests are designed this way because they measure discrepancy in a table without regard to direction. You can't make a chi-square one-tailed."
             },
         ]
 
@@ -1274,13 +1274,13 @@ with tab6:
                     if tail_answer is not None:
                         expected = "One-tailed" if sc["correct_tails"] == "one-tailed" else "Two-tailed"
                         if tail_answer == expected:
-                            reason = "Your H₁ specifies a direction (< or >)." if sc["correct_tails"] == "one-tailed" else "Your H₁ uses ≠ — no direction specified."
+                            reason = "Your H₁ specifies a direction (< or >), so all of your error tolerance goes toward detecting an effect in that one direction." if sc["correct_tails"] == "one-tailed" else "Your H₁ uses ≠ — no direction predicted — so you split your error tolerance equally across both directions."
                             st.success(f"✅ Correct — **{tail_answer.lower()}** test. {reason}")
                         else:
                             if sc["correct_tails"] == "one-tailed":
-                                st.error("❌ **One-tailed.** Look at your H₁ — it specifies a direction. When H₁ has < or >, the test is one-tailed. The 5% rejection region sits entirely in one tail.")
+                                st.error("❌ This should be **one-tailed**. Look at your H₁ — it predicts a specific direction (< or >). When you predict a direction before collecting data, you focus all of your 5% error tolerance on detecting an effect that way. That's a one-tailed test. The tradeoff: you can't detect effects in the opposite direction.")
                             else:
-                                st.error("❌ **Two-tailed.** Look at your H₁ — it uses ≠. No direction specified = two-tailed. The 5% is split: 2.5% in each tail.")
+                                st.error("❌ This should be **two-tailed**. Look at your H₁ — it uses ≠, meaning you're not predicting a direction. When you don't predict a direction, you split your 5% error tolerance — 2.5% for detecting an increase, 2.5% for detecting a decrease. That's a two-tailed test. It's the default in epidemiology.")
 
     elif ht_section == "2️⃣ One vs. Two Tailed Tests":
         st.subheader("One vs. Two Tailed Tests — Interactive Visualization")
@@ -1306,6 +1306,11 @@ with tab6:
             st.markdown("---")
             with st.expander("💡 When is one-tailed appropriate?"):
                 st.markdown("""
+**The core idea:** Every test has a 5% tolerance for being wrong when rejecting H₀ (α = 0.05). The question is how you spend it.
+
+- **Two-tailed:** Split the 5% equally — 2.5% watching for an increase, 2.5% watching for a decrease. You can detect effects in either direction.
+- **One-tailed:** Put all 5% in one direction. More sensitive to finding an effect there — but completely unable to detect an effect the other way.
+
 **Use one-tailed when ALL three are true:**
 1. You have a **specific directional hypothesis** established *before* seeing the data
 2. You have **strong prior evidence** supporting that direction
@@ -1314,10 +1319,10 @@ with tab6:
 **Use two-tailed (the default) when:**
 - You're testing whether *any* difference exists
 - You're unsure which direction the effect will go
-- You're using a **chi-square test** (always two-tailed)
+- You're using a **chi-square test** (always two-tailed — it can't be made one-tailed)
 - You decided on direction *after* seeing your data — that's p-hacking
 
-⚠️ **Warning:** Switching from two-tailed to one-tailed after seeing p = 0.07 to make it "significant" is data manipulation. The tail choice must be made before data collection.
+⚠️ **Warning:** Switching from two-tailed to one-tailed after seeing p = 0.07 to make it "significant" (p = 0.035) is data manipulation. The tail choice must be made before data collection.
                 """)
 
         with col1:
@@ -1355,9 +1360,9 @@ with tab6:
             st.markdown(svg, unsafe_allow_html=True)
 
         st.markdown("""
-**Two-tailed (default):** Tests any difference. Splits 5% across both tails. Chi-square is always two-tailed.
+**Two-tailed (default):** You're not predicting a direction — just asking whether a difference exists. Your 5% error tolerance is split: 2.5% goes toward detecting an increase, 2.5% toward detecting a decrease. You can catch effects in either direction. Chi-square is always two-tailed.
 
-**One-tailed:** All 5% in one tail. Only appropriate with strong prior directional hypothesis established before data collection.
+**One-tailed:** You've predicted a specific direction before collecting data. All 5% of your error tolerance goes toward detecting an effect in that one direction, making the test more sensitive there — but completely unable to detect an effect the other way. Only use when strong prior evidence justifies the directional prediction.
         """)
 
     elif ht_section == "3️⃣ What Does Rejecting the Null Actually Mean?":
