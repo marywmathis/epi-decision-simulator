@@ -1348,167 +1348,48 @@ with tab7:
 
     with st.expander("📐 Study Designs", expanded=True):
 
-        diagram_html = """
-<div style="font-family:sans-serif; font-size:13px; margin-bottom:24px;">
+        st.markdown("### ❓ How does the study start?")
+        st.markdown("---")
 
-  <!-- ROOT QUESTION -->
-  <div style="display:flex; justify-content:center; margin-bottom:0px;">
-    <div style="background:#2c3e50; color:white; border-radius:8px; padding:12px 24px;
-                font-weight:bold; font-size:14px; text-align:center; max-width:320px;">
-      ❓ How does the study start?
-    </div>
-  </div>
+        col_a, col_b, col_c = st.columns(3)
 
-  <!-- CONNECTOR FROM ROOT -->
-  <div style="display:flex; justify-content:center;">
-    <div style="width:2px; height:20px; background:#888;"></div>
-  </div>
+        with col_a:
+            st.markdown("#### 🟩 Cohort Study")
+            st.markdown("**Starts with:** Exposure status")
+            st.markdown("**Logic:** Grouped by exposure → outcome ascertained")
+            st.markdown("**Prospective:** Data collected going forward in time")
+            st.markdown("**Retrospective:** Historical records used; exposure still defined before outcome")
+            st.markdown("")
+            st.markdown("**Timeline:**")
+            st.markdown("```\n① Exposure defined\n        ↓\n② Outcome measured\n```")
+            st.success("Produces: **RR / IRR**")
+            st.markdown("*Key question: Who develops the outcome among exposed vs. unexposed?*")
 
-  <!-- HORIZONTAL BRANCH LINE -->
-  <div style="position:relative; display:flex; justify-content:center; align-items:flex-start; gap:0;">
-    <div style="position:absolute; top:0; left:18%; right:18%; height:2px; background:#888;"></div>
+        with col_b:
+            st.markdown("#### 🟦 Case-Control Study")
+            st.markdown("**Starts with:** Outcome status")
+            st.markdown("**Logic:** Recruit cases + controls → look backward at past exposure")
+            st.markdown("**Always:** Uses existing disease status; cannot be prospective")
+            st.markdown("")
+            st.markdown("")
+            st.markdown("**Timeline:**")
+            st.markdown("```\n① Past exposure (recalled)\n        ↑\n② Start here: disease yes/no\n```")
+            st.info("Produces: **OR**")
+            st.markdown("*Key question: Were cases more likely to have been exposed than controls?*")
 
-    <!-- LEFT BRANCH: Cohort -->
-    <div style="flex:1; display:flex; flex-direction:column; align-items:center; padding:0 8px;">
-      <div style="width:2px; height:20px; background:#888;"></div>
-      <div style="background:#1a7a7a; color:white; border-radius:8px; padding:10px 14px;
-                  text-align:center; font-weight:bold; width:100%; max-width:200px; box-sizing:border-box;">
-        Grouped by<br><span style="font-size:15px;">EXPOSURE</span>
-      </div>
-      <div style="width:2px; height:16px; background:#1a7a7a;"></div>
+        with col_c:
+            st.markdown("#### 🟧 Cross-Sectional Study")
+            st.markdown("**Starts with:** A sample of people")
+            st.markdown("**Logic:** Exposure and outcome measured at the same moment")
+            st.markdown("**Always:** One point in time — a snapshot. Cannot establish temporal order")
+            st.markdown("")
+            st.markdown("")
+            st.markdown("**Timeline:**")
+            st.markdown("```\nExposure ─┐\n          ├─ measured simultaneously\nOutcome  ─┘\n```")
+            st.warning("Produces: **PR**")
+            st.markdown("*Key question: Is exposure associated with current disease prevalence?*")
 
-      <!-- Prospective / Retrospective fork -->
-      <div style="display:flex; gap:8px; width:100%; max-width:220px;">
-        <div style="flex:1; display:flex; flex-direction:column; align-items:center;">
-          <div style="width:2px; height:12px; background:#1a7a7a;"></div>
-          <div style="background:#e8f4f4; border:1.5px solid #1a7a7a; border-radius:6px;
-                      padding:6px 8px; text-align:center; font-size:11px; width:100%; box-sizing:border-box;">
-            <strong>Prospective</strong><br>Data collected going forward
-          </div>
-        </div>
-        <div style="flex:1; display:flex; flex-direction:column; align-items:center;">
-          <div style="width:2px; height:12px; background:#1a7a7a;"></div>
-          <div style="background:#e8f4f4; border:1.5px solid #1a7a7a; border-radius:6px;
-                      padding:6px 8px; text-align:center; font-size:11px; width:100%; box-sizing:border-box;">
-            <strong>Retrospective</strong><br>Historical records; exposure still defined first
-          </div>
-        </div>
-      </div>
-
-      <div style="width:2px; height:14px; background:#1a7a7a;"></div>
-
-      <!-- Timeline -->
-      <div style="background:#f0fafa; border:1px solid #1a7a7a; border-radius:6px;
-                  padding:8px 10px; width:100%; max-width:220px; box-sizing:border-box; margin-bottom:8px;">
-        <div style="font-size:10px; color:#555; margin-bottom:4px; font-weight:bold;">TIMELINE</div>
-        <div style="display:flex; align-items:center; gap:4px;">
-          <div style="background:#1a7a7a; color:white; border-radius:4px; padding:3px 6px; font-size:10px; white-space:nowrap;">① Exposure</div>
-          <div style="flex:1; height:2px; background:#aaa;"></div>
-          <div style="font-size:14px;">→</div>
-          <div style="flex:1; height:2px; background:#aaa;"></div>
-          <div style="background:#c0392b; color:white; border-radius:4px; padding:3px 6px; font-size:10px; white-space:nowrap;">② Outcome</div>
-        </div>
-        <div style="font-size:10px; color:#555; margin-top:4px; font-style:italic;">Exposure defined before outcome ascertained</div>
-      </div>
-
-      <!-- Measure -->
-      <div style="background:#1a7a7a; color:white; border-radius:6px; padding:6px 10px;
-                  text-align:center; font-size:12px; width:100%; max-width:220px; box-sizing:border-box;">
-        Produces: <strong>RR / IRR</strong>
-      </div>
-    </div>
-
-    <!-- MIDDLE BRANCH: Case-Control -->
-    <div style="flex:1; display:flex; flex-direction:column; align-items:center; padding:0 8px;">
-      <div style="width:2px; height:20px; background:#888;"></div>
-      <div style="background:#1a4a7a; color:white; border-radius:8px; padding:10px 14px;
-                  text-align:center; font-weight:bold; width:100%; max-width:200px; box-sizing:border-box;">
-        Grouped by<br><span style="font-size:15px;">OUTCOME</span>
-      </div>
-      <div style="width:2px; height:16px; background:#1a4a7a;"></div>
-
-      <div style="background:#eef2f8; border:1.5px solid #1a4a7a; border-radius:6px;
-                  padding:8px 10px; text-align:center; font-size:11px;
-                  width:100%; max-width:220px; box-sizing:border-box; margin-bottom:8px;">
-        Recruit <strong>cases</strong> (have disease)<br>+ <strong>controls</strong> (don't)<br>
-        then look back at past exposure
-      </div>
-
-      <!-- Timeline -->
-      <div style="background:#f0f4fa; border:1px solid #1a4a7a; border-radius:6px;
-                  padding:8px 10px; width:100%; max-width:220px; box-sizing:border-box; margin-bottom:8px;">
-        <div style="font-size:10px; color:#555; margin-bottom:4px; font-weight:bold;">TIMELINE</div>
-        <div style="display:flex; align-items:center; gap:4px;">
-          <div style="background:#888; color:white; border-radius:4px; padding:3px 6px; font-size:10px; white-space:nowrap;">Past exposure</div>
-          <div style="flex:1; height:2px; background:#aaa; border-top:2px dashed #aaa;"></div>
-          <div style="font-size:14px;">←</div>
-          <div style="flex:1; height:2px; background:#aaa;"></div>
-          <div style="background:#1a4a7a; color:white; border-radius:4px; padding:3px 6px; font-size:10px; white-space:nowrap;">① Start here</div>
-        </div>
-        <div style="font-size:10px; color:#555; margin-top:4px; font-style:italic;">Recruit by disease status; look backward</div>
-      </div>
-
-      <!-- Measure -->
-      <div style="background:#1a4a7a; color:white; border-radius:6px; padding:6px 10px;
-                  text-align:center; font-size:12px; width:100%; max-width:220px; box-sizing:border-box;">
-        Produces: <strong>OR</strong>
-      </div>
-    </div>
-
-    <!-- RIGHT BRANCH: Cross-sectional -->
-    <div style="flex:1; display:flex; flex-direction:column; align-items:center; padding:0 8px;">
-      <div style="width:2px; height:20px; background:#888;"></div>
-      <div style="background:#7a4a1a; color:white; border-radius:8px; padding:10px 14px;
-                  text-align:center; font-weight:bold; width:100%; max-width:200px; box-sizing:border-box;">
-        Measured<br><span style="font-size:15px;">SIMULTANEOUSLY</span>
-      </div>
-      <div style="width:2px; height:16px; background:#7a4a1a;"></div>
-
-      <div style="background:#fdf3ee; border:1.5px solid #7a4a1a; border-radius:6px;
-                  padding:8px 10px; text-align:center; font-size:11px;
-                  width:100%; max-width:220px; box-sizing:border-box; margin-bottom:8px;">
-        Exposure and outcome captured<br>at the <strong>same point in time</strong><br>
-        (a snapshot)
-      </div>
-
-      <!-- Timeline -->
-      <div style="background:#fdf6f0; border:1px solid #7a4a1a; border-radius:6px;
-                  padding:8px 10px; width:100%; max-width:220px; box-sizing:border-box; margin-bottom:8px;">
-        <div style="font-size:10px; color:#555; margin-bottom:4px; font-weight:bold;">TIMELINE</div>
-        <div style="display:flex; align-items:center; justify-content:center; gap:6px;">
-          <div style="background:#7a4a1a; color:white; border-radius:4px; padding:3px 6px; font-size:10px; white-space:nowrap;">Exposure</div>
-          <div style="font-size:16px; font-weight:bold; color:#7a4a1a;">+</div>
-          <div style="background:#7a4a1a; color:white; border-radius:4px; padding:3px 6px; font-size:10px; white-space:nowrap;">Outcome</div>
-        </div>
-        <div style="text-align:center; font-size:18px; color:#7a4a1a; line-height:1;">↕</div>
-        <div style="text-align:center; font-size:10px; color:#555; font-style:italic;">Cannot determine which came first</div>
-      </div>
-
-      <!-- Measure -->
-      <div style="background:#7a4a1a; color:white; border-radius:6px; padding:6px 10px;
-                  text-align:center; font-size:12px; width:100%; max-width:220px; box-sizing:border-box;">
-        Produces: <strong>PR</strong>
-      </div>
-    </div>
-
-  </div><!-- end branches -->
-
-  <!-- KEY QUESTION ROW -->
-  <div style="display:flex; gap:8px; margin-top:20px; font-size:11px;">
-    <div style="flex:1; background:#e8f4f4; border-left:3px solid #1a7a7a; padding:8px 10px; border-radius:0 4px 4px 0;">
-      <strong style="color:#1a7a7a;">Key question:</strong> Who develops the outcome among exposed vs. unexposed?
-    </div>
-    <div style="flex:1; background:#eef2f8; border-left:3px solid #1a4a7a; padding:8px 10px; border-radius:0 4px 4px 0;">
-      <strong style="color:#1a4a7a;">Key question:</strong> Were cases more likely to have been exposed than controls?
-    </div>
-    <div style="flex:1; background:#fdf3ee; border-left:3px solid #7a4a1a; padding:8px 10px; border-radius:0 4px 4px 0;">
-      <strong style="color:#7a4a1a;">Key question:</strong> Is exposure associated with current disease prevalence?
-    </div>
-  </div>
-
-</div>
-"""
-        st.markdown(diagram_html, unsafe_allow_html=True)
+        st.markdown("---")
         st.markdown("""
 **Cohort Study**
 Participants are classified by **exposure status**, and the study follows the logic of exposure → outcome. Can be **prospective** (data collected going forward) or **retrospective** (historical records used, but exposure still defined before outcome). The defining feature is grouping by exposure, not when data were collected. Produces RR or IRR.
