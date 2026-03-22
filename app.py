@@ -38,6 +38,85 @@ def draw_ci(label, estimate, ci_low, ci_high):
     </div>"""
     st.markdown(html, unsafe_allow_html=True)
 
+def chi2_explanation_expander(chi2_val, p_val, dof, table_array, col_names, row_names, tail_note=""):
+    """Renders a 'Show me the math — Chi-Square' expander with contextual explanation."""
+    from scipy.stats import chi2_contingency
+    _, _, _, expected = chi2_contingency(table_array)
+    num_rows, num_cols = table_array.shape
+
+    # Find cell with largest contribution
+    contributions = []
+    for i in range(num_rows):
+        for j in range(num_cols):
+            o = table_array[i][j]
+            e = expected[i][j]
+            if e > 0:
+                contrib = (o - e)**2 / e
+                contributions.append((contrib, i, j, o, e))
+    contributions.sort(reverse=True)
+    top_contrib, top_i, top_j, top_o, top_e = contributions[0]
+    top_cell = f"{row_names[top_i]} / {col_names[top_j]}"
+    top_direction = "more" if top_o > top_e else "fewer"
+
+    # Interpret χ² magnitude loosely
+    if dof == 1:
+        if chi2_val < 2.7: magnitude = "very small — likely consistent with chance"
+        elif chi2_val < 3.84: magnitude = "moderate — approaching but not reaching significance"
+        elif chi2_val < 6.6: magnitude = "meaningful — exceeds the conventional threshold (3.84)"
+        elif chi2_val < 10.8: magnitude = "large — strong evidence against the null"
+        else: magnitude = "very large — very strong evidence against the null"
+    else:
+        magnitude = "see p-value for interpretation at this df"
+
+    p_str = f"< 0.0001" if p_val < 0.0001 else str(round(p_val, 4))
+
+    with st.expander("🔢 Show me the math — Chi-Square"):
+        st.markdown(f"""
+**What is the chi-square statistic?**
+
+The chi-square (χ²) test asks: *if there were truly no association between exposure and outcome, how often would we see a table this different from what we'd expect?*
+
+It does this by comparing your **observed** cell counts (what you actually got) to the **expected** cell counts (what you'd predict if the null hypothesis were true — if exposure and outcome were completely independent).
+
+**Your result: χ²({dof}) = {round(chi2_val, 3)}**
+
+A χ² of {round(chi2_val, 3)} with {dof} degree(s) of freedom is **{magnitude}**.
+
+The p-value of {p_str}{tail_note} means: if there were truly no association, you would see a chi-square this large or larger **{p_str} of the time** by chance alone.
+        """)
+
+        st.markdown("**Step 1: Your observed counts (O)**")
+        obs_df = pd.DataFrame(table_array, columns=col_names, index=row_names)
+        st.table(obs_df)
+
+        st.markdown("**Step 2: Expected counts (E) — if exposure and outcome were independent**")
+        st.caption("E = (Row Total × Column Total) ÷ Grand Total")
+        exp_df = pd.DataFrame(
+            [[round(expected[i][j], 2) for j in range(num_cols)] for i in range(num_rows)],
+            columns=col_names, index=row_names
+        )
+        st.table(exp_df)
+
+        st.markdown("**Step 3: Calculate each cell's contribution — (O − E)² ÷ E**")
+        contrib_data = {}
+        for j in range(num_cols):
+            contrib_data[col_names[j]] = [
+                round((table_array[i][j] - expected[i][j])**2 / expected[i][j], 3) if expected[i][j] > 0 else 0
+                for i in range(num_rows)
+            ]
+        contrib_df = pd.DataFrame(contrib_data, index=row_names)
+        st.table(contrib_df)
+
+        st.markdown(f"""
+**Step 4: Sum all contributions → χ²({dof}) = {round(chi2_val, 3)}**
+
+**Largest contributor:** The cell **{top_cell}** had {int(top_o)} observed vs. {round(top_e, 1)} expected — {top_direction} cases than expected under the null. This cell drove {round(top_contrib/chi2_val*100, 0):.0f}% of the total χ² value.
+
+**Step 5: Interpret**
+
+p = {p_str}{tail_note} → {'We **reject** the null hypothesis. The data are inconsistent with independence.' if p_val < 0.05 else 'We **fail to reject** the null hypothesis. The data are consistent with independence.'}
+        """)
+
 st.title("🧭 Epidemiology Decision Simulator")
 st.markdown("An interactive epidemiology learning suite — measures of association, advanced epi measures, standardization, hypothesis testing, practice scenarios, and a glossary.")
 
@@ -180,12 +259,7 @@ with tab1:
                         else:
                             st.warning(f"Insufficient evidence (p = {round(p_display,4)}{tail_note}). We **fail to reject the null hypothesis**.")
 
-                        with st.expander("🔢 Show me the math — Chi-Square"):
-                            obs_df = pd.DataFrame(table_array, columns=col_names, index=row_names)
-                            st.markdown("**Observed counts (O):**"); st.table(obs_df)
-                            exp_df = pd.DataFrame([[round(expected[i][j],2) for j in range(num_cols)] for i in range(num_rows)], columns=col_names, index=row_names)
-                            st.markdown("**Expected counts (E):**"); st.table(exp_df)
-                            st.markdown(f"**χ²({dof}) = {round(chi2,3)}, p = {round(p,4) if p >= 0.0001 else '< 0.0001'}**")
+                        chi2_explanation_expander(chi2, p_display, dof, table_array, col_names, row_names, tail_note=tail_note)
 
                         if num_rows == 2 and num_cols == 2:
                             a, b = table_array[0]; c, d = table_array[1]
@@ -664,6 +738,7 @@ with tab4:
                         st.write(f"χ²({dof}) = {round(chi2_val,3)}, p = {round(p_val,4) if p_val >= 0.0001 else '< 0.0001'}")
                         if p_val < 0.05: st.success("Statistically significant. Reject H₀.")
                         else: st.warning("Insufficient evidence. Fail to reject H₀.")
+                        chi2_explanation_expander(chi2_val, p_val, dof, table, d["col_names"], d["row_names"])
                         if d["type"] == "contingency":
                             a,b = table[0]; c,dd = table[1]
                             if all(v > 0 for v in [a,b,c,dd]):
