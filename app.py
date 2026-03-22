@@ -430,6 +430,13 @@ with tab1:
 # TAB 2: ADVANCED EPI MEASURES
 # ==================================================
 with tab2:
+    col_t2, col_r2 = st.columns([5,1])
+    with col_r2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🔄 Reset", key="reset_tab2"):
+            for k in ["smr_mode","smr_scenario","ar_mode","ar_scenario","nnt_mode","nnt_scenario","hr_mode","hr_scenario"]:
+                if k in st.session_state: del st.session_state[k]
+            st.rerun()
     measure = st.selectbox("Select measure to calculate:",
         ["Population Attributable Risk (PAR)","Standardized Mortality Ratio (SMR)",
          "Attributable Risk & AR%","Number Needed to Harm / Treat (NNH/NNT)","Hazard Ratio (HR)"])
@@ -570,6 +577,13 @@ with tab2:
 # TAB 3: STANDARDIZATION
 # ==================================================
 with tab3:
+    col_t3, col_r3 = st.columns([5,1])
+    with col_r3:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🔄 Reset", key="reset_tab3"):
+            for k in ["std_preset_choice"]:
+                if k in st.session_state: del st.session_state[k]
+            st.rerun()
     st.markdown("**Standardization** allows fair comparison of rates between populations with different age structures.")
     STD_PRESETS = {
         "None — I'll enter my own data": None,
@@ -1205,6 +1219,14 @@ with tab5:
 # QUICK WIN 2: One-tailed pop-up connects H0/H1 to tail choice
 # ==================================================
 with tab6:
+    col_t6, col_r6 = st.columns([5,1])
+    with col_r6:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🔄 Reset", key="reset_tab6"):
+            for k in list(st.session_state.keys()):
+                if any(k.startswith(p) for p in ["h0_","h1_","tails_","ht_section","chi2_slider","dof_select","tail_radio"]):
+                    del st.session_state[k]
+            st.rerun()
     st.markdown("Build your understanding of hypothesis testing — writing hypotheses correctly, understanding tails, and interpreting p-values.")
 
     ht_section = st.radio("Choose a section:", [
