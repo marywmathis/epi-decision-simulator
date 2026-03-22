@@ -7,6 +7,45 @@ import random
 
 st.set_page_config(page_title="Epidemiology Decision Simulator", layout="wide")
 
+# ==================================================
+# LOGIN GATE
+# ==================================================
+
+def check_credentials(username, password):
+    """Check username and password against Streamlit secrets."""
+    users = st.secrets.get("users", {})
+    if username in users and users[username] == password:
+        return True
+    return False
+
+def login_screen():
+    """Render the login form."""
+    col_l, col_m, col_r = st.columns([1, 2, 1])
+    with col_m:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown("## 🧭 Epidemiology Decision Simulator")
+        st.markdown("*EpiLab Interactive — licensed access only*")
+        st.divider()
+        st.markdown("**Please log in to continue.**")
+        username = st.text_input("Username", key="login_username")
+        password = st.text_input("Password", type="password", key="login_password")
+        if st.button("Log In", type="primary", use_container_width=True):
+            if check_credentials(username, password):
+                st.session_state["authenticated"] = True
+                st.session_state["current_user"] = username
+                st.rerun()
+            else:
+                st.error("Incorrect username or password. Please contact your instructor if you need assistance.")
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.caption("Access issues? Contact your course instructor.")
+
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if not st.session_state["authenticated"]:
+    login_screen()
+    st.stop()
+
 def draw_ci(label, estimate, ci_low, ci_high):
     significant = not (ci_low <= 1 <= ci_high)
     color = "#2e7d32" if significant else "#c0392b"
@@ -199,7 +238,15 @@ def rr_or_explanation_expander(a, b, c, d, row_names, col_names, rr, or_val,
         """)
 
 st.title("🧭 Epidemiology Decision Simulator")
-st.markdown("An interactive epidemiology learning suite — measures of association, advanced epi measures, standardization, hypothesis testing, practice scenarios, and a glossary.")
+col_desc, col_logout = st.columns([6, 1])
+with col_desc:
+    st.markdown("An interactive epidemiology learning suite — measures of association, advanced epi measures, standardization, hypothesis testing, practice scenarios, and a glossary.")
+with col_logout:
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("Log Out", key="logout_btn"):
+        st.session_state["authenticated"] = False
+        st.session_state["current_user"] = ""
+        st.rerun()
 
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📊 Measures of Association",
