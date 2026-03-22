@@ -125,74 +125,62 @@ def rr_or_explanation_expander(a, b, c, d, row_names, col_names, rr, or_val,
     plabel = "Prevalence Ratio (PR)" if is_cross_sectional else "Risk Ratio (RR)"
     risk_word = "prevalence" if is_cross_sectional else "risk"
 
-    # Build SVG for 2×2 table with a/b/c/d labels + formula callouts
-    svg = f"""
-<svg xmlns="http://www.w3.org/2000/svg" width="580" height="310" style="font-family:sans-serif; background:#f9f9f9; border-radius:8px; padding:4px;">
+    cell_style = "border:1px solid #aaa; padding:10px 16px; text-align:center; font-size:14px;"
+    label_style = "border:1px solid #aaa; padding:10px 16px; text-align:center; font-size:12px; color:#555; background:#f5f5f5; font-weight:bold;"
+    total_style = "border:1px solid #ccc; padding:10px 16px; text-align:center; font-size:13px; color:#555; background:#f0f0f0;"
 
-  <!-- Title -->
-  <text x="290" y="24" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">2×2 Table Cell Labels</text>
-
-  <!-- Column headers -->
-  <text x="310" y="52" text-anchor="middle" font-size="12" fill="#555">{col_names[0]}</text>
-  <text x="430" y="52" text-anchor="middle" font-size="12" fill="#555">{col_names[1]}</text>
-  <text x="530" y="52" text-anchor="middle" font-size="12" fill="#555">Row Total</text>
-
-  <!-- Row headers -->
-  <text x="175" y="100" text-anchor="middle" font-size="12" fill="#555">{row_names[0]}</text>
-  <text x="175" y="160" text-anchor="middle" font-size="12" fill="#555">{row_names[1]}</text>
-  <text x="175" y="215" text-anchor="middle" font-size="12" fill="#555">Col Total</text>
-
-  <!-- Grid lines -->
-  <rect x="245" y="58" width="120" height="55" fill="#e8f4e8" stroke="#aaa" stroke-width="1.2"/>
-  <rect x="365" y="58" width="120" height="55" fill="#fdecea" stroke="#aaa" stroke-width="1.2"/>
-  <rect x="245" y="113" width="120" height="55" fill="#fdecea" stroke="#aaa" stroke-width="1.2"/>
-  <rect x="365" y="113" width="120" height="55" fill="#e8f4e8" stroke="#aaa" stroke-width="1.2"/>
-  <rect x="245" y="168" width="120" height="40" fill="#f0f0f0" stroke="#ccc" stroke-width="1"/>
-  <rect x="365" y="168" width="120" height="40" fill="#f0f0f0" stroke="#ccc" stroke-width="1"/>
-  <rect x="485" y="58" width="80" height="55" fill="#f0f0f0" stroke="#ccc" stroke-width="1"/>
-  <rect x="485" y="113" width="80" height="55" fill="#f0f0f0" stroke="#ccc" stroke-width="1"/>
-
-  <!-- Cell labels (a b c d) -->
-  <text x="263" y="78" font-size="11" fill="#888" font-style="italic">a =</text>
-  <text x="305" y="92" text-anchor="middle" font-size="18" font-weight="bold" fill="#2e7d32">{int(a)}</text>
-
-  <text x="383" y="78" font-size="11" fill="#888" font-style="italic">b =</text>
-  <text x="425" y="92" text-anchor="middle" font-size="18" font-weight="bold" fill="#c0392b">{int(b)}</text>
-
-  <text x="263" y="133" font-size="11" fill="#888" font-style="italic">c =</text>
-  <text x="305" y="147" text-anchor="middle" font-size="18" font-weight="bold" fill="#c0392b">{int(c)}</text>
-
-  <text x="383" y="133" font-size="11" fill="#888" font-style="italic">d =</text>
-  <text x="425" y="147" text-anchor="middle" font-size="18" font-weight="bold" fill="#2e7d32">{int(d)}</text>
-
-  <!-- Row totals -->
-  <text x="525" y="92" text-anchor="middle" font-size="14" fill="#555">{int(a+b)}</text>
-  <text x="525" y="147" text-anchor="middle" font-size="14" fill="#555">{int(c+d)}</text>
-
-  <!-- Col totals -->
-  <text x="305" y="193" text-anchor="middle" font-size="14" fill="#555">{int(a+c)}</text>
-  <text x="425" y="193" text-anchor="middle" font-size="14" fill="#555">{int(b+d)}</text>
-
-  <!-- Divider -->
-  <line x1="30" y1="222" x2="550" y2="222" stroke="#ccc" stroke-width="1"/>
-
-  <!-- Formula callouts -->
-  <!-- RR/PR -->
-  <text x="30" y="248" font-size="12" font-weight="bold" fill="#1a4a7a">{plabel} ({pabbr}):</text>
-  <text x="30" y="266" font-size="12" fill="#333">  {pabbr} = [a ÷ (a+b)] ÷ [c ÷ (c+d)]</text>
-  <text x="30" y="282" font-size="12" fill="#333">     = [{int(a)} ÷ {int(a+b)}] ÷ [{int(c)} ÷ {int(c+d)}]  =  {round(a/(a+b),4)} ÷ {round(c/(c+d),4)}  =  <tspan font-weight="bold" fill="#1a4a7a">{round(rr,3)}</tspan></text>
-  <text x="30" y="298" font-size="11" fill="#666">  95% CI: ({round(ci_low_rr,3)}, {round(ci_high_rr,3)})</text>
-
-  <!-- OR -->
-  <text x="310" y="248" font-size="12" font-weight="bold" fill="#8a4a1a">Odds Ratio (OR):</text>
-  <text x="310" y="266" font-size="12" fill="#333">  OR = (a × d) ÷ (b × c)</text>
-  <text x="310" y="282" font-size="12" fill="#333">     = ({int(a)} × {int(d)}) ÷ ({int(b)} × {int(c)})  =  <tspan font-weight="bold" fill="#8a4a1a">{round(or_val,3)}</tspan></text>
-  <text x="310" y="298" font-size="11" fill="#666">  95% CI: ({round(ci_low_or,3)}, {round(ci_high_or,3)})</text>
-
-</svg>"""
+    table_html = f"""
+<div style="margin-bottom:16px;">
+  <p style="font-weight:bold; font-size:13px; margin-bottom:8px;">2×2 Table Cell Labels</p>
+  <table style="border-collapse:collapse; width:100%;">
+    <tr>
+      <td style="{label_style} background:#fff; border:none;"></td>
+      <td style="{label_style}">{col_names[0]}</td>
+      <td style="{label_style}">{col_names[1]}</td>
+      <td style="{label_style}">Row Total</td>
+    </tr>
+    <tr>
+      <td style="{label_style}">{row_names[0]}</td>
+      <td style="{cell_style} background:#e8f4e8;"><span style="font-size:10px;color:#888;font-style:italic;">a = </span><span style="font-size:20px;font-weight:bold;color:#2e7d32;">{int(a)}</span></td>
+      <td style="{cell_style} background:#fdecea;"><span style="font-size:10px;color:#888;font-style:italic;">b = </span><span style="font-size:20px;font-weight:bold;color:#c0392b;">{int(b)}</span></td>
+      <td style="{total_style}">{int(a+b)}</td>
+    </tr>
+    <tr>
+      <td style="{label_style}">{row_names[1]}</td>
+      <td style="{cell_style} background:#fdecea;"><span style="font-size:10px;color:#888;font-style:italic;">c = </span><span style="font-size:20px;font-weight:bold;color:#c0392b;">{int(c)}</span></td>
+      <td style="{cell_style} background:#e8f4e8;"><span style="font-size:10px;color:#888;font-style:italic;">d = </span><span style="font-size:20px;font-weight:bold;color:#2e7d32;">{int(d)}</span></td>
+      <td style="{total_style}">{int(c+d)}</td>
+    </tr>
+    <tr>
+      <td style="{label_style}">Col Total</td>
+      <td style="{total_style}">{int(a+c)}</td>
+      <td style="{total_style}">{int(b+d)}</td>
+      <td style="{total_style}">{int(a+b+c+d)}</td>
+    </tr>
+  </table>
+</div>
+<div style="display:flex; gap:24px; margin-top:8px;">
+  <div style="flex:1; background:#eef4fb; border-radius:6px; padding:12px 16px; font-size:13px;">
+    <strong style="color:#1a4a7a;">{plabel} ({pabbr})</strong><br>
+    {pabbr} = [a ÷ (a+b)] ÷ [c ÷ (c+d)]<br>
+    = [{int(a)} ÷ {int(a+b)}] ÷ [{int(c)} ÷ {int(c+d)}]<br>
+    = {round(a/(a+b),4)} ÷ {round(c/(c+d),4)}<br>
+    = <strong style="color:#1a4a7a;">{round(rr,3)}</strong><br>
+    <span style="font-size:11px;color:#666;">95% CI: ({round(ci_low_rr,3)}, {round(ci_high_rr,3)})</span>
+  </div>
+  <div style="flex:1; background:#fdf3ee; border-radius:6px; padding:12px 16px; font-size:13px;">
+    <strong style="color:#8a4a1a;">Odds Ratio (OR)</strong><br>
+    OR = (a × d) ÷ (b × c)<br>
+    = ({int(a)} × {int(d)}) ÷ ({int(b)} × {int(c)})<br>
+    = {int(a*d)} ÷ {int(b*c)}<br>
+    = <strong style="color:#8a4a1a;">{round(or_val,3)}</strong><br>
+    <span style="font-size:11px;color:#666;">95% CI: ({round(ci_low_or,3)}, {round(ci_high_or,3)})</span>
+  </div>
+</div>
+"""
 
     with st.expander(f"🔢 Show me the math — {plabel} & OR"):
-        st.markdown(svg, unsafe_allow_html=True)
+        st.markdown(table_html, unsafe_allow_html=True)
         st.markdown(f"""
 **What does each cell mean?**
 
