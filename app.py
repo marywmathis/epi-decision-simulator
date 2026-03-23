@@ -1023,42 +1023,48 @@ with tab4:
         st.session_state["prac_scenario_order"] = order
     SHUFFLED_PRACTICE = [PRACTICE_SCENARIOS[i] for i in st.session_state["prac_scenario_order"]]
 
+    if "prac_reset_count" not in st.session_state:
+        st.session_state["prac_reset_count"] = 0
+
     col_hdr, col_rst = st.columns([5,1])
     with col_hdr: st.caption(f"**{len(PRACTICE_SCENARIOS)} scenarios** — randomized order. Reset to shuffle.")
     with col_rst:
         if st.button("🔄 Reset", key="reset_tab4"):
+            st.session_state["prac_reset_count"] += 1
             keys_to_delete = [k for k in st.session_state.keys()
-                              if k.startswith("prac_") and k != "prac_scenario_order"]
+                              if k.startswith("prac_") and k not in ["prac_scenario_order","prac_reset_count"]]
             for k in keys_to_delete:
                 del st.session_state[k]
             if "prac_scenario_order" in st.session_state: del st.session_state["prac_scenario_order"]
             st.rerun()
+
+    rc4 = st.session_state["prac_reset_count"]
 
     for sc in SHUFFLED_PRACTICE:
         st.divider()
         st.subheader(sc["title"])
         st.markdown(sc["description"])
         sid = sc["id"]
-        submitted_key = f"prac_{sid}_submitted"
+        submitted_key = f"prac_{sid}_submitted_{rc4}"
         already_submitted = st.session_state.get(submitted_key, False)
 
-        design_choice = st.selectbox("What is the study design?", design_options, key=f"prac_{sid}_design", disabled=already_submitted)
-        outcome_choice = st.selectbox("What is the outcome variable type?", outcome_options, key=f"prac_{sid}_outcome", disabled=already_submitted)
-        exposure_choice = st.selectbox("What is the exposure variable type?", exposure_options, key=f"prac_{sid}_exposure", disabled=already_submitted)
+        design_choice = st.selectbox("What is the study design?", design_options, key=f"prac_{sid}_design_{rc4}", disabled=already_submitted)
+        outcome_choice = st.selectbox("What is the outcome variable type?", outcome_options, key=f"prac_{sid}_outcome_{rc4}", disabled=already_submitted)
+        exposure_choice = st.selectbox("What is the exposure variable type?", exposure_options, key=f"prac_{sid}_exposure_{rc4}", disabled=already_submitted)
 
-        all_selected = all(st.session_state.get(f"prac_{sid}_{f}") not in [None,"— Select —"] for f in ["design","outcome","exposure"])
+        all_selected = all(st.session_state.get(f"prac_{sid}_{f}_{rc4}") not in [None,"— Select —"] for f in ["design","outcome","exposure"])
 
         if not already_submitted:
             if all_selected:
-                if st.button("Submit My Answers", key=f"submit_{sid}", type="primary"):
+                if st.button("Submit My Answers", key=f"submit_{sid}_{rc4}", type="primary"):
                     st.session_state[submitted_key] = True; st.rerun()
             else:
                 st.caption("⬆️ Make all three selections before submitting.")
 
         if already_submitted:
-            dv = st.session_state.get(f"prac_{sid}_design")
-            ov = st.session_state.get(f"prac_{sid}_outcome")
-            ev = st.session_state.get(f"prac_{sid}_exposure")
+            dv = st.session_state.get(f"prac_{sid}_design_{rc4}")
+            ov = st.session_state.get(f"prac_{sid}_outcome_{rc4}")
+            ev = st.session_state.get(f"prac_{sid}_exposure_{rc4}")
             dc = dv == sc["correct_design"]; oc = ov == sc["correct_outcome"]; ec = ev == sc["correct_exposure"]
             all_correct = dc and oc and ec
             correct_count = sum([dc, oc, ec])
@@ -1077,9 +1083,9 @@ with tab4:
                     wrong_hint = sc.get("exposure_wrong",{}).get(ev,"")
                     if wrong_hint: st.markdown(f"**Exposure Type** — You selected: *{ev}*\n\n{wrong_hint}")
                     st.markdown(f"✅ **Correct:** {sc['correct_exposure']} — {sc['exposure_hint']}")
-                if st.button("🔄 Try Again", key=f"retry_{sid}"):
+                if st.button("🔄 Try Again", key=f"retry_{sid}_{rc4}"):
                     for f in ["design","outcome","exposure","submitted"]:
-                        k = f"prac_{sid}_{f}"
+                        k = f"prac_{sid}_{f}_{rc4}"
                         if k in st.session_state: del st.session_state[k]
                     st.rerun()
             else:
@@ -1099,7 +1105,7 @@ with tab4:
                     df_d["Row Total"] = df_d.sum(axis=1)
                     tr = df_d.sum(); tr.name = "Column Total"
                     df_d = pd.concat([df_d, tr.to_frame().T]); st.table(df_d)
-                    if st.button("Run Statistical Analysis", key=f"run_{sid}"):
+                    if st.button("Run Statistical Analysis", key=f"run_{sid}_{rc4}"):
                         table = np.array(d["cells"]); chi2_val, p_val, dof, _ = chi2_contingency(table)
                         st.write(f"χ²({dof}) = {round(chi2_val,3)}, p = {round(p_val,4) if p_val >= 0.0001 else '< 0.0001'}")
                         if p_val < 0.05: st.success("Statistically significant. Reject H₀.")
@@ -1133,7 +1139,7 @@ with tab4:
                     df_d = pd.DataFrame({"Group":d["row_names"],"Cases":d["cases"],"Person-Time":d["person_time"],
                         "Rate per 100k":[round(d["cases"][i]/d["person_time"][i]*100000,1) for i in range(len(d["cases"]))]})
                     st.table(df_d)
-                    if st.button("Run Statistical Analysis", key=f"run_{sid}"):
+                    if st.button("Run Statistical Analysis", key=f"run_{sid}_{rc4}"):
                         c1,c2=d["cases"]; pt1,pt2=d["person_time"]
                         irr=(c1/pt1)/(c2/pt2); se_log_irr=math.sqrt((1/c1)+(1/c2))
                         ci_low_irr=math.exp(math.log(irr)-1.96*se_log_irr); ci_high_irr=math.exp(math.log(irr)+1.96*se_log_irr)
@@ -1148,11 +1154,11 @@ with tab4:
     total_correct=0; answered=0
     for sc in PRACTICE_SCENARIOS:
         sid=sc["id"]
-        if st.session_state.get(f"prac_{sid}_submitted"):
+        if st.session_state.get(f"prac_{sid}_submitted_{rc4}"):
             answered+=3
-            total_correct+=sum([st.session_state.get(f"prac_{sid}_design")==sc["correct_design"],
-                                 st.session_state.get(f"prac_{sid}_outcome")==sc["correct_outcome"],
-                                 st.session_state.get(f"prac_{sid}_exposure")==sc["correct_exposure"]])
+            total_correct+=sum([st.session_state.get(f"prac_{sid}_design_{rc4}")==sc["correct_design"],
+                                 st.session_state.get(f"prac_{sid}_outcome_{rc4}")==sc["correct_outcome"],
+                                 st.session_state.get(f"prac_{sid}_exposure_{rc4}")==sc["correct_exposure"]])
     if answered > 0:
         pct = round(total_correct/answered*100)
         st.subheader(f"📊 Score: {total_correct} / {answered}")
@@ -1280,6 +1286,9 @@ with tab5:
     measure_options = ["— Select —","Population Attributable Risk (PAR)","Standardized Mortality Ratio (SMR)",
                        "Attributable Risk & AR%","Number Needed to Harm / Treat (NNH/NNT)","Hazard Ratio (HR)"]
 
+    if "adv_reset_count" not in st.session_state:
+        st.session_state["adv_reset_count"] = 0
+
     if "adv_scenario_order" not in st.session_state:
         order = list(range(len(ADV_SCENARIOS))); random.shuffle(order)
         st.session_state["adv_scenario_order"] = order
@@ -1289,34 +1298,37 @@ with tab5:
     with col_hdr5: st.caption(f"**{len(ADV_SCENARIOS)} scenarios** — randomized. Reset to shuffle.")
     with col_rst5:
         if st.button("🔄 Reset", key="reset_tab5"):
+            st.session_state["adv_reset_count"] += 1
             keys_to_delete = [k for k in st.session_state.keys()
-                              if k.startswith("adv_") and k != "adv_scenario_order"]
+                              if k.startswith("adv_") and k not in ["adv_scenario_order","adv_reset_count"]]
             for k in keys_to_delete:
                 del st.session_state[k]
             if "adv_scenario_order" in st.session_state:
                 del st.session_state["adv_scenario_order"]
             st.rerun()
 
+    rc5 = st.session_state["adv_reset_count"]
+
     for sc in SHUFFLED_ADV:
         st.divider(); st.subheader(sc["title"]); st.markdown(sc["description"])
         sid = sc["id"]
-        submitted_key = f"adv_submitted_{sid}"
+        submitted_key = f"adv_submitted_{sid}_{rc5}"
         already_submitted = st.session_state.get(submitted_key, False)
 
         measure_choice = st.selectbox("Which advanced measure is most appropriate?",
-            measure_options, key=f"adv_measure_{sid}", disabled=already_submitted)
+            measure_options, key=f"adv_measure_{sid}_{rc5}", disabled=already_submitted)
 
-        selected = st.session_state.get(f"adv_measure_{sid}") not in [None, "— Select —"]
+        selected = st.session_state.get(f"adv_measure_{sid}_{rc5}") not in [None, "— Select —"]
 
         if not already_submitted:
             if selected:
-                if st.button("Submit My Answer", key=f"adv_submit_{sid}", type="primary"):
+                if st.button("Submit My Answer", key=f"adv_submit_{sid}_{rc5}", type="primary"):
                     st.session_state[submitted_key] = True; st.rerun()
             else:
                 st.caption("⬆️ Select a measure before submitting.")
 
         if already_submitted:
-            measure_val = st.session_state.get(f"adv_measure_{sid}")
+            measure_val = st.session_state.get(f"adv_measure_{sid}_{rc5}")
             correct = measure_val == sc["correct_measure"]
 
             if not correct:
@@ -1324,9 +1336,9 @@ with tab5:
                 st.error("📋 **Incorrect — here's what you missed:**")
                 if wrong_hint: st.markdown(f"**You selected:** *{measure_val}*\n\n{wrong_hint}")
                 st.markdown(f"✅ **Correct:** {sc['correct_measure']} — {sc['measure_hint']}")
-                if st.button("🔄 Try Again", key=f"adv_retry_{sid}"):
+                if st.button("🔄 Try Again", key=f"adv_retry_{sid}_{rc5}"):
                     for k_suffix in ["measure","submitted"]:
-                        k = f"adv_{k_suffix}_{sid}"
+                        k = f"adv_{k_suffix}_{sid}_{rc5}"
                         if k in st.session_state: del st.session_state[k]
                     st.rerun()
             else:
@@ -1339,7 +1351,7 @@ with tab5:
                     col1,col2 = st.columns(2)
                     col1.metric(d.get("Pe_label","Exposure Prevalence (Pe)"), f"{round(d['Pe']*100,1)}%")
                     col2.metric(d.get("RR_label","Risk Ratio (RR)"), d["RR"])
-                    if st.button("Calculate PAR%", key=f"run_{sid}"):
+                    if st.button("Calculate PAR%", key=f"run_{sid}_{rc5}"):
                         PAR_pct = (d["Pe"]*(d["RR"]-1))/(1+d["Pe"]*(d["RR"]-1))*100
                         st.metric("PAR%", f"{round(PAR_pct,1)}%")
 
@@ -1388,7 +1400,7 @@ Notice how PAR% reflects both how common the exposure is ({round(Pe*100,1)}% of 
                     col1,col2 = st.columns(2)
                     col1.metric("Observed Deaths", d["observed"])
                     col2.metric("Expected Deaths", d["expected"])
-                    if st.button("Calculate SMR", key=f"run_{sid}"):
+                    if st.button("Calculate SMR", key=f"run_{sid}_{rc5}"):
                         smr = d["observed"]/d["expected"]
                         ci_low_s = max(0, smr-1.96*(smr/math.sqrt(d["observed"])))
                         ci_high_s = smr+1.96*(smr/math.sqrt(d["observed"]))
@@ -1444,7 +1456,7 @@ This group experienced {round((1-smr)*100,1)}% fewer deaths than the reference p
                     col1,col2 = st.columns(2)
                     col1.metric(f"Risk ({d['exposed_label']})", f"{round(d['r_exposed']*100,1)}%")
                     col2.metric(f"Risk ({d['unexposed_label']})", f"{round(d['r_unexposed']*100,1)}%")
-                    if st.button("Calculate AR & AR%", key=f"run_{sid}"):
+                    if st.button("Calculate AR & AR%", key=f"run_{sid}_{rc5}"):
                         ar = d["r_exposed"] - d["r_unexposed"]
                         ar_pct = (ar / d["r_exposed"]) * 100
                         rr = d["r_exposed"] / d["r_unexposed"]
@@ -1492,7 +1504,7 @@ This is a **proportional** measure — it tells you what fraction of all disease
                     col1,col2 = st.columns(2)
                     col1.metric(f"Risk ({d['treatment_label']})", f"{round(d['r_treatment']*100,1)}%")
                     col2.metric(f"Risk ({d['control_label']})", f"{round(d['r_control']*100,1)}%")
-                    if st.button("Calculate NNT/NNH", key=f"run_{sid}"):
+                    if st.button("Calculate NNT/NNH", key=f"run_{sid}_{rc5}"):
                         risk_diff = abs(d["r_treatment"] - d["r_control"])
                         nnt = round(1/risk_diff, 1)
                         is_benefit = d["r_treatment"] < d["r_control"]
@@ -1539,7 +1551,7 @@ This means {int(nnt)-1} people could be exposed without experiencing this harm, 
                     col1.metric("Hazard Ratio (HR)", d["hr"])
                     col2.metric("95% CI Lower", d["ci_low"])
                     col3.metric("95% CI Upper", d["ci_high"])
-                    if st.button("Interpret HR", key=f"run_{sid}"):
+                    if st.button("Interpret HR", key=f"run_{sid}_{rc5}"):
                         draw_ci("HR", d["hr"], d["ci_low"], d["ci_high"])
 
                         with st.expander("🔢 What is a Hazard Ratio?"):
@@ -1594,8 +1606,8 @@ The 95% CI ({d["ci_low"]}–{d["ci_high"]}) excludes 1.0 — this is statistical
                             """)
 
     st.divider()
-    adv_answered = sum(1 for sc in ADV_SCENARIOS if st.session_state.get(f"adv_submitted_{sc['id']}"))
-    adv_correct = sum(1 for sc in ADV_SCENARIOS if st.session_state.get(f"adv_submitted_{sc['id']}") and st.session_state.get(f"adv_measure_{sc['id']}") == sc["correct_measure"])
+    adv_answered = sum(1 for sc in ADV_SCENARIOS if st.session_state.get(f"adv_submitted_{sc['id']}_{rc5}"))
+    adv_correct = sum(1 for sc in ADV_SCENARIOS if st.session_state.get(f"adv_submitted_{sc['id']}_{rc5}") and st.session_state.get(f"adv_measure_{sc['id']}_{rc5}") == sc["correct_measure"])
     if adv_answered > 0:
         st.subheader(f"📊 Score: {adv_correct} / {adv_answered} submitted")
         st.progress(adv_correct/adv_answered)
