@@ -79,7 +79,7 @@ def draw_ci(label, estimate, ci_low, ci_high):
 
 def chi2_explanation_expander(chi2_val, p_val, dof, table_array, col_names, row_names, tail_note=""):
     """Renders a 'Show me the math — Chi-Square' expander with contextual explanation."""
-    from scipy.stats import chi2_contingency
+    from scipy.stats import chi2_contingency, chi2 as chi2_dist
     _, _, _, expected = chi2_contingency(table_array)
     num_rows, num_cols = table_array.shape
 
@@ -96,47 +96,66 @@ def chi2_explanation_expander(chi2_val, p_val, dof, table_array, col_names, row_
     top_contrib, top_i, top_j, top_o, top_e = contributions[0]
     top_cell = f"{row_names[top_i]} / {col_names[top_j]}"
     top_direction = "more" if top_o > top_e else "fewer"
+    top_pct = round(top_contrib / chi2_val * 100, 0)
 
-    # Interpret χ² magnitude loosely
-    if dof == 1:
-        if chi2_val < 2.7: magnitude = "very small — likely consistent with chance"
-        elif chi2_val < 3.84: magnitude = "moderate — approaching but not reaching significance"
-        elif chi2_val < 6.6: magnitude = "meaningful — exceeds the conventional threshold (3.84)"
-        elif chi2_val < 10.8: magnitude = "large — strong evidence against the null"
-        else: magnitude = "very large — very strong evidence against the null"
+    # Critical value at alpha=0.05 for this df
+    crit_val = round(chi2_dist.ppf(0.95, dof), 3)
+
+    # Interpret χ² magnitude relative to critical value for this df
+    ratio = chi2_val / crit_val
+    if ratio < 0.7:
+        magnitude = f"well below the critical value ({crit_val}) — consistent with chance"
+        magnitude_plain = f"Your χ² of {round(chi2_val,3)} is well below the critical value of {crit_val} needed for significance at df={dof}. The observed table is not surprising if there were no association."
+    elif ratio < 1.0:
+        magnitude = f"approaching but below the critical value ({crit_val})"
+        magnitude_plain = f"Your χ² of {round(chi2_val,3)} is close to but still below the critical value of {crit_val} at df={dof}. The table shows some deviation from independence but not enough to reject H₀ at α = 0.05."
+    elif ratio < 2.0:
+        magnitude = f"above the critical value ({crit_val}) — statistically significant"
+        magnitude_plain = f"Your χ² of {round(chi2_val,3)} exceeds the critical value of {crit_val} at df={dof}. The observed table is more different from independence than would occur by chance 95% of the time."
+    elif ratio < 4.0:
+        magnitude = f"substantially above the critical value ({crit_val}) — strong evidence against H₀"
+        magnitude_plain = f"Your χ² of {round(chi2_val,3)} is {round(ratio,1)}× the critical value of {crit_val} at df={dof}. The data are strongly inconsistent with no association."
     else:
-        magnitude = "see p-value for interpretation at this df"
+        magnitude = f"far above the critical value ({crit_val}) — very strong evidence against H₀"
+        magnitude_plain = f"Your χ² of {round(chi2_val,3)} is {round(ratio,1)}× the critical value of {crit_val} at df={dof}. This is an extremely large discrepancy between observed and expected counts."
 
-    p_str = f"< 0.0001" if p_val < 0.0001 else str(round(p_val, 4))
+    p_str = "< 0.0001" if p_val < 0.0001 else str(round(p_val, 4))
+
+    # Build "what the number means" plain language
+    grand_total = int(table_array.sum())
+    total_outcome = int(table_array[:, 0].sum())
+    overall_pct = round(total_outcome / grand_total * 100, 1)
 
     with st.expander("🔢 Show me the math — Chi-Square"):
-        st.markdown(f"""
-**What is the chi-square statistic?**
 
-The chi-square (χ²) test asks: *if there were truly no association between exposure and outcome, how often would we see a table this different from what we'd expect?*
+        st.markdown(f"#### What does χ²({dof}) = {round(chi2_val, 3)} actually mean?")
+        st.info(f"""
+**In plain language:** The chi-square statistic measures how different your actual table is from what you'd see if there were absolutely no association between {', '.join(row_names)} and {col_names[0]}.
 
-It does this by comparing your **observed** cell counts (what you actually got) to the **expected** cell counts (what you'd predict if the null hypothesis were true — if exposure and outcome were completely independent).
+Think of it this way: if exposure had **no effect at all** on outcome, you'd expect roughly the same proportion of {col_names[0]} ({overall_pct}% overall) in every exposure group. The chi-square statistic measures how far your table deviates from that pattern — adding up the discrepancies across every cell.
 
-**Your result: χ²({dof}) = {round(chi2_val, 3)}**
+**{magnitude_plain}**
 
-A χ² of {round(chi2_val, 3)} with {dof} degree(s) of freedom is **{magnitude}**.
+The largest single discrepancy came from the **{top_cell}** cell, which had {int(top_o)} cases observed vs. {round(top_e, 1)} expected — {top_direction} than the null would predict. This one cell alone drove {int(top_pct)}% of the total χ² value.
 
-The p-value of {p_str}{tail_note} means: if there were truly no association, you would see a chi-square this large or larger **{p_str} of the time** by chance alone.
+The resulting p-value of {p_str}{tail_note} means: if there were truly no association, a chi-square this large or larger would occur **{p_str} of the time** by chance. {'That is rare enough to reject H₀.' if p_val < 0.05 else 'That is not rare enough to reject H₀ at α = 0.05.'}
         """)
 
+        st.markdown("---")
         st.markdown("**Step 1: Your observed counts (O)**")
         obs_df = pd.DataFrame(table_array, columns=col_names, index=row_names)
         st.table(obs_df)
 
         st.markdown("**Step 2: Expected counts (E) — if exposure and outcome were independent**")
-        st.caption("E = (Row Total × Column Total) ÷ Grand Total")
+        st.caption("E = (Row Total × Column Total) ÷ Grand Total. This is what every cell would look like if the outcome rate were identical across all exposure groups.")
         exp_df = pd.DataFrame(
             [[round(expected[i][j], 2) for j in range(num_cols)] for i in range(num_rows)],
             columns=col_names, index=row_names
         )
         st.table(exp_df)
 
-        st.markdown("**Step 3: Calculate each cell's contribution — (O − E)² ÷ E**")
+        st.markdown("**Step 3: Each cell's contribution — (O − E)² ÷ E**")
+        st.caption("Larger values mean that cell deviates more from independence. Squaring removes negatives — a cell with fewer than expected counts contributes just as much as one with more.")
         contrib_data = {}
         for j in range(num_cols):
             contrib_data[col_names[j]] = [
@@ -149,11 +168,14 @@ The p-value of {p_str}{tail_note} means: if there were truly no association, you
         st.markdown(f"""
 **Step 4: Sum all contributions → χ²({dof}) = {round(chi2_val, 3)}**
 
-**Largest contributor:** The cell **{top_cell}** had {int(top_o)} observed vs. {round(top_e, 1)} expected — {top_direction} cases than expected under the null. This cell drove {round(top_contrib/chi2_val*100, 0):.0f}% of the total χ² value.
+Critical value at α = 0.05 with df = {dof}: **{crit_val}**
+Your χ²: **{round(chi2_val, 3)}** → {"✅ exceeds critical value — reject H₀" if chi2_val >= crit_val else "❌ below critical value — fail to reject H₀"}
+
+**Largest contributor:** **{top_cell}** — {int(top_o)} observed vs. {round(top_e, 1)} expected ({top_direction} than expected). This cell drove {int(top_pct)}% of the total χ².
 
 **Step 5: Interpret**
 
-p = {p_str}{tail_note} → {'We **reject** the null hypothesis. The data are inconsistent with independence.' if p_val < 0.05 else 'We **fail to reject** the null hypothesis. The data are consistent with independence.'}
+p = {p_str}{tail_note} → {'We **reject** the null hypothesis. The distribution of outcomes differs significantly across exposure groups.' if p_val < 0.05 else 'We **fail to reject** the null hypothesis. The data are consistent with no association.'}
         """)
 
 def rr_or_explanation_expander(a, b, c, d, row_names, col_names, rr, or_val,
