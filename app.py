@@ -1027,10 +1027,10 @@ with tab4:
     with col_hdr: st.caption(f"**{len(PRACTICE_SCENARIOS)} scenarios** — randomized order. Reset to shuffle.")
     with col_rst:
         if st.button("🔄 Reset", key="reset_tab4"):
-            for sc in PRACTICE_SCENARIOS:
-                for f in ["design","outcome","exposure","submitted"]:
-                    k = f"prac_{sc['id']}_{f}"
-                    if k in st.session_state: del st.session_state[k]
+            keys_to_delete = [k for k in st.session_state.keys()
+                              if k.startswith("prac_") and k != "prac_scenario_order"]
+            for k in keys_to_delete:
+                del st.session_state[k]
             if "prac_scenario_order" in st.session_state: del st.session_state["prac_scenario_order"]
             st.rerun()
 
@@ -1289,11 +1289,12 @@ with tab5:
     with col_hdr5: st.caption(f"**{len(ADV_SCENARIOS)} scenarios** — randomized. Reset to shuffle.")
     with col_rst5:
         if st.button("🔄 Reset", key="reset_tab5"):
-            for sc in ADV_SCENARIOS:
-                for k_suffix in ["measure","submitted"]:
-                    k = f"adv_{k_suffix}_{sc['id']}"
-                    if k in st.session_state: del st.session_state[k]
-            if "adv_scenario_order" in st.session_state: del st.session_state["adv_scenario_order"]
+            keys_to_delete = [k for k in st.session_state.keys()
+                              if k.startswith("adv_") and k != "adv_scenario_order"]
+            for k in keys_to_delete:
+                del st.session_state[k]
+            if "adv_scenario_order" in st.session_state:
+                del st.session_state["adv_scenario_order"]
             st.rerun()
 
     for sc in SHUFFLED_ADV:
