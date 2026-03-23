@@ -1384,39 +1384,213 @@ This means that if the exposure were completely eliminated from the population, 
 Notice how PAR% reflects both how common the exposure is ({round(Pe*100,1)}% of the population) and how strongly it causes disease (RR = {RR}). Change either one and PAR% changes. This is what makes PAR% a **policy-relevant** measure — it tells you not just how dangerous the exposure is for individuals, but how much disease burden it creates at the population level.
                             """)
                 elif d["type"] == "smr":
-                    col1,col2 = st.columns(2); col1.metric("Observed", d["observed"]); col2.metric("Expected", d["expected"])
+                    col1,col2 = st.columns(2)
+                    col1.metric("Observed Deaths", d["observed"])
+                    col2.metric("Expected Deaths", d["expected"])
                     if st.button("Calculate SMR", key=f"run_{sid}"):
                         smr = d["observed"]/d["expected"]
-                        ci_low_s = max(0, smr-1.96*(smr/math.sqrt(d["observed"]))); ci_high_s = smr+1.96*(smr/math.sqrt(d["observed"]))
-                        st.metric("SMR", round(smr,3)); st.write(f"95% CI: ({round(ci_low_s,3)}, {round(ci_high_s,3)})")
-                        if ci_low_s <= 1 <= ci_high_s: st.warning("CI includes 1 — not significantly different from reference.")
-                        elif smr > 1: st.error(f"SMR = {round(smr,2)} — Excess mortality.")
-                        else: st.success(f"SMR = {round(smr,2)} — Lower than expected. May reflect healthy worker effect.")
+                        ci_low_s = max(0, smr-1.96*(smr/math.sqrt(d["observed"])))
+                        ci_high_s = smr+1.96*(smr/math.sqrt(d["observed"]))
+                        st.metric("SMR", round(smr,3))
+                        st.write(f"95% CI: ({round(ci_low_s,3)}, {round(ci_high_s,3)})")
                         draw_ci("SMR", smr, ci_low_s, ci_high_s)
+
+                        with st.expander("🔢 Show me the math — SMR"):
+                            st.markdown(f"""
+**Formula:** SMR = Observed Deaths ÷ Expected Deaths
+
+**Step 1:** Observed deaths = **{d["observed"]}** (counted directly from the study)
+
+**Step 2:** Expected deaths = **{d["expected"]}** (calculated by applying reference population age-specific rates to this group's age structure)
+
+**Step 3:** SMR = {d["observed"]} ÷ {d["expected"]} = **{round(smr,3)}**
+
+**95% CI:** ({round(ci_low_s,3)}, {round(ci_high_s,3)}) — calculated using the Poisson approximation: SMR ± 1.96 × (SMR ÷ √Observed)
+
+**How to interpret the CI:** If the CI includes 1.0, mortality does not significantly differ from the reference population. If it excludes 1.0, the difference is statistically significant.
+                            """)
+
+                        st.markdown("**What does this mean?**")
+                        if ci_low_s <= 1 <= ci_high_s:
+                            st.warning(f"""
+**SMR = {round(smr,3)} — No significant difference from the reference population.**
+
+The 95% CI ({round(ci_low_s,3)}–{round(ci_high_s,3)}) includes 1.0, so we cannot conclude that mortality in this group differs from what would be expected based on the reference population's rates applied to their age structure.
+
+This does not necessarily mean there is no occupational hazard — the study may simply be underpowered to detect one. Sample size matters in SMR studies.
+                            """)
+                        elif smr > 1:
+                            excess = int(d["observed"]) - round(d["expected"],1)
+                            st.error(f"""
+**SMR = {round(smr,3)} — Excess mortality. This group experienced {round((smr-1)*100,1)}% more deaths than expected.**
+
+{d["observed"]} deaths were observed, but only {d["expected"]} were expected based on the reference population's age-specific rates. That is approximately {round(excess,0)} excess deaths.
+
+Because the 95% CI ({round(ci_low_s,3)}–{round(ci_high_s,3)}) excludes 1.0, this excess is statistically significant — it is unlikely to be due to chance alone.
+
+**Next question for an epidemiologist:** Is this excess mortality caused by occupational exposures, or does this group differ from the reference population in other ways (lifestyle, socioeconomic factors, access to care)?
+                            """)
+                        else:
+                            st.success(f"""
+**SMR = {round(smr,3)} — Lower mortality than expected.**
+
+This group experienced {round((1-smr)*100,1)}% fewer deaths than the reference population's rates would predict. This may reflect a **healthy worker effect** — employed populations tend to be healthier than the general population (which includes those too ill to work), so occupational cohorts often show SMR < 1 even without any true protective effect of the work itself.
+
+**Caution:** SMR < 1 does not mean the occupation is safe or protective. It may simply mean the comparison group (general population) includes sicker people. Comparing to a more appropriate reference group might reveal a different picture.
+                            """)
+
                 elif d["type"] == "ar":
                     col1,col2 = st.columns(2)
                     col1.metric(f"Risk ({d['exposed_label']})", f"{round(d['r_exposed']*100,1)}%")
                     col2.metric(f"Risk ({d['unexposed_label']})", f"{round(d['r_unexposed']*100,1)}%")
                     if st.button("Calculate AR & AR%", key=f"run_{sid}"):
-                        ar = d["r_exposed"]-d["r_unexposed"]; ar_pct = (ar/d["r_exposed"])*100
-                        col1,col2 = st.columns(2); col1.metric("AR", f"{round(ar*100,1)}%"); col2.metric("AR%", f"{round(ar_pct,1)}%")
-                        st.success(f"AR = {round(ar*100,1)}%: absolute excess risk."); st.success(f"AR% = {round(ar_pct,1)}%: fraction attributable in exposed group.")
+                        ar = d["r_exposed"] - d["r_unexposed"]
+                        ar_pct = (ar / d["r_exposed"]) * 100
+                        rr = d["r_exposed"] / d["r_unexposed"]
+                        col1,col2 = st.columns(2)
+                        col1.metric("AR (Attributable Risk)", f"{round(ar*100,1)}%")
+                        col2.metric("AR% (Attributable Risk %)", f"{round(ar_pct,1)}%")
+
+                        with st.expander("🔢 Show me the math — AR & AR%"):
+                            st.markdown(f"""
+**Attributable Risk (AR) = Risk in Exposed − Risk in Unexposed**
+
+AR = {round(d['r_exposed']*100,1)}% − {round(d['r_unexposed']*100,1)}% = **{round(ar*100,1)}%**
+
+This is an **absolute** measure — it tells you the actual excess risk per 100 exposed people, in the same units as the original risks.
+
+---
+
+**Attributable Risk % (AR%) = AR ÷ Risk in Exposed × 100**
+
+AR% = {round(ar*100,1)}% ÷ {round(d['r_exposed']*100,1)}% × 100 = **{round(ar_pct,1)}%**
+
+This is a **proportional** measure — it tells you what fraction of all disease in the exposed group is attributable to the exposure itself (as opposed to background risk that exists even without the exposure).
+
+---
+
+**AR vs. AR% — what's the difference?**
+
+- **AR** = the absolute excess: {round(ar*100,1)} additional cases per 100 exposed people compared to unexposed
+- **AR%** = the proportional excess: {round(ar_pct,1)}% of disease in the exposed group would not have occurred without the exposure
+- The remaining {round(100-ar_pct,1)}% of disease in the exposed group represents **background risk** — it would have occurred regardless of the exposure
+                            """)
+
+                        st.markdown("**What does this mean?**")
+                        st.info(f"""
+**AR = {round(ar*100,1)}%:** For every 100 people with {d['exposed_label']}, approximately {round(ar*100,1)} will develop the outcome *because of* the exposure — above and beyond the {round(d['r_unexposed']*100,1)} per 100 who would develop it anyway (background risk).
+
+**AR% = {round(ar_pct,1)}%:** Of all the cases occurring among {d['exposed_label']} people, {round(ar_pct,1)}% are attributable to the exposure. The remaining {round(100-ar_pct,1)}% would have occurred even without it.
+
+**Why does this matter clinically?** AR% tells you how much benefit you could expect from eliminating or treating the exposure *within the exposed group*. If someone with {d['exposed_label']} asks "how much does this increase my stroke risk?", AR gives the absolute answer. AR% frames the proportion of their disease burden that is modifiable.
+
+**AR% vs. PAR%:** AR% applies to the exposed group only. If you also knew how common {d['exposed_label']} is in the general population, you could calculate PAR% — the fraction of all cases across the entire population attributable to the exposure.
+                        """)
+
                 elif d["type"] == "nnt":
                     col1,col2 = st.columns(2)
                     col1.metric(f"Risk ({d['treatment_label']})", f"{round(d['r_treatment']*100,1)}%")
                     col2.metric(f"Risk ({d['control_label']})", f"{round(d['r_control']*100,1)}%")
                     if st.button("Calculate NNT/NNH", key=f"run_{sid}"):
-                        risk_diff = abs(d["r_treatment"]-d["r_control"]); nnt = round(1/risk_diff,1)
-                        st.metric("NNT/NNH", nnt)
-                        if d["r_treatment"] < d["r_control"]: st.success(f"NNT = {nnt}: treat {nnt} to prevent one additional {d['outcome_label']}.")
-                        else: st.error(f"NNH = {nnt}: expose {nnt} to cause one additional {d['outcome_label']}.")
+                        risk_diff = abs(d["r_treatment"] - d["r_control"])
+                        nnt = round(1/risk_diff, 1)
+                        is_benefit = d["r_treatment"] < d["r_control"]
+                        label = "NNT" if is_benefit else "NNH"
+                        st.metric(f"{label} (Number Needed to {'Treat' if is_benefit else 'Harm'})", nnt)
+
+                        with st.expander(f"🔢 Show me the math — {label}"):
+                            st.markdown(f"""
+**Formula:** {label} = 1 ÷ |Risk Difference|
+
+**Step 1:** Risk in {d['treatment_label']} = {round(d['r_treatment']*100,1)}%
+
+**Step 2:** Risk in {d['control_label']} = {round(d['r_control']*100,1)}%
+
+**Step 3:** Risk Difference = |{round(d['r_treatment']*100,1)}% − {round(d['r_control']*100,1)}%| = **{round(risk_diff*100,1)}%** ({round(risk_diff,4)} as a proportion)
+
+**Step 4:** {label} = 1 ÷ {round(risk_diff,4)} = **{nnt}**
+
+**Why 1 ÷ Risk Difference?** The risk difference tells you the probability that any single person benefits (or is harmed). Taking the reciprocal converts that probability into the number of people needed for one event to occur. A risk difference of 2% means 1 in 50 people benefit — NNT = 50.
+                            """)
+
+                        st.markdown("**What does this mean?**")
+                        if is_benefit:
+                            st.success(f"""
+**NNT = {nnt}:** You would need to treat **{nnt} people** with {d['treatment_label']} to prevent **one additional {d['outcome_label']}** that would not have occurred with {d['control_label']}.
+
+Put differently: if you treated {int(nnt)} patients, you would expect {int(nnt)-1} to experience the same outcome regardless of whether they received treatment, and **1 person would benefit** from the treatment.
+
+**Is {nnt} a good NNT?** It depends on the outcome. For preventing death or major disability, NNT = {nnt} is often considered worthwhile. For preventing a minor inconvenience, it might not be. NNT must always be interpreted alongside the severity of the outcome and the side effects or costs of treatment.
+
+**NNT and individual patients:** NNT is a population average — it does not mean every {int(nnt)}th patient benefits. It means the *probability* of benefit for any individual is approximately 1 in {nnt} ({round(100/nnt,1)}%).
+                            """)
+                        else:
+                            st.error(f"""
+**NNH = {nnt}:** For every **{nnt} people** exposed to {d['treatment_label']}, **one additional {d['outcome_label']}** will occur that would not have occurred with {d['control_label']}.
+
+This means {int(nnt)-1} people could be exposed without experiencing this harm, but 1 will be harmed. Whether this is acceptable depends on the benefit the exposure provides.
+
+**Clinical use:** NNH is most useful when weighed against NNT. If a drug's NNT for benefit is 20 and its NNH for a serious side effect is {nnt}, the tradeoff may or may not be acceptable depending on the severity of the benefit vs. the harm.
+                            """)
+
                 elif d["type"] == "hr":
-                    col1,col2,col3 = st.columns(3); col1.metric("HR", d["hr"]); col2.metric("CI Lower", d["ci_low"]); col3.metric("CI Upper", d["ci_high"])
+                    col1,col2,col3 = st.columns(3)
+                    col1.metric("Hazard Ratio (HR)", d["hr"])
+                    col2.metric("95% CI Lower", d["ci_low"])
+                    col3.metric("95% CI Upper", d["ci_high"])
                     if st.button("Interpret HR", key=f"run_{sid}"):
-                        if d["ci_low"] <= 1 <= d["ci_high"]: st.warning(f"HR = {d['hr']} — CI includes 1. Not significant.")
-                        elif d["hr"] < 1: st.success(f"HR = {d['hr']}: {d['exposed_label']} had {round((1-d['hr'])*100,1)}% lower hazard of {d['outcome_label']}. Significant.")
-                        else: st.error(f"HR = {d['hr']}: {d['exposed_label']} had {round((d['hr']-1)*100,1)}% higher hazard of {d['outcome_label']}. Significant.")
                         draw_ci("HR", d["hr"], d["ci_low"], d["ci_high"])
+
+                        with st.expander("🔢 What is a Hazard Ratio?"):
+                            st.markdown(f"""
+**The Hazard Ratio (HR) compares the instantaneous rate of events between two groups at any point in time.**
+
+Unlike the Risk Ratio (which compares cumulative probabilities over a fixed period), the HR compares rates moment-to-moment throughout the entire follow-up period. It comes from **Cox proportional hazards regression**, which is used when:
+- Follow-up time varies across participants
+- Some participants are censored (lost to follow-up, die from other causes, reach end of study without the event)
+- You want to account for when events happen, not just whether they happen
+
+**HR = {d["hr"]} means:**
+{"The event rate in the exposed group at any given moment is " + str(round(d["hr"],2)) + "× the event rate in the unexposed group." if d["hr"] != 1 else "The event rates are identical in both groups."}
+
+**The proportional hazards assumption:** Cox regression assumes the HR is constant over time — the ratio of event rates between groups doesn't change as follow-up progresses. This is an assumption worth checking in real studies.
+
+**HR vs. RR:**
+- RR compares cumulative risk at a fixed time point (e.g., 5-year risk)
+- HR compares the rate of events at each moment throughout follow-up
+- When events are rare and follow-up is relatively short, HR ≈ RR
+- When events are common or follow-up is long, they can differ substantially
+                            """)
+
+                        st.markdown("**What does this mean?**")
+                        if d["ci_low"] <= 1 <= d["ci_high"]:
+                            st.warning(f"""
+**HR = {d["hr"]} — Not statistically significant.**
+
+The 95% CI ({d["ci_low"]}–{d["ci_high"]}) includes 1.0, meaning the observed difference in hazard rates between groups is consistent with chance. We fail to reject the null hypothesis of no difference in event rates.
+
+This does not prove the groups have equal hazard — it means the study did not have sufficient evidence to detect a difference at α = 0.05. Consider whether the study was adequately powered.
+                            """)
+                        elif d["hr"] < 1:
+                            reduction = round((1-d["hr"])*100,1)
+                            st.success(f"""
+**HR = {d["hr"]} — {d["exposed_label"]} had {reduction}% lower hazard of {d["outcome_label"]} at any given point in time.**
+
+The 95% CI ({d["ci_low"]}–{d["ci_high"]}) excludes 1.0 — this is statistically significant.
+
+**In plain language:** At any moment during follow-up, the rate of {d["outcome_label"]} in the {d["exposed_label"]} group was only {round(d["hr"]*100,0):.0f}% of the rate in the comparison group — a {reduction}% reduction in the instantaneous risk.
+
+**Caution:** HR describes the rate ratio, not a cumulative probability. Saying "the drug reduces risk by {reduction}%" is technically imprecise — the correct phrasing is "reduces the hazard rate by {reduction}%."
+                            """)
+                        else:
+                            increase = round((d["hr"]-1)*100,1)
+                            st.error(f"""
+**HR = {d["hr"]} — {d["exposed_label"]} had {increase}% higher hazard of {d["outcome_label"]} at any given point in time.**
+
+The 95% CI ({d["ci_low"]}–{d["ci_high"]}) excludes 1.0 — this is statistically significant.
+
+**In plain language:** At any moment during follow-up, the rate of {d["outcome_label"]} in the {d["exposed_label"]} group was {round(d["hr"],2)}× the rate in the comparison group — a {increase}% increase in the instantaneous risk.
+                            """)
 
     st.divider()
     adv_answered = sum(1 for sc in ADV_SCENARIOS if st.session_state.get(f"adv_submitted_{sc['id']}"))
