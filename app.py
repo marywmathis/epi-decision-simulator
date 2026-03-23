@@ -642,29 +642,164 @@ with tab3:
             rate_a = [deaths_a[i]/max(pop_a[i],1)*100000 for i in range(n_groups)]
             rate_b = [deaths_b[i]/max(pop_b[i],1)*100000 for i in range(n_groups)]
             ref_rate = [(deaths_a[i]+deaths_b[i])/max(pop_a[i]+pop_b[i],1)*100000 for i in range(n_groups)]
+
+            # Direct standardization
             expected_a_direct = [rate_a[i]/100000*std_pop[i] for i in range(n_groups)]
             expected_b_direct = [rate_b[i]/100000*std_pop[i] for i in range(n_groups)]
             age_adj_rate_a = sum(expected_a_direct)/sum(std_pop)*100000
             age_adj_rate_b = sum(expected_b_direct)/sum(std_pop)*100000
+
+            # Indirect standardization (SMR)
+            expected_a_indirect = [ref_rate[i]/100000*pop_a[i] for i in range(n_groups)]
+            expected_b_indirect = [ref_rate[i]/100000*pop_b[i] for i in range(n_groups)]
+            total_obs_a = sum(deaths_a)
+            total_obs_b = sum(deaths_b)
+            total_exp_a = sum(expected_a_indirect)
+            total_exp_b = sum(expected_b_indirect)
+            smr_a = round(total_obs_a/total_exp_a, 3) if total_exp_a > 0 else None
+            smr_b = round(total_obs_b/total_exp_b, 3) if total_exp_b > 0 else None
+
             crude_rate_a = sum(deaths_a)/sum(pop_a)*100000
             crude_rate_b = sum(deaths_b)/sum(pop_b)*100000
             crude_higher = label_a if crude_rate_a > crude_rate_b else label_b
             adj_higher = label_a if age_adj_rate_a > age_adj_rate_b else label_b
 
-            col1,col2 = st.columns(2)
+            st.subheader("📊 Results")
+
+            # Side-by-side metrics
+            col1, col2 = st.columns(2)
             with col1:
                 st.markdown(f"### {label_a}")
-                st.metric("Crude Rate (per 100,000)", round(crude_rate_a,1))
-                st.metric("Age-Adjusted Rate", round(age_adj_rate_a,1))
+                st.metric("Crude Rate (per 100,000)", round(crude_rate_a, 1))
+                st.metric("Age-Adjusted Rate — Direct", round(age_adj_rate_a, 1),
+                          delta=f"{round(age_adj_rate_a - crude_rate_a, 1)} vs. crude",
+                          delta_color="off")
+                if smr_a:
+                    st.metric("SMR — Indirect", smr_a)
             with col2:
                 st.markdown(f"### {label_b}")
-                st.metric("Crude Rate (per 100,000)", round(crude_rate_b,1))
-                st.metric("Age-Adjusted Rate", round(age_adj_rate_b,1))
+                st.metric("Crude Rate (per 100,000)", round(crude_rate_b, 1))
+                st.metric("Age-Adjusted Rate — Direct", round(age_adj_rate_b, 1),
+                          delta=f"{round(age_adj_rate_b - crude_rate_b, 1)} vs. crude",
+                          delta_color="off")
+                if smr_b:
+                    st.metric("SMR — Indirect", smr_b)
 
+            # Confounding detection
+            st.divider()
             if crude_higher != adj_higher:
-                st.error("⚠️ **Confounding by age detected!** Crude and age-adjusted rates point in opposite directions.")
+                st.error(f"⚠️ **Confounding by age detected!** The crude rates suggest {crude_higher} has higher mortality, but after age adjustment, {adj_higher} has the higher rate. The two populations have different age structures — comparing crude rates was misleading.")
             else:
-                st.success("✅ Age structure had minimal impact. Crude and adjusted rates tell a similar story.")
+                crude_diff = abs(crude_rate_a - crude_rate_b)
+                adj_diff = abs(age_adj_rate_a - age_adj_rate_b)
+                if adj_diff < crude_diff * 0.7:
+                    st.warning(f"⚠️ **Age partially explains the difference.** The crude rate gap was {round(crude_diff,1)} per 100,000, but after age adjustment it narrows to {round(adj_diff,1)}. Age structure accounts for some, but not all, of the difference.")
+                else:
+                    st.success("✅ Age structure had minimal impact. Crude and age-adjusted rates tell a similar story.")
+
+            # Interpretation
+            st.divider()
+            st.subheader("🔍 Interpretation")
+            st.markdown(f"""
+**Crude rates** compare raw death counts relative to total population size. They are easy to calculate but can be misleading when the two populations have different age distributions — because older people die at higher rates from most causes regardless of where they live or work.
+
+**Direct age-adjusted rates** answer the question: *what would the death rate look like in each population if both had the same age structure?* The standard population ({ref_label}) is used as the common reference. This removes the confounding effect of age and allows a fair comparison.
+
+**SMR (Standardized Mortality Ratio)** uses the opposite approach — instead of applying each population's rates to a standard population, it applies the reference population's rates to each group's age structure to calculate how many deaths *would be expected*. SMR = Observed ÷ Expected.
+- SMR = 1.0: mortality matches the reference population
+- SMR > 1.0: excess mortality compared to reference
+- SMR < 1.0: lower mortality than reference (possibly a healthy worker effect)
+
+**{label_a}:** Observed {int(total_obs_a)} deaths, Expected {round(total_exp_a, 1)} → SMR = {smr_a}{"  — **excess mortality**" if smr_a and smr_a > 1 else "  — **lower than expected**" if smr_a and smr_a < 1 else ""}
+
+**{label_b}:** Observed {int(total_obs_b)} deaths, Expected {round(total_exp_b, 1)} → SMR = {smr_b}{"  — **excess mortality**" if smr_b and smr_b > 1 else "  — **lower than expected**" if smr_b and smr_b < 1 else ""}
+            """)
+
+            # Show me the math
+            with st.expander("🔢 Show me the math — Direct Standardization"):
+                st.markdown(f"""
+**Direct standardization applies each population's age-specific rates to a single standard population.**
+
+**Step 1: Calculate age-specific rates for each population (per 100,000)**
+                """)
+                import pandas as pd
+                rate_df = pd.DataFrame({
+                    "Age Group": age_groups,
+                    f"{label_a} Rate": [round(r, 1) for r in rate_a],
+                    f"{label_b} Rate": [round(r, 1) for r in rate_b],
+                    f"Reference Rate": [round(r, 1) for r in ref_rate],
+                })
+                st.table(rate_df)
+
+                st.markdown(f"""
+**Step 2: Apply each population's rates to the standard population**
+
+Expected deaths = (Age-specific rate ÷ 100,000) × Standard population size
+                """)
+                exp_df = pd.DataFrame({
+                    "Age Group": age_groups,
+                    "Std Pop Size": std_pop,
+                    f"Expected ({label_a})": [round(e, 1) for e in expected_a_direct],
+                    f"Expected ({label_b})": [round(e, 1) for e in expected_b_direct],
+                })
+                st.table(exp_df)
+
+                st.markdown(f"""
+**Step 3: Sum expected deaths and divide by standard population**
+
+{label_a}: {round(sum(expected_a_direct), 1)} ÷ {sum(std_pop):,} × 100,000 = **{round(age_adj_rate_a, 1)} per 100,000**
+
+{label_b}: {round(sum(expected_b_direct), 1)} ÷ {sum(std_pop):,} × 100,000 = **{round(age_adj_rate_b, 1)} per 100,000**
+
+**Interpretation:** If both populations had the same age structure ({ref_label}), {label_a} would have a rate of {round(age_adj_rate_a,1)} and {label_b} would have a rate of {round(age_adj_rate_b,1)} per 100,000.
+                """)
+
+            with st.expander("🔢 Show me the math — Indirect Standardization (SMR)"):
+                st.markdown(f"""
+**Indirect standardization applies reference population rates to each group's age structure.**
+
+**Step 1: Reference population age-specific rates (per 100,000)**
+
+These are the combined rates from both populations — used as the "expected" standard.
+
+**Step 2: Apply reference rates to each population's age structure**
+
+Expected deaths = (Reference rate ÷ 100,000) × Study group population size
+                """)
+                smr_df = pd.DataFrame({
+                    "Age Group": age_groups,
+                    f"Ref Rate (per 100k)": [round(r, 1) for r in ref_rate],
+                    f"{label_a} Pop": pop_a,
+                    f"Expected ({label_a})": [round(e, 2) for e in expected_a_indirect],
+                    f"{label_b} Pop": pop_b,
+                    f"Expected ({label_b})": [round(e, 2) for e in expected_b_indirect],
+                })
+                st.table(smr_df)
+
+                st.markdown(f"""
+**Step 3: SMR = Observed ÷ Expected**
+
+**{label_a}:** {int(total_obs_a)} observed ÷ {round(total_exp_a, 1)} expected = **SMR = {smr_a}**
+
+**{label_b}:** {int(total_obs_b)} observed ÷ {round(total_exp_b, 1)} expected = **SMR = {smr_b}**
+
+**When to use indirect instead of direct:**
+Use indirect standardization (SMR) when your study population is small and age-specific rates are unstable (e.g., fewer than 10 events per age group). Applying unstable rates to a standard population in direct standardization produces unreliable results. Indirect standardization borrows the more stable reference rates instead.
+                """)
+
+            with st.expander("💡 When does age confounding matter most?"):
+                st.markdown("""
+Age is the strongest confounder in most mortality and chronic disease comparisons because:
+
+1. **Age is strongly associated with almost every health outcome.** CVD, cancer, diabetes, and respiratory disease all increase dramatically with age.
+2. **Populations routinely differ in age structure.** Urban vs. rural, occupational vs. general population, different racial/ethnic groups, different geographic regions — all have different age distributions.
+3. **Crude rates combine both effects.** A population with more older people will have higher crude death rates even if its age-specific rates are identical to a younger population.
+
+**The classic trap:** A rural county appears to have worse health outcomes than an urban county. Is this because rural residents have worse access to care, worse health behaviors, or higher environmental exposures? Or is it simply because rural populations are older? Age standardization separates these questions.
+
+**Healthy worker effect:** Employed populations often have SMR < 1 compared to the general population — not because work is protective, but because people who are employed tend to be healthier than the general population (which includes the very ill, the disabled, and those too sick to work). This is why occupational cohort studies can underestimate harm.
+                """)
+
 
     st.markdown("---")
     st.markdown("Strong epidemiologists think structurally before computing.")
