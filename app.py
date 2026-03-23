@@ -1272,7 +1272,8 @@ with tab5:
             "data": {"type": "par", "context": "Calculate PAR% — fraction of all cardiac arrests attributable to vigorous exertion as a trigger.",
                      "Pe": 0.15, "RR": 2.8,
                      "Pe_label": "Prevalence of regular vigorous exercise in population",
-                     "RR_label": "OR from case-crossover study (used as RR approximation)"}
+                     "RR_label": "OR from case-crossover study (used as RR approximation)",
+                     "is_case_crossover": True}
         },
     ]
 
@@ -1335,11 +1336,53 @@ with tab5:
                 st.markdown(sc["data"]["context"]); d = sc["data"]
                 if d["type"] == "par":
                     col1,col2 = st.columns(2)
-                    col1.metric("Exposure Prevalence (Pe)", f"{round(d['Pe']*100,1)}%"); col2.metric("Risk Ratio (RR)", d["RR"])
+                    col1.metric(d.get("Pe_label","Exposure Prevalence (Pe)"), f"{round(d['Pe']*100,1)}%")
+                    col2.metric(d.get("RR_label","Risk Ratio (RR)"), d["RR"])
                     if st.button("Calculate PAR%", key=f"run_{sid}"):
                         PAR_pct = (d["Pe"]*(d["RR"]-1))/(1+d["Pe"]*(d["RR"]-1))*100
                         st.metric("PAR%", f"{round(PAR_pct,1)}%")
-                        st.success(f"{round(PAR_pct,1)}% of all cases attributable to this exposure.")
+
+                        # Show me the math
+                        with st.expander("🔢 Show me the math — PAR%"):
+                            Pe = d["Pe"]; RR = d["RR"]
+                            st.markdown(f"""
+**Formula:** PAR% = [Pe × (RR − 1)] ÷ [1 + Pe × (RR − 1)] × 100
+
+**Step 1:** Pe × (RR − 1) = {Pe} × ({RR} − 1) = {Pe} × {round(RR-1,2)} = **{round(Pe*(RR-1),4)}**
+
+**Step 2:** 1 + Pe × (RR − 1) = 1 + {round(Pe*(RR-1),4)} = **{round(1+Pe*(RR-1),4)}**
+
+**Step 3:** PAR% = {round(Pe*(RR-1),4)} ÷ {round(1+Pe*(RR-1),4)} × 100 = **{round(PAR_pct,1)}%**
+
+**Why this formula works:** The numerator estimates the excess cases caused by the exposure in the population. The denominator is the total case rate in the population (exposed + unexposed). Dividing gives the fraction of all cases that would not have occurred if the exposure were eliminated.
+
+**What PAR% depends on:**
+- **Exposure prevalence (Pe):** How common is the exposure in the population? A rare exposure with a very high RR can still have a low PAR% if almost nobody is exposed.
+- **Strength of association (RR):** How much does the exposure increase risk? A very common exposure with only a modest RR can have a surprisingly high PAR%.
+                            """)
+
+                        # Contextual interpretation
+                        st.markdown("**What does this mean?**")
+                        if d.get("is_case_crossover"):
+                            st.info(f"""
+**{round(PAR_pct,1)}% of all cardiac arrests in the population could theoretically be prevented if vigorous exertion as a trigger were eliminated.**
+
+A few important caveats for this scenario:
+
+**Why we used OR as RR:** This study used a case-crossover design, which produces an Odds Ratio. Cardiac arrest is rare (the outcome is uncommon in the general population), so the rare disease assumption applies — OR ≈ RR. Substituting OR = {RR} for RR in the PAR% formula is a reasonable approximation here.
+
+**"Trigger" vs. "cause":** Vigorous exercise is a transient trigger, not a chronic cause. The OR of {RR} reflects the risk *in the hour immediately after exertion* compared to rest — not lifetime risk. The PAR% here estimates what fraction of cardiac arrests are triggered by acute exertion episodes, not how many are caused by an exercise habit overall.
+
+**Public health implication:** Despite exercise being a transient trigger, {round(PAR_pct,1)}% of cardiac arrests attributable to it is a meaningful figure. However, the overall health benefits of regular exercise far outweigh this acute risk for most people — this is a risk-benefit calculation, not a reason to avoid exercise.
+                            """)
+                        else:
+                            st.success(f"""
+**{round(PAR_pct,1)}%** of all cases of this outcome in the total population are attributable to this exposure.
+
+This means that if the exposure were completely eliminated from the population, up to {round(PAR_pct,1)}% of cases could theoretically be prevented — assuming the association is causal.
+
+Notice how PAR% reflects both how common the exposure is ({round(Pe*100,1)}% of the population) and how strongly it causes disease (RR = {RR}). Change either one and PAR% changes. This is what makes PAR% a **policy-relevant** measure — it tells you not just how dangerous the exposure is for individuals, but how much disease burden it creates at the population level.
+                            """)
                 elif d["type"] == "smr":
                     col1,col2 = st.columns(2); col1.metric("Observed", d["observed"]); col2.metric("Expected", d["expected"])
                     if st.button("Calculate SMR", key=f"run_{sid}"):
