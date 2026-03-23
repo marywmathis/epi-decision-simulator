@@ -588,11 +588,25 @@ with tab3:
     STD_PRESETS = {
         "None — I'll enter my own data": None,
         "Urban vs. Rural CVD Mortality": {
-            "description":"**Scenario:** Compare CVD mortality: urban (younger) vs. rural (older) county. *CDC WONDER.*",
+            "description":"**Scenario:** Compare CVD mortality between an urban (younger) and rural (older) county. Age structure differs substantially — age adjustment reveals the true picture. *Adapted from CDC WONDER.*",
             "age_groups":["0–44","45–54","55–64","65–74","75+"],"std_pop":[150000,40000,35000,25000,15000],
             "pop_a":[80000,15000,12000,8000,4000],"deaths_a":[12,45,120,280,310],
             "pop_b":[30000,18000,22000,20000,14000],"deaths_b":[5,55,145,430,580],
             "label_a":"Urban County","label_b":"Rural County","outcome":"CVD deaths","ref_label":"State population"
+        },
+        "Coal Miners vs. Office Workers (Lung Disease)": {
+            "description":"**Scenario:** Compare lung disease mortality between coal miners and office workers. Miners are older on average — does age account for the difference? *Adapted from NIOSH occupational health data.*",
+            "age_groups":["20–34","35–44","45–54","55–64","65–74"],"std_pop":[5000,6000,5500,4000,2000],
+            "pop_a":[800,1800,2100,1600,900],"deaths_a":[1,6,18,38,32],
+            "pop_b":[2000,2200,1800,1200,600],"deaths_b":[0,2,5,10,8],
+            "label_a":"Coal Miners","label_b":"Office Workers","outcome":"lung disease deaths","ref_label":"Workforce population"
+        },
+        "State A vs. State B: Diabetes Mortality": {
+            "description":"**Scenario:** Two states with different age distributions are being compared on diabetes mortality rates. A policy team wants to know whether the difference reflects true disease burden or age structure. *Hypothetical scenario based on CDC patterns.*",
+            "age_groups":["0–44","45–54","55–64","65–74","75+"],"std_pop":[200000,55000,48000,35000,22000],
+            "pop_a":[420000,80000,65000,42000,18000],"deaths_a":[8,62,180,390,420],
+            "pop_b":[180000,55000,62000,58000,45000],"deaths_b":[4,48,198,620,890],
+            "label_a":"State A","label_b":"State B","outcome":"diabetes deaths","ref_label":"National population"
         },
     }
     std_preset_choice = st.selectbox("Load a preset:", list(STD_PRESETS.keys()), key="std_preset_choice")
