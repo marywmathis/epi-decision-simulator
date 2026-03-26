@@ -580,6 +580,80 @@ with tab2:
             elif hr < 1: st.success(f"HR = {round(hr,2)}: {exposed_label} had {round((1-hr)*100,1)}% lower hazard of {outcome_label}. Significant.")
             else: st.error(f"HR = {round(hr,2)}: {exposed_label} had {round((hr-1)*100,1)}% higher hazard of {outcome_label}. Significant.")
             draw_ci("HR", hr, ci_low_hr, ci_high_hr)
+
+            if st.button("📊 Show Forest Plot — All Three Scenarios", key="hr_forest"):
+                st.markdown("#### Forest Plot: Hazard Ratio Comparison")
+                st.caption("Each row shows one study. The square marks the HR estimate; the horizontal line is the 95% CI. The vertical dashed line at 1.0 is the null (no effect). Bars crossing the null line are not statistically significant.")
+
+                # All three preset scenarios
+                forest_data = [
+                    {"label": "Statins & MI", "group": "Statin therapy vs. Placebo", "hr": 0.68, "lo": 0.54, "hi": 0.85},
+                    {"label": "Physical Activity & Dementia", "group": "High vs. Low physical activity", "hr": 0.72, "lo": 0.58, "hi": 0.89},
+                    {"label": "HIV (CD4<200) & AIDS", "group": "CD4 < 200 vs. CD4 ≥ 200", "hr": 2.31, "lo": 1.74, "hi": 3.07},
+                ]
+
+                # Build forest plot as HTML table with SVG inline bar
+                all_vals = [d["lo"] for d in forest_data] + [d["hi"] for d in forest_data] + [1.0]
+                x_min = max(0.1, min(all_vals) - 0.3)
+                x_max = max(all_vals) + 0.5
+
+                def to_pct(v):
+                    return round((v - x_min) / (x_max - x_min) * 100, 2)
+
+                null_pct = to_pct(1.0)
+
+                rows_html = ""
+                for d in forest_data:
+                    sig = not (d["lo"] <= 1.0 <= d["hi"])
+                    color = "#2e7d32" if (sig and d["hr"] < 1) else "#c0392b" if (sig and d["hr"] > 1) else "#888888"
+                    lo_pct = to_pct(d["lo"])
+                    hi_pct = to_pct(d["hi"])
+                    est_pct = to_pct(d["hr"])
+                    bar_w = hi_pct - lo_pct
+                    sig_label = "✓ Significant" if sig else "✗ Not significant"
+                    sig_color = color
+
+                    svg = f"""<svg xmlns='http://www.w3.org/2000/svg' width='100%' height='44' viewBox='0 0 400 44' style='display:block;'>
+  <line x1='{null_pct*4}' y1='4' x2='{null_pct*4}' y2='40' stroke='#555' stroke-width='1.5' stroke-dasharray='4,3'/>
+  <rect x='{lo_pct*4}' y='19' width='{bar_w*4}' height='6' rx='3' fill='{color}' opacity='0.75'/>
+  <rect x='{est_pct*4-6}' y='16' width='12' height='12' fill='{color}' rx='2'/>
+  <text x='{lo_pct*4}' y='40' font-family='sans-serif' font-size='10' fill='{color}' text-anchor='middle'>{d['lo']}</text>
+  <text x='{est_pct*4}' y='40' font-family='sans-serif' font-size='11' fill='{color}' font-weight='bold' text-anchor='middle'>{d['hr']}</text>
+  <text x='{hi_pct*4}' y='40' font-family='sans-serif' font-size='10' fill='{color}' text-anchor='middle'>{d['hi']}</text>
+</svg>"""
+
+                    rows_html += f"""
+<tr style='border-bottom:1px solid #eee;'>
+  <td style='padding:8px 12px; font-size:13px; font-weight:bold; white-space:nowrap; width:220px;'>{d['label']}</td>
+  <td style='padding:8px 12px; font-size:12px; color:#555; white-space:nowrap; width:200px;'>{d['group']}</td>
+  <td style='padding:4px 8px; width:100%;'>{svg}</td>
+  <td style='padding:8px 12px; font-size:12px; color:{sig_color}; white-space:nowrap;'>{sig_label}</td>
+</tr>"""
+
+                # X-axis labels
+                x_ticks = [round(x_min + i*(x_max-x_min)/5, 1) for i in range(6)]
+                tick_html = "".join(f"<span style='position:absolute;left:{to_pct(t)}%;transform:translateX(-50%);font-size:10px;color:#888;'>{t}</span>" for t in x_ticks)
+
+                html = f"""
+<div style='background:#fafafa;border-radius:8px;padding:16px;border:1px solid #e0e0e0;margin:12px 0;'>
+  <table style='width:100%;border-collapse:collapse;'>
+    <thead>
+      <tr style='border-bottom:2px solid #ccc;'>
+        <th style='padding:6px 12px;font-size:12px;color:#555;text-align:left;'>Study / Scenario</th>
+        <th style='padding:6px 12px;font-size:12px;color:#555;text-align:left;'>Comparison</th>
+        <th style='padding:6px 12px;font-size:12px;color:#555;text-align:center;'>Hazard Ratio (95% CI) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [null = 1.0]</th>
+        <th style='padding:6px 12px;font-size:12px;color:#555;text-align:left;'>Result</th>
+      </tr>
+    </thead>
+    <tbody>{rows_html}</tbody>
+  </table>
+  <div style='position:relative;height:18px;margin:4px 16px 0 432px;'>{tick_html}</div>
+  <div style='margin:12px 16px 0 432px;font-size:11px;color:#888;'>← Favors exposed &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Favors unexposed →</div>
+</div>
+<div style='font-size:12px;color:#555;margin-top:8px;'>
+<b>How to read this:</b> Green squares (HR &lt; 1, CI excludes 1) = significantly protective. Red square (HR &gt; 1, CI excludes 1) = significantly harmful. Gray = not statistically significant. The width of the CI line reflects precision — wider lines mean less certainty about the true HR.
+</div>"""
+                st.markdown(html, unsafe_allow_html=True)
         else:
             hr = st.number_input("HR", min_value=0.01, value=0.68, step=0.01)
             ci_low_hr = st.number_input("CI Lower", min_value=0.001, value=0.54, step=0.01)
