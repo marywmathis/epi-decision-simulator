@@ -276,12 +276,21 @@ if "current_page" not in st.session_state:
     st.session_state["current_page"] = "study_designs"
 if "dark_mode" not in st.session_state:
     st.session_state["dark_mode"] = False
+if "theme_mode" not in st.session_state:
+    st.session_state["theme_mode"] = "System"
 
 def nav_to(page_key):
     st.session_state["current_page"] = page_key
 
 # ── Theme CSS injection ─────────────────────────────────────
-_dark = st.session_state["dark_mode"]
+# System mode: check query param set by JS on first load
+_theme_mode = st.session_state.get("theme_mode", "System")
+if _theme_mode == "System":
+    # JS will set ?_sysdark=1 if OS is dark; read it here
+    _sys_dark = st.query_params.get("_sysdark", "0") == "1"
+    _dark = _sys_dark
+else:
+    _dark = st.session_state["dark_mode"]
 
 _THEME = f"""
 <style>
@@ -487,6 +496,22 @@ div[data-testid="stTooltipContent"] {{ background: var(--bg-card) !important; co
 """
 st.markdown(_THEME, unsafe_allow_html=True)
 
+# System theme detection — JS sets ?_sysdark=1 if OS prefers dark, then reloads once
+if _theme_mode == "System":
+    st.markdown("""
+<script>
+(function() {
+  const url = new URL(window.location.href);
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches ? '1' : '0';
+  if (url.searchParams.get('_sysdark') !== isDark) {
+    url.searchParams.set('_sysdark', isDark);
+    window.location.replace(url.toString());
+  }
+})();
+</script>
+""", unsafe_allow_html=True)
+
+
 _nav_txt   = "#e8eaf0" if _dark else "#22273a"
 _nav_sub   = "#7b8494" if _dark else "#9ca3af"
 _nav_hover = "#252836" if _dark else "#eef1fb"
@@ -496,62 +521,12 @@ _bdr_c     = "#2e3246" if _dark else "#e5e7eb"
 _sect_c    = "#4b5263" if _dark else "#a0a8b8"
 _active_g  = "linear-gradient(90deg,#1a56db,#2563eb)" if not _dark else "linear-gradient(90deg,#2563eb,#3b82f6)"
 
-# Use a radio widget whose circles we hide — it renders as a clean list of clickable labels
-# with no button chrome. The CSS below turns radio labels into styled nav rows.
-_all_nav = [(key, icon, label, subtitle)
-            for _, items in NAV_STRUCTURE for key, icon, label, subtitle in items]
-_key_to_idx = {item[0]: i for i, item in enumerate(_all_nav)}
-_cur_idx = _key_to_idx.get(st.session_state.get("current_page","study_designs"), 0)
-
-# Full nav CSS — targets radio labels, hides circles, styles as rows
 st.markdown(f"""
 <style>
-/* Sidebar background */
 section[data-testid="stSidebar"] > div:first-child {{
   background-color: {_sb_bg} !important;
 }}
-/* Hide the radio group label */
-div[data-testid="stSidebar"] div[data-testid="stRadio"] > label {{
-  display: none !important;
-}}
-/* The radio wrapper — remove all padding/gaps */
-div[data-testid="stSidebar"] div[data-testid="stRadio"] > div {{
-  gap: 0 !important;
-  flex-direction: column !important;
-}}
-/* Each radio option row */
-div[data-testid="stSidebar"] div[data-testid="stRadio"] label {{
-  display: flex !important;
-  align-items: center !important;
-  padding: 7px 10px 7px 12px !important;
-  margin: 1px 4px !important;
-  border-radius: 8px !important;
-  cursor: pointer !important;
-  transition: background 0.14s !important;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  min-height: 0 !important;
-}}
-div[data-testid="stSidebar"] div[data-testid="stRadio"] label:hover {{
-  background: {_nav_hover} !important;
-}}
-/* Hide the actual radio circle */
-div[data-testid="stSidebar"] div[data-testid="stRadio"] label > div:first-child {{
-  display: none !important;
-}}
-/* The text container */
-div[data-testid="stSidebar"] div[data-testid="stRadio"] label > div:last-child {{
-  padding: 0 !important;
-  color: {_nav_txt} !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
-  line-height: 1.3 !important;
-}}
-div[data-testid="stSidebar"] div[data-testid="stRadio"] label:hover > div:last-child {{
-  color: {_nav_htxt} !important;
-}}
-/* Log out / theme toggle buttons only — keep minimal styling */
+/* Log out / theme toggle buttons */
 section[data-testid="stSidebar"] .stButton > button {{
   background: transparent !important;
   border: 1px solid {_bdr_c} !important;
@@ -570,8 +545,7 @@ section[data-testid="stSidebar"] .stButton > button:hover {{
 
 with st.sidebar:
     user  = st.session_state.get("current_user", "")
-    _ti   = "☀️" if _dark else "🌙"
-    _tl   = "Light mode" if _dark else "Dark mode"
+    _mode = st.session_state.get("theme_mode", "System")
 
     col_title, col_toggle = st.columns([5, 2])
     with col_title:
@@ -583,9 +557,22 @@ with st.sidebar:
             unsafe_allow_html=True
         )
     with col_toggle:
-        st.markdown("<div style='padding-top:6px;'></div>", unsafe_allow_html=True)
-        if st.button(_ti, key="theme_toggle", help=_tl):
-            st.session_state["dark_mode"] = not _dark
+        st.markdown("<div style='padding-top:4px;'></div>", unsafe_allow_html=True)
+        # Cycle through System → Light → Dark → System
+        _icons = {"System": "🖥️", "Light": "☀️", "Dark": "🌙"}
+        _next  = {"System": "Light", "Light": "Dark", "Dark": "System"}
+        _help  = {"System": "System theme (click for Light)", "Light": "Light mode (click for Dark)", "Dark": "Dark mode (click for System)"}
+        if st.button(_icons[_mode], key="theme_toggle", help=_help[_mode]):
+            st.session_state["theme_mode"] = _next[_mode]
+            # Update dark_mode based on new selection
+            new_mode = _next[_mode]
+            if new_mode == "Dark":
+                st.session_state["dark_mode"] = True
+            elif new_mode == "Light":
+                st.session_state["dark_mode"] = False
+            # System: detect via JS on next render (default to False)
+            else:
+                st.session_state["dark_mode"] = False
             st.rerun()
 
     if st.button("↩ Log Out", key="logout_sidebar", use_container_width=True):
@@ -595,22 +582,30 @@ with st.sidebar:
 
     st.markdown(f"<div style='margin:10px 0 4px 0;border-top:1px solid {_bdr_c};'></div>", unsafe_allow_html=True)
 
-    # Build radio options — each label is an HTML string with icon + name + subtitle
+    # ── Nav: each item is pure HTML for display, with a real st.button for clicks
+    # The button is rendered AFTER the HTML row and given negative top margin via CSS
+    # so it sits invisibly over the row. Only the HTML is visible.
     current_page = st.session_state["current_page"]
-    radio_options = []
-    section_inserts = {}  # idx -> section header to inject above
 
-    flat_idx = 0
-    for section_title, items in NAV_STRUCTURE:
-        section_inserts[flat_idx] = section_title
-        for key, icon, label, subtitle in items:
-            radio_options.append(f"{icon}  {label}")
-            flat_idx += 1
+    # Single CSS block for all invisible nav buttons
+    st.markdown(f"""
+<style>
+/* Make ALL nav_* buttons invisible but clickable */
+section[data-testid="stSidebar"] button[data-testid*="baseButton"][title] {{
+  position: relative !important;
+  margin-top: -48px !important;
+  height: 46px !important;
+  opacity: 0 !important;
+  cursor: pointer !important;
+  z-index: 99 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  width: 100% !important;
+}}
+</style>
+""", unsafe_allow_html=True)
 
-    # Inject section headers as markdown before each section's first radio item
-    # We render one radio per section to allow headers between groups
-    flat_idx = 0
-    chosen_key = None
     for section_title, items in NAV_STRUCTURE:
         st.markdown(
             f"<div style='font-size:9px;font-weight:700;letter-spacing:0.14em;"
@@ -621,11 +616,10 @@ with st.sidebar:
         for key, icon, label, subtitle in items:
             is_active = (current_page == key)
             if is_active:
-                # Active item: pure HTML pill (no widget)
                 st.markdown(f"""
 <div style="display:flex;align-items:center;gap:10px;
      background:{_active_g};border-radius:8px;
-     padding:8px 12px 8px 14px;margin:1px 4px;position:relative;">
+     padding:8px 12px 8px 14px;margin:2px 4px;position:relative;">
   <div style="position:absolute;left:0;top:6px;bottom:6px;width:3px;
        background:rgba(255,255,255,0.4);border-radius:0 3px 3px 0;"></div>
   <span style="font-size:14px;width:20px;text-align:center;flex-shrink:0;">{icon}</span>
@@ -637,34 +631,21 @@ with st.sidebar:
   </div>
 </div>""", unsafe_allow_html=True)
             else:
-                # Inactive: styled markdown row + invisible button for click
+                # 1) Display row (pure HTML, looks exactly how we want)
                 st.markdown(f"""
 <div style="display:flex;align-items:center;gap:10px;
-     padding:7px 10px 2px 12px;margin:0 4px;">
-  <span style="font-size:14px;width:20px;text-align:center;flex-shrink:0;pointer-events:none;">{icon}</span>
-  <div style="flex:1;min-width:0;pointer-events:none;">
+     padding:8px 12px 8px 14px;margin:2px 4px;border-radius:8px;">
+  <span style="font-size:14px;width:20px;text-align:center;flex-shrink:0;">{icon}</span>
+  <div style="flex:1;min-width:0;">
     <div style="font-size:13px;font-weight:500;color:{_nav_txt};line-height:1.3;
          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{label}</div>
-    <div style="font-size:10px;color:{_nav_sub};margin-bottom:2px;
+    <div style="font-size:10px;color:{_nav_sub};
          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{subtitle}</div>
   </div>
 </div>""", unsafe_allow_html=True)
-                # Transparent full-width button layered on top via negative margin
-                st.markdown(f"""<style>
-div[data-testid="stSidebar"] [data-testid="baseButton-secondary"][aria-label="{icon}  {label}"],
-div[data-testid="stSidebar"] button[title="{subtitle}"] {{
-  position: relative !important;
-  margin-top: -52px !important;
-  height: 44px !important;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  opacity: 0 !important;
-  cursor: pointer !important;
-  z-index: 10 !important;
-}}
-</style>""", unsafe_allow_html=True)
-                if st.button(f"{icon}  {label}", key=f"nav_{key}", use_container_width=True, help=subtitle):
+                # 2) Invisible button pulled up over the display row via CSS above
+                if st.button(f"{icon}  {label}", key=f"nav_{key}",
+                             use_container_width=True, help=subtitle):
                     st.session_state["current_page"] = key
                     st.rerun()
 
