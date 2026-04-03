@@ -841,20 +841,131 @@ Sex **modifies** the effect of aspirin. The overall (crude) RR would be somewher
 
     elif conf_section == "4️⃣ Interactive: Stratified Analysis":
         st.subheader("Interactive Stratified Analysis")
-        st.markdown("Explore how stratification by a third variable reveals confounding or effect modification.")
-        st.info("Enter 2×2 tables for each stratum. The app will calculate stratum-specific RRs, the Mantel-Haenszel pooled RR, and the crude (unstratified) RR.")
+        st.markdown("Explore how stratification by a third variable reveals confounding or effect modification. Each preset names the exposure, outcome, and stratifying variable so you can see exactly what the numbers represent.")
 
-        n_strata = st.radio("Number of strata:", [2, 3], horizontal=True)
+        STRAT_PRESETS = {
+            "None — I'll enter my own data": None,
+            "Coffee & MI, stratified by Smoking": {
+                "description": "**Scenario:** A cohort study finds coffee drinkers have higher rates of MI. Smoking is suspected as a confounder — it's associated with both coffee drinking and MI risk. We stratify by smoking status to see whether the coffee-MI association holds within each stratum.",
+                "exposure": "Coffee drinking", "outcome": "Myocardial infarction (MI)",
+                "stratifier": "Smoking status",
+                "exposed_label": "Coffee drinker", "unexposed_label": "Non-coffee drinker",
+                "outcome_label": "MI", "no_outcome_label": "No MI",
+                "strata": [
+                    {"name": "Smokers", "cells": (40, 160, 10, 190)},
+                    {"name": "Non-smokers", "cells": (30, 120, 20, 280)},
+                ],
+                "teaching_point": "If the stratum-specific RRs are both close to 1 but the crude RR is elevated, smoking is confounding the coffee-MI relationship — coffee drinkers happen to smoke more, and smoking causes MI."
+            },
+            "Aspirin & Bleeding, stratified by Sex": {
+                "description": "**Scenario:** A cohort study examines aspirin use and GI bleeding. We suspect the effect differs by sex — aspirin may be more harmful in women due to differences in gastric mucosa physiology.",
+                "exposure": "Daily aspirin use", "outcome": "GI bleeding",
+                "stratifier": "Sex",
+                "exposed_label": "Aspirin user", "unexposed_label": "Non-user",
+                "outcome_label": "GI bleed", "no_outcome_label": "No bleed",
+                "strata": [
+                    {"name": "Women", "cells": (45, 255, 12, 288)},
+                    {"name": "Men", "cells": (18, 282, 14, 286)},
+                ],
+                "teaching_point": "If the RR in women is substantially higher than in men, sex is an effect modifier — the harm from aspirin differs by sex. Report stratum-specific RRs rather than a pooled estimate."
+            },
+            "Physical Activity & T2D, stratified by BMI": {
+                "description": "**Scenario:** A prospective cohort examines whether physical activity protects against Type 2 Diabetes. BMI may confound this (active people tend to have lower BMI; BMI is a strong T2D predictor) — or BMI may modify the effect.",
+                "exposure": "High physical activity", "outcome": "Type 2 Diabetes (T2D)",
+                "stratifier": "BMI category",
+                "exposed_label": "Active", "unexposed_label": "Inactive",
+                "outcome_label": "T2D", "no_outcome_label": "No T2D",
+                "strata": [
+                    {"name": "Normal/Overweight BMI (<30)", "cells": (22, 278, 38, 262)},
+                    {"name": "Obese BMI (≥30)", "cells": (55, 245, 90, 210)},
+                ],
+                "teaching_point": "If stratum-specific RRs are similar to each other but both differ from the crude RR, BMI is confounding. If the RRs differ substantially across strata, BMI modifies the protective effect of activity."
+            },
+            "None — I'll enter my own data": None,
+        }
 
-        strata_data = []
-        for s in range(n_strata):
-            st.markdown(f"**Stratum {s+1}** (e.g., a specific level of the confounder)")
-            sc1, sc2, sc3, sc4 = st.columns(4)
-            a = sc1.number_input("a (Exp+, Out+)", min_value=0, value=[40,30][s] if s < 2 else 20, key=f"sa_{s}")
-            b = sc2.number_input("b (Exp+, Out−)", min_value=0, value=[160,120][s] if s < 2 else 80, key=f"sb_{s}")
-            c = sc3.number_input("c (Exp−, Out+)", min_value=0, value=[10,20][s] if s < 2 else 15, key=f"sc_{s}")
-            d = sc4.number_input("d (Exp−, Out−)", min_value=0, value=[190,280][s] if s < 2 else 185, key=f"sd_{s}")
-            strata_data.append((a,b,c,d))
+        if "strat_preset_choice" not in st.session_state:
+            st.session_state["strat_preset_choice"] = "Coffee & MI, stratified by Smoking"
+
+        preset_choice = st.selectbox(
+            "Select a scenario:",
+            [k for k in STRAT_PRESETS.keys() if k != "None — I'll enter my own data"] + ["None — I'll enter my own data"],
+            key="strat_preset_choice"
+        )
+        preset = STRAT_PRESETS.get(preset_choice)
+
+        if preset:
+            st.info(preset["description"])
+            st.divider()
+            n_strata = len(preset["strata"])
+            exposure = preset["exposure"]
+            outcome = preset["outcome"]
+            stratifier = preset["stratifier"]
+            exp_lbl = preset["exposed_label"]
+            unexp_lbl = preset["unexposed_label"]
+            out_lbl = preset["outcome_label"]
+            no_out_lbl = preset["no_outcome_label"]
+
+            st.markdown(f"**Exposure:** {exposure} &nbsp;|&nbsp; **Outcome:** {outcome} &nbsp;|&nbsp; **Stratifying variable:** {stratifier}")
+            st.divider()
+
+            strata_data = []
+            for s, stratum in enumerate(preset["strata"]):
+                st.markdown(f"**Stratum {s+1}: {stratum['name']}**")
+                default_a, default_b, default_c, default_d = stratum["cells"]
+
+                # Show a labelled 2x2 with number inputs
+                header_cols = st.columns([2, 3, 3])
+                header_cols[1].markdown(f"<div style='text-align:center;font-size:12px;color:#c62828;font-weight:bold;'>✚ {out_lbl}</div>", unsafe_allow_html=True)
+                header_cols[2].markdown(f"<div style='text-align:center;font-size:12px;color:#555;font-weight:bold;'>✕ {no_out_lbl}</div>", unsafe_allow_html=True)
+
+                row1 = st.columns([2, 3, 3])
+                row1[0].markdown(f"<div style='padding-top:8px;font-size:13px;font-weight:bold;color:#1565c0;'>{exp_lbl}</div>", unsafe_allow_html=True)
+                a = row1[1].number_input(f"{exp_lbl} / {out_lbl}", min_value=0, value=default_a, key=f"sa_{s}_{preset_choice}", label_visibility="collapsed")
+                b = row1[2].number_input(f"{exp_lbl} / {no_out_lbl}", min_value=0, value=default_b, key=f"sb_{s}_{preset_choice}", label_visibility="collapsed")
+
+                row2 = st.columns([2, 3, 3])
+                row2[0].markdown(f"<div style='padding-top:8px;font-size:13px;font-weight:bold;color:#555;'>{unexp_lbl}</div>", unsafe_allow_html=True)
+                c = row2[1].number_input(f"{unexp_lbl} / {out_lbl}", min_value=0, value=default_c, key=f"sc_{s}_{preset_choice}", label_visibility="collapsed")
+                d = row2[2].number_input(f"{unexp_lbl} / {no_out_lbl}", min_value=0, value=default_d, key=f"sd_{s}_{preset_choice}", label_visibility="collapsed")
+
+                strata_data.append((a, b, c, d))
+                st.markdown("")
+
+        else:
+            # Custom data entry
+            st.divider()
+            col1, col2 = st.columns(2)
+            exposure   = col1.text_input("Exposure name", "Exposure", key="strat_exp")
+            outcome    = col2.text_input("Outcome name", "Outcome", key="strat_out")
+            exp_lbl    = col1.text_input("Exposed group label", "Exposed", key="strat_explbl")
+            unexp_lbl  = col2.text_input("Unexposed group label", "Unexposed", key="strat_unexplbl")
+            out_lbl    = col1.text_input("Outcome positive label", "Disease", key="strat_outlbl")
+            no_out_lbl = col2.text_input("Outcome negative label", "No Disease", key="strat_nooutlbl")
+            stratifier = col1.text_input("Stratifying variable", "Stratifier", key="strat_stratvar")
+            n_strata   = st.radio("Number of strata:", [2, 3], horizontal=True, key="strat_n")
+
+            strata_data = []
+            for s in range(n_strata):
+                strat_name = st.text_input(f"Stratum {s+1} name", f"Stratum {s+1}", key=f"strat_name_{s}")
+                st.markdown(f"**{strat_name}**")
+
+                header_cols = st.columns([2, 3, 3])
+                header_cols[1].markdown(f"<div style='text-align:center;font-size:12px;color:#c62828;font-weight:bold;'>✚ {out_lbl}</div>", unsafe_allow_html=True)
+                header_cols[2].markdown(f"<div style='text-align:center;font-size:12px;color:#555;font-weight:bold;'>✕ {no_out_lbl}</div>", unsafe_allow_html=True)
+
+                row1 = st.columns([2, 3, 3])
+                row1[0].markdown(f"<div style='padding-top:8px;font-size:13px;font-weight:bold;color:#1565c0;'>{exp_lbl}</div>", unsafe_allow_html=True)
+                a = row1[1].number_input("a", min_value=0, value=40, key=f"sa_{s}_custom", label_visibility="collapsed")
+                b = row1[2].number_input("b", min_value=0, value=160, key=f"sb_{s}_custom", label_visibility="collapsed")
+
+                row2 = st.columns([2, 3, 3])
+                row2[0].markdown(f"<div style='padding-top:8px;font-size:13px;font-weight:bold;color:#555;'>{unexp_lbl}</div>", unsafe_allow_html=True)
+                c = row2[1].number_input("c", min_value=0, value=10, key=f"sc_{s}_custom", label_visibility="collapsed")
+                d = row2[2].number_input("d", min_value=0, value=190, key=f"sd_{s}_custom", label_visibility="collapsed")
+
+                strata_data.append((a, b, c, d))
+                st.markdown("")
 
         if st.button("Run Stratified Analysis"):
             crude_a = sum(x[0] for x in strata_data)
@@ -864,16 +975,20 @@ Sex **modifies** the effect of aspirin. The overall (crude) RR would be somewher
             crude_rr = (crude_a/(crude_a+crude_b)) / (crude_c/(crude_c+crude_d)) if (crude_c+crude_d) > 0 and crude_c > 0 else None
 
             st.subheader("Results")
-            # Stratum-specific
+
+            # Stratum-specific RRs as named metrics
             results = []
-            for s, (a,b,c,d) in enumerate(strata_data):
+            strata_names = [p["name"] for p in preset["strata"]] if preset else [f"Stratum {s+1}" for s in range(n_strata)]
+            metric_cols = st.columns(n_strata)
+            for s, (a, b, c, d) in enumerate(strata_data):
                 if (a+b) > 0 and (c+d) > 0 and c > 0:
                     rr_s = (a/(a+b)) / (c/(c+d))
                     results.append(round(rr_s, 2))
-                    st.metric(f"Stratum {s+1} RR", round(rr_s,2))
+                    metric_cols[s].metric(f"RR — {strata_names[s]}", round(rr_s, 2),
+                        help=f"{exp_lbl} risk: {round(a/(a+b)*100,1)}% | {unexp_lbl} risk: {round(c/(c+d)*100,1)}%")
                 else:
                     results.append(None)
-                    st.metric(f"Stratum {s+1} RR", "N/A")
+                    metric_cols[s].metric(f"RR — {strata_names[s]}", "N/A")
 
             # Mantel-Haenszel pooled RR
             n_list = [(a+b+c+d) for a,b,c,d in strata_data]
@@ -881,20 +996,63 @@ Sex **modifies** the effect of aspirin. The overall (crude) RR would be somewher
             mh_den = sum(strata_data[s][2] * (strata_data[s][0]+strata_data[s][1]) / n_list[s] for s in range(n_strata))
             mh_rr = round(mh_num/mh_den, 2) if mh_den > 0 else None
 
+            st.divider()
             col1, col2 = st.columns(2)
-            col1.metric("Crude (Unstratified) RR", round(crude_rr,2) if crude_rr else "N/A")
-            col2.metric("Mantel-Haenszel Adjusted RR", mh_rr if mh_rr else "N/A")
+            col1.metric(f"Crude (Unstratified) RR", round(crude_rr,2) if crude_rr else "N/A",
+                help=f"Combines all strata — ignores {stratifier}")
+            col2.metric("Mantel-Haenszel Adjusted RR", mh_rr if mh_rr else "N/A",
+                help=f"Pooled RR after adjusting for {stratifier}")
 
+            # Interpretation
             if crude_rr and mh_rr:
                 pct_change = abs(crude_rr - mh_rr) / mh_rr * 100
                 st.divider()
-                if pct_change > 10:
-                    if results and all(r is not None for r in results) and max(results)/min(results) < 1.5:
-                        st.error(f"⚠️ **Confounding detected.** Crude RR ({round(crude_rr,2)}) differs from adjusted RR ({mh_rr}) by {round(pct_change,1)}%, but stratum-specific RRs are similar ({results}). The crude estimate is misleading — use the Mantel-Haenszel adjusted RR.")
-                    else:
-                        st.warning(f"⚠️ **Possible effect modification.** Crude RR ({round(crude_rr,2)}) vs. adjusted ({mh_rr}), and stratum-specific RRs differ ({results}). Consider reporting stratum-specific estimates rather than a pooled adjusted RR.")
+                valid_results = [r for r in results if r is not None]
+                em_ratio = max(valid_results)/min(valid_results) if len(valid_results) >= 2 and min(valid_results) > 0 else 1
+
+                if pct_change > 10 and em_ratio < 1.5:
+                    st.error(f"""
+⚠️ **Confounding by {stratifier} detected.**
+
+The crude RR ({round(crude_rr,2)}) differs from the adjusted RR ({mh_rr}) by {round(pct_change,1)}%, but the stratum-specific RRs ({', '.join(str(r) for r in results)}) are similar to each other — meaning the true {exposure}–{outcome} association is consistent across strata of {stratifier}.
+
+The crude estimate was misleading because {stratifier} was distributed differently across {exp_lbl} and {unexp_lbl} groups. **Use the Mantel-Haenszel adjusted RR ({mh_rr}).**
+                    """)
+                elif em_ratio >= 1.5:
+                    st.warning(f"""
+⚠️ **Effect modification by {stratifier}.**
+
+The stratum-specific RRs differ substantially ({', '.join(str(r) for r in results)}), suggesting the association between {exposure} and {outcome} is not the same across levels of {stratifier}. A single pooled RR would obscure this difference.
+
+**Report stratum-specific RRs separately** rather than a single adjusted estimate.
+                    """)
                 else:
-                    st.success(f"✅ Crude and adjusted RRs are similar ({round(pct_change,1)}% change). The stratification variable does not appear to be a meaningful confounder or effect modifier here.")
+                    st.success(f"""
+✅ **No meaningful confounding or effect modification by {stratifier}.**
+
+Crude RR ({round(crude_rr,2)}) and adjusted RR ({mh_rr}) differ by only {round(pct_change,1)}%, and stratum-specific RRs ({', '.join(str(r) for r in results)}) are consistent. {stratifier} does not appear to distort or modify the {exposure}–{outcome} association.
+                    """)
+
+            # Teaching point if preset
+            if preset and "teaching_point" in preset:
+                with st.expander("💡 What to look for in this scenario"):
+                    st.markdown(preset["teaching_point"])
+
+            # Show me the math
+            with st.expander("🔢 Show me the math — Mantel-Haenszel RR"):
+                st.markdown(f"""
+The **Mantel-Haenszel method** pools stratum-specific RRs into a single adjusted estimate by weighting each stratum by its contribution.
+
+**Formula:** RR_MH = Σ[a_s × (c_s + d_s) / n_s] ÷ Σ[c_s × (a_s + b_s) / n_s]
+
+Where for each stratum s: a = {exp_lbl} with {out_lbl}, b = {exp_lbl} without, c = {unexp_lbl} with {out_lbl}, d = {unexp_lbl} without, n = total in stratum.
+                """)
+                for s, (a, b, c, d) in enumerate(strata_data):
+                    n = a+b+c+d
+                    num_s = a*(c+d)/n
+                    den_s = c*(a+b)/n
+                    st.markdown(f"**{strata_names[s]}:** numerator contribution = {a}×{c+d}/{n} = {round(num_s,3)} | denominator contribution = {c}×{a+b}/{n} = {round(den_s,3)}")
+                st.markdown(f"**RR_MH = {round(mh_num,3)} ÷ {round(mh_den,3)} = {mh_rr}**")
 
     st.markdown("---")
     st.markdown("*Strong epidemiologists think structurally before computing.*")
