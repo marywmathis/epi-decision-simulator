@@ -301,9 +301,6 @@ with st.sidebar:
                     f"padding:7px 12px;font-size:13px;font-weight:600;margin:1px 0;'>{label}</div>",
                     unsafe_allow_html=True
                 )
-                # invisible button to keep clickability
-                if st.button(label, key=f"nav_{key}", use_container_width=True, label_visibility="collapsed"):
-                    pass
             else:
                 if st.button(label, key=f"nav_{key}", use_container_width=True):
                     nav_to(key); st.rerun()
