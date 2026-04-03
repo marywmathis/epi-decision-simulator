@@ -1248,7 +1248,7 @@ elif current_page == "disease_frequency":
     st.title("📊 Disease Frequency")
     st.markdown("Before comparing rates across groups, you need to be able to measure disease frequency accurately in a single population.")
 
-    df_section = st.radio("Section:", ["1️⃣ Core Measures", "2️⃣ Interactive Calculator", "3️⃣ Prevalence-Incidence Relationship"], horizontal=True)
+    df_section = st.radio("Section:", ["1️⃣ Core Measures", "2️⃣ Interactive Calculator", "3️⃣ Prevalence-Incidence Relationship", "4️⃣ Epidemic Curves"], horizontal=True)
     st.divider()
 
     if df_section == "1️⃣ Core Measures":
@@ -1637,6 +1637,250 @@ Prevalence can be low even for serious diseases if they are rapidly fatal (short
 | Ebola (outbreak) | High during outbreak | Short (fatal quickly) | Low |
 
 **Treatment and prevalence:** Effective treatment that extends life (but doesn't cure) **increases prevalence** — more people live longer with the disease. This is why diabetes and HIV prevalence have risen even as incidence has stabilized or fallen.
+            """)
+
+    elif df_section == "4️⃣ Epidemic Curves":
+        st.subheader("Epidemic Curves")
+        st.markdown("""
+An **epidemic curve (epi curve)** is a histogram of case counts by time of symptom onset. Its shape is one of the most powerful tools in outbreak investigation — it can tell you the likely transmission pattern, the probable incubation period, and whether an outbreak is still ongoing before any lab results come back.
+        """)
+
+        st.divider()
+
+        # ---- Pattern selector ----
+        curve_type = st.radio(
+            "Select a transmission pattern to explore:",
+            ["☢️ Point Source", "🔗 Propagated (Person-to-Person)", "🔀 Mixed (Point Source + Propagated)", "📊 Endemic (Background Level)"],
+            horizontal=True, key="epi_curve_type"
+        )
+        st.divider()
+
+        # ---- Adjustable parameters per type ----
+        import math as _math
+
+        if curve_type == "☢️ Point Source":
+            st.markdown("**Point source:** All cases were exposed to the same source at approximately the same time — a single event (a meal, a water supply contamination, a lab accident). The curve rises and falls within roughly one incubation period.")
+            col1, col2, col3 = st.columns(3)
+            peak_hour   = col1.slider("Peak onset (hours after exposure)", 2, 72, 12, 1, key="ps_peak")
+            spread      = col2.slider("Spread of incubation period (hours)", 1, 24, 4, 1, key="ps_spread")
+            total_cases = col3.slider("Total cases", 10, 200, 60, 5, key="ps_cases")
+            hours = list(range(0, peak_hour * 3 + 1))
+            raw   = [_math.exp(-0.5 * ((h - peak_hour) / spread) ** 2) for h in hours]
+            scale = total_cases / max(sum(raw), 0.001)
+            counts = [max(0, round(r * scale)) for r in raw]
+            x_label = "Hours after exposure"
+            annotation = f"⬆ Peak at hour {peak_hour} — width ≈ {spread*2}h (one incubation period range)"
+            color = "#e53935"
+            interpretation = f"""
+**What you're seeing:**
+- Single sharp peak — nearly all cases cluster within a narrow window around hour {peak_hour}
+- The width of the curve approximates the **incubation period range** for this pathogen ({peak_hour - spread}–{peak_hour + spread} hours)
+- No secondary wave — the outbreak ends when the common source is removed
+- Incubation period of {peak_hour}h with short spread suggests a **preformed toxin** (e.g., *Staph aureus*, *B. cereus*) rather than live infection
+
+**Next investigative step:** Identify the vehicle by calculating **food-specific attack rates** for each item served and computing RRs.
+            """
+
+        elif curve_type == "🔗 Propagated (Person-to-Person)":
+            st.markdown("**Propagated:** Cases spread from person to person. Each infected person generates new cases, producing successive waves in the curve — each wave approximately one incubation period after the last.")
+            col1, col2, col3 = st.columns(3)
+            incubation = col1.slider("Incubation period (days)", 1, 21, 5, 1, key="prop_incub")
+            n_waves    = col2.slider("Number of transmission generations", 2, 5, 3, 1, key="prop_waves")
+            index_size = col3.slider("Index case(s) — first generation", 1, 10, 2, 1, key="prop_index")
+            r0_approx  = st.slider("Approximate R₀ (avg. secondary cases per case)", 1.0, 4.0, 2.0, 0.5, key="prop_r0")
+
+            days = list(range(0, incubation * (n_waves + 1) + incubation))
+            counts = [0] * len(days)
+            wave_sizes = [index_size]
+            for w in range(1, n_waves):
+                wave_sizes.append(round(wave_sizes[-1] * r0_approx))
+            for w, size in enumerate(wave_sizes):
+                peak_day = w * incubation + incubation // 2
+                wave_spread = max(1, incubation // 3)
+                for d in range(len(days)):
+                    contribution = size * _math.exp(-0.5 * ((d - peak_day) / wave_spread) ** 2)
+                    counts[d] += contribution
+            counts = [max(0, round(c)) for c in counts]
+            x_label = "Days from first case"
+            annotation = f"Each wave ≈ {incubation} days apart (one incubation period)"
+            color = "#1e88e5"
+            interpretation = f"""
+**What you're seeing:**
+- Multiple waves, each separated by approximately **{incubation} days** (the incubation period)
+- Wave sizes grow if R₀ > 1 ({r0_approx}) — each case generates more than one new case on average
+- The curve continues as long as susceptible individuals remain and transmission is not interrupted
+- Total cases across {n_waves} generations: ~{sum(counts)}
+
+**Key numbers:**
+- **R₀ = {r0_approx}** — each case infects ~{r0_approx} others on average
+- **Herd immunity threshold ≈ {round((1 - 1/r0_approx)*100,0):.0f}%** of population must be immune to stop spread (1 − 1/R₀)
+- Incubation period of {incubation} days — gap between wave peaks confirms this
+
+**Intervention:** Interrupting transmission (isolation, vaccination, contact tracing) reduces R₀ below 1, causing the curve to decline.
+            """
+            x_label = f"Days from first case (incubation = {incubation}d)"
+
+        elif curve_type == "🔀 Mixed (Point Source + Propagated)":
+            st.markdown("**Mixed:** An initial point-source exposure triggers secondary person-to-person transmission. The first wave is sharp (point source); subsequent waves are broader (propagated spread among contacts).")
+            col1, col2 = st.columns(2)
+            incubation   = col1.slider("Incubation period (days)", 1, 14, 4, 1, key="mix_incub")
+            ps_cases     = col2.slider("Primary (point-source) cases", 5, 80, 25, 5, key="mix_ps")
+            secondary_r0 = col1.slider("R₀ for secondary spread", 0.5, 3.0, 1.5, 0.25, key="mix_r0")
+            n_sec_waves  = col2.slider("Secondary transmission generations", 1, 3, 2, 1, key="mix_waves")
+
+            days = list(range(0, incubation * (n_sec_waves + 2) + incubation + 2))
+            counts = [0] * len(days)
+            # Point source wave
+            ps_peak = incubation // 2 + 1
+            ps_spread = max(1, incubation // 4)
+            for d in range(len(days)):
+                counts[d] += ps_cases * _math.exp(-0.5 * ((d - ps_peak) / ps_spread) ** 2)
+            # Secondary waves
+            wave_sizes = [round(ps_cases * secondary_r0 * 0.3)]
+            for w in range(1, n_sec_waves):
+                wave_sizes.append(round(wave_sizes[-1] * secondary_r0))
+            for w, size in enumerate(wave_sizes):
+                peak_day = (w + 1) * incubation + incubation // 2
+                wave_spread = max(2, incubation // 2)
+                for d in range(len(days)):
+                    counts[d] += size * _math.exp(-0.5 * ((d - peak_day) / wave_spread) ** 2)
+            counts = [max(0, round(c)) for c in counts]
+            x_label = f"Days from exposure event (incubation = {incubation}d)"
+            color = "#7b1fa2"
+            annotation = f"Wave 1: point source | Waves 2+: person-to-person (R₀ ≈ {secondary_r0})"
+            interpretation = f"""
+**What you're seeing:**
+- **First wave** (days {ps_peak - ps_spread}–{ps_peak + ps_spread}): sharp, narrow — the original point-source exposure. ~{ps_cases} primary cases.
+- **Subsequent waves**: broader, person-to-person spread among contacts of primary cases. R₀ = {secondary_r0} means each primary case generated ~{secondary_r0} secondary cases.
+- The transition from sharp to broad wave shape is the **signature of mixed transmission**
+
+**Classic example:** A SARS superspreader event in a hospital — initial cluster from a single patient (point source), followed by healthcare worker-to-patient transmission (propagated).
+
+**Investigative implication:** You need to address both the initial source AND interrupt ongoing transmission — removing the source alone won't end the outbreak if propagated spread is already underway.
+            """
+
+        else:  # Endemic
+            st.markdown("**Endemic:** Disease circulates at a relatively stable background level in a population. The epi curve is flat rather than peaked — no explosive rise, just sustained ongoing transmission or consistent exposure.")
+            col1, col2, col3 = st.columns(3)
+            baseline   = col1.slider("Baseline weekly cases", 2, 30, 8, 1, key="end_base")
+            noise      = col2.slider("Week-to-week variability", 0, 8, 3, 1, key="end_noise")
+            n_weeks    = col3.slider("Weeks of observation", 8, 52, 26, 2, key="end_weeks")
+
+            import random as _random
+            _random.seed(42)
+            weeks  = list(range(1, n_weeks + 1))
+            counts = [max(0, baseline + _random.randint(-noise, noise)) for _ in weeks]
+            x_label = "Week"
+            color = "#43a047"
+            annotation = f"Stable baseline ~{baseline} cases/week — no explosive peak"
+            interpretation = f"""
+**What you're seeing:**
+- Cases fluctuate around a **stable mean of ~{baseline}/week** — no dramatic rise or fall
+- This pattern is typical of diseases with **ongoing, consistent exposure** (e.g., endemic foodborne illness from a contaminated water supply, or a zoonosis with regular animal-to-human spillover)
+- Week-to-week variation ({noise} cases) reflects random variation, not new transmission events
+
+**Distinguishing endemic from the early phase of an outbreak:**
+- An outbreak would show a **rising trend** breaking above the baseline
+- Endemic surveillance uses **epidemic thresholds** (typically mean ± 2 SD of historical counts) to detect when a signal exceeds background noise
+- The flat curve here is *not* "nothing happening" — it represents ongoing disease burden requiring sustained control measures
+
+**Examples:** Tuberculosis in high-burden countries, malaria in endemic regions, Salmonella at background levels in the US.
+            """
+            days = weeks  # reuse variable name for rendering
+
+        # ---- SVG bar chart ----
+        chart_w   = 680
+        chart_h   = 220
+        pad_left  = 48
+        pad_bot   = 44
+        pad_top   = 28
+        pad_right = 16
+        plot_w    = chart_w - pad_left - pad_right
+        plot_h    = chart_h - pad_bot - pad_top
+
+        n_bars    = len(counts)
+        bar_gap   = 1 if n_bars > 40 else 2
+        bar_w     = max(2, (plot_w - bar_gap * (n_bars - 1)) / n_bars)
+        max_count = max(counts) if counts else 1
+
+        bars_svg = ""
+        for i, cnt in enumerate(counts):
+            bx = pad_left + i * (bar_w + bar_gap)
+            bh = (cnt / max_count) * plot_h if max_count > 0 else 0
+            by = pad_top + plot_h - bh
+            bars_svg += f'<rect x="{round(bx,1)}" y="{round(by,1)}" width="{round(bar_w,1)}" height="{round(bh,1)}" fill="{color}" rx="1" opacity="0.85"/>'
+
+        # y-axis ticks
+        y_ticks = ""
+        for tick in [0, round(max_count * 0.25), round(max_count * 0.5), round(max_count * 0.75), max_count]:
+            ty = pad_top + plot_h - (tick / max_count) * plot_h if max_count > 0 else pad_top + plot_h
+            y_ticks += f'<line x1="{pad_left - 4}" y1="{round(ty,1)}" x2="{pad_left + plot_w}" y2="{round(ty,1)}" stroke="#eee" stroke-width="1"/>'
+            y_ticks += f'<text x="{pad_left - 6}" y="{round(ty + 4,1)}" text-anchor="end" font-size="10" fill="#888">{tick}</text>'
+
+        # x-axis labels (sample every nth)
+        x_labels = ""
+        step = max(1, n_bars // 10)
+        for i in range(0, n_bars, step):
+            lx = pad_left + i * (bar_w + bar_gap) + bar_w / 2
+            x_labels += f'<text x="{round(lx,1)}" y="{chart_h - 6}" text-anchor="middle" font-size="10" fill="#888">{days[i] if curve_type != "☢️ Point Source" else i}</text>'
+
+        # axes
+        axes_svg = f'''
+<line x1="{pad_left}" y1="{pad_top}" x2="{pad_left}" y2="{pad_top + plot_h}" stroke="#aaa" stroke-width="1.5"/>
+<line x1="{pad_left}" y1="{pad_top + plot_h}" x2="{pad_left + plot_w}" y2="{pad_top + plot_h}" stroke="#aaa" stroke-width="1.5"/>
+<text x="{pad_left - 32}" y="{pad_top + plot_h//2}" text-anchor="middle" font-size="11" fill="#666" transform="rotate(-90,{pad_left-32},{pad_top + plot_h//2})">Cases</text>
+<text x="{pad_left + plot_w//2}" y="{chart_h + 8}" text-anchor="middle" font-size="11" fill="#666">{x_label}</text>'''
+
+        # annotation line at peak (point source only)
+        annot_svg = f'<text x="{pad_left + plot_w//2}" y="{pad_top - 10}" text-anchor="middle" font-size="11" fill="{color}" font-style="italic">{annotation}</text>'
+
+        full_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{chart_w}" height="{chart_h + 20}" style="font-family:sans-serif; display:block; max-width:100%;">
+  <rect width="{chart_w}" height="{chart_h + 20}" fill="#fafafa" rx="8"/>
+  {y_ticks}
+  {bars_svg}
+  {axes_svg}
+  {x_labels}
+  {annot_svg}
+</svg>"""
+
+        st.markdown(full_svg, unsafe_allow_html=True)
+
+        # ---- Interpretation box ----
+        st.info(interpretation)
+
+        # ---- Side-by-side comparison reference ----
+        with st.expander("📊 Compare All Four Patterns"):
+            st.markdown("""
+| Feature | Point Source | Propagated | Mixed | Endemic |
+|---|---|---|---|---|
+| **Shape** | Single sharp peak | Multiple waves | Sharp peak + broader waves | Flat, stable |
+| **Time span** | One incubation period | Multiple incubation periods | Both | Ongoing |
+| **Secondary cases?** | No | Yes | Yes (after initial) | Sustained background |
+| **Source** | Single common exposure | Person-to-person | Both | Constant reservoir |
+| **R₀ relevant?** | No | Yes (>1 sustains) | Yes (secondary waves) | ~1 (stable) |
+| **Intervention** | Remove source | Interrupt transmission | Both | Long-term control |
+| **Classic example** | Food poisoning at event | Measles, COVID spread | SARS superspreader | Endemic TB, malaria |
+
+**Reading a real epi curve:**
+1. How many peaks? → one (point/endemic) vs. multiple (propagated/mixed)
+2. How wide is each peak? → width ≈ incubation period range
+3. Are cases still rising? → ongoing transmission vs. waning
+4. Gap between peaks? → estimated incubation period
+            """)
+
+        with st.expander("🔢 Incubation Period — Reading it from the Curve"):
+            st.markdown("""
+**For a point-source outbreak:**
+- The *range* of onset times = the plausible incubation period for that pathogen
+- If exposure was at noon and cases begin 2–6 hours later → incubation = 2–6 hours → preformed toxin (e.g., *Staph aureus*)
+- If cases begin 18–36 hours later → incubation = 18–36 hours → live infection (e.g., *Salmonella*)
+
+**For a propagated outbreak:**
+- The gap between successive wave peaks = one incubation period
+- If waves are ~5 days apart → incubation ≈ 5 days (consistent with norovirus, influenza)
+- If waves are ~14 days apart → incubation ≈ 14 days (consistent with COVID-19 early estimates)
+
+**Why this matters:** Knowing the incubation period narrows the list of causative agents and helps identify the exposure window — what did cases eat/do/contact in the period before symptom onset?
             """)
 
     st.markdown("---")
