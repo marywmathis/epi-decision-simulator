@@ -241,69 +241,143 @@ def rr_or_explanation_expander(a, b, c, d, row_names, col_names, rr, or_val,
 # ==================================================
 
 NAV_STRUCTURE = [
-    ("MODULE 1 — STUDY DESIGN & CAUSATION", [
-        ("📐 Study Designs",                  "study_designs"),
-        ("⚠️ Bias",                            "bias"),
-        ("🔀 Confounding & Effect Mod.",       "confounding"),
-        ("🔗 Causal Inference",                "causal_inference"),
+    ("MODULE 1 — Study Design & Causation", [
+        ("study_designs",       "🔬", "Study Designs",             "Cohort, case-control, RCT, crossover"),
+        ("bias",                "⚠️", "Bias",                       "Selection, recall, misclassification"),
+        ("confounding",         "🔀", "Confounding & Effect Mod.",  "Control methods, stratification, DAGs"),
+        ("causal_inference",    "🔗", "Causal Inference",           "Bradford Hill criteria"),
     ]),
-    ("MODULE 2 — FOUNDATIONS", [
-        ("📊 Disease Frequency",               "disease_frequency"),
-        ("🔬 Screening & Diagnostic Tests",    "screening"),
+    ("MODULE 2 — Foundations", [
+        ("disease_frequency",   "📊", "Disease Frequency",          "Incidence, prevalence, epidemic curves"),
+        ("screening",           "🩺", "Screening & Diagnostics",    "Sensitivity, specificity, PPV, NPV"),
     ]),
-    ("MODULE 3 — MEASURES & ANALYSIS", [
-        ("📈 Measures of Association",         "measures_association"),
-        ("📉 Advanced Epi Measures",           "advanced_measures"),
-        ("📏 Standardization",                 "standardization"),
-        ("🧪 Hypothesis Testing & Power",      "hypothesis_testing"),
+    ("MODULE 3 — Measures & Analysis", [
+        ("measures_association","📈", "Measures of Association",    "RR, OR, PR, IRR, chi-square"),
+        ("advanced_measures",   "📉", "Advanced Epi Measures",      "PAR, SMR, AR%, NNT, HR"),
+        ("standardization",     "📏", "Standardization",            "Direct, indirect, SMR, age-adjustment"),
+        ("hypothesis_testing",  "🧪", "Hypothesis Testing & Power", "p-values, CI, Type I/II, sample size"),
     ]),
-    ("MODULE 4 — PRACTICE", [
-        ("🎯 Study Design",                    "practice_design"),
-        ("🎯 Advanced Measures",               "practice_advanced"),
-        ("🎯 Confounding & Bias",              "practice_confounding"),
-        ("🎯 Screening & Frequency",           "practice_screening"),
+    ("MODULE 4 — Practice", [
+        ("practice_design",     "🎯", "Study Design",               "Classify design, outcome, exposure"),
+        ("practice_advanced",   "🎯", "Advanced Measures",          "Select the right measure"),
+        ("practice_confounding","🎯", "Confounding & Bias",         "Identify and reason through bias"),
+        ("practice_screening",  "🎯", "Screening & Frequency",      "PPV, attack rates, epi curves"),
     ]),
-    ("REFERENCE", [
-        ("📖 Glossary",                        "glossary"),
+    ("Reference", [
+        ("glossary",            "📖", "Glossary",                   "All key terms and formulas"),
     ]),
 ]
 
+# Flat list for the radio widget
+_all_keys   = [item[0] for section in NAV_STRUCTURE for item in section[1]]
+_all_labels = [item[2] for section in NAV_STRUCTURE for item in section[1]]
+
 if "current_page" not in st.session_state:
-    st.session_state["current_page"] = "home"
+    st.session_state["current_page"] = "study_designs"
 
 def nav_to(page_key):
     st.session_state["current_page"] = page_key
 
+# Inject CSS that hides the default radio widget entirely,
+# then we render our own styled HTML nav that wraps invisible radio labels
 with st.sidebar:
-    # Header
-    st.markdown(
-        "<div style='font-size:18px;font-weight:700;letter-spacing:0.02em;padding:4px 0 2px 0;'>🧭 EpiLab</div>"
-        f"<div style='font-size:12px;color:#888;padding-bottom:8px;'>Logged in as <b>{st.session_state.get('current_user','')}</b></div>",
-        unsafe_allow_html=True
-    )
-    if st.button("Log Out", key="logout_sidebar", use_container_width=True):
+    # ── Header ──────────────────────────────────────────────
+    st.markdown("""
+<style>
+/* Hide the actual radio circles and their container */
+div[data-testid="stRadio"] > label { display: none !important; }
+div[data-testid="stRadio"] > div   { gap: 0 !important; }
+div[data-testid="stRadio"] > div > label {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    cursor: pointer;
+}
+/* Remove the radio dot */
+div[data-testid="stRadio"] > div > label > div:first-child { display: none !important; }
+/* Remove default padding on the text span */
+div[data-testid="stRadio"] > div > label > div:last-child {
+    padding: 0 !important;
+    width: 100%;
+}
+/* Hide the stRadio border/background */
+div[data-testid="stRadio"] { background: none !important; border: none !important; padding: 0 !important; }
+/* Remove sidebar top padding */
+section[data-testid="stSidebar"] > div { padding-top: 1rem !important; }
+</style>
+""", unsafe_allow_html=True)
+
+    # App title + user
+    user = st.session_state.get("current_user", "")
+    st.markdown(f"""
+<div style="padding:0 4px 12px 4px;">
+  <div style="font-size:19px;font-weight:800;letter-spacing:-0.01em;color:#1a1a2e;">🧭 EpiLab</div>
+  <div style="font-size:11px;color:#999;margin-top:2px;">Logged in as <b>{user}</b></div>
+</div>""", unsafe_allow_html=True)
+
+    if st.button("↩ Log Out", key="logout_sidebar", use_container_width=True):
         st.session_state["authenticated"] = False
         st.session_state["current_user"] = ""
         st.rerun()
-    st.divider()
 
-    for section_title, pages in NAV_STRUCTURE:
+    st.markdown("<div style='margin:10px 0 4px 0;border-top:1px solid #e8e8e8;'></div>", unsafe_allow_html=True)
+
+    # ── Nav sections ────────────────────────────────────────
+    current_page = st.session_state["current_page"]
+
+    for section_title, items in NAV_STRUCTURE:
+        # Section header
         st.markdown(
-            f"<div style='font-size:10px;color:#aaa;font-weight:700;letter-spacing:0.10em;"
-            f"text-transform:uppercase;padding:10px 0 4px 0;'>{section_title}</div>",
+            f"<div style='font-size:9.5px;font-weight:700;letter-spacing:0.12em;"
+            f"text-transform:uppercase;color:#b0b0b0;padding:14px 6px 5px 6px;'>"
+            f"{section_title}</div>",
             unsafe_allow_html=True
         )
-        for label, key in pages:
-            is_active = st.session_state["current_page"] == key
+        for key, icon, label, subtitle in items:
+            is_active = (current_page == key)
             if is_active:
-                st.markdown(
-                    f"<div style='background:#1f77b4;color:white;border-radius:6px;"
-                    f"padding:7px 12px;font-size:13px;font-weight:600;margin:1px 0;'>{label}</div>",
-                    unsafe_allow_html=True
-                )
+                st.markdown(f"""
+<div style="display:flex;align-items:center;gap:10px;
+     background:linear-gradient(90deg,#1a56db 0%,#2563eb 100%);
+     border-radius:8px;padding:9px 12px;margin:2px 0;cursor:default;">
+  <span style="font-size:16px;line-height:1;">{icon}</span>
+  <div style="flex:1;min-width:0;">
+    <div style="font-size:13px;font-weight:600;color:#ffffff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{label}</div>
+    <div style="font-size:10px;color:rgba(255,255,255,0.72);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{subtitle}</div>
+  </div>
+</div>""", unsafe_allow_html=True)
             else:
-                if st.button(label, key=f"nav_{key}", use_container_width=True):
-                    nav_to(key); st.rerun()
+                # Render as a button but style it to look like a plain row
+                # Use a unique per-item markdown+button trick
+                clicked = st.button(
+                    f"{icon}  {label}",
+                    key=f"nav_{key}",
+                    use_container_width=True,
+                    help=subtitle,
+                )
+                if clicked:
+                    nav_to(key)
+                    st.rerun()
+                # Inject CSS to style ONLY the last button rendered to look like a nav row
+                st.markdown(f"""
+<style>
+div[data-testid="stSidebar"] button[kind="secondary"][data-testid*="nav_{key}"],
+div[data-testid="stSidebar"] button[kind="secondary"] {{
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    text-align: left !important;
+    padding: 8px 12px !important;
+    border-radius: 8px !important;
+    color: #374151 !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+}}
+div[data-testid="stSidebar"] button[kind="secondary"]:hover {{
+    background: #f0f4ff !important;
+    color: #1a56db !important;
+}}
+</style>""", unsafe_allow_html=True)
 
 current_page = st.session_state["current_page"]
 
