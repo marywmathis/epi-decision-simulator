@@ -487,79 +487,105 @@ div[data-testid="stTooltipContent"] {{ background: var(--bg-card) !important; co
 """
 st.markdown(_THEME, unsafe_allow_html=True)
 
-# ── Global nav button stripping ──────────────────────────────
-# Remove ALL button chrome from sidebar buttons so they look like plain rows.
-_nav_txt     = "#e8eaf0" if _dark else "#22273a"
-_nav_sub     = "#7b8494" if _dark else "#9ca3af"
-_nav_hover   = "#252836" if _dark else "#eef1fb"
-_nav_htxt    = "#7ea6f7" if _dark else "#1a56db"
-_sb_bg       = "#1a1d27" if _dark else "#f8f9fb"
+_nav_txt   = "#e8eaf0" if _dark else "#22273a"
+_nav_sub   = "#7b8494" if _dark else "#9ca3af"
+_nav_hover = "#252836" if _dark else "#eef1fb"
+_nav_htxt  = "#7ea6f7" if _dark else "#1a56db"
+_sb_bg     = "#1a1d27" if _dark else "#f8f9fb"
+_bdr_c     = "#2e3246" if _dark else "#e5e7eb"
+_sect_c    = "#4b5263" if _dark else "#a0a8b8"
+_active_g  = "linear-gradient(90deg,#1a56db,#2563eb)" if not _dark else "linear-gradient(90deg,#2563eb,#3b82f6)"
 
+# Use a radio widget whose circles we hide — it renders as a clean list of clickable labels
+# with no button chrome. The CSS below turns radio labels into styled nav rows.
+_all_nav = [(key, icon, label, subtitle)
+            for _, items in NAV_STRUCTURE for key, icon, label, subtitle in items]
+_key_to_idx = {item[0]: i for i, item in enumerate(_all_nav)}
+_cur_idx = _key_to_idx.get(st.session_state.get("current_page","study_designs"), 0)
+
+# Full nav CSS — targets radio labels, hides circles, styles as rows
 st.markdown(f"""
 <style>
-/* Strip all chrome from sidebar nav buttons */
-section[data-testid="stSidebar"] .stButton > button {{
+/* Sidebar background */
+section[data-testid="stSidebar"] > div:first-child {{
+  background-color: {_sb_bg} !important;
+}}
+/* Hide the radio group label */
+div[data-testid="stSidebar"] div[data-testid="stRadio"] > label {{
+  display: none !important;
+}}
+/* The radio wrapper — remove all padding/gaps */
+div[data-testid="stSidebar"] div[data-testid="stRadio"] > div {{
+  gap: 0 !important;
+  flex-direction: column !important;
+}}
+/* Each radio option row */
+div[data-testid="stSidebar"] div[data-testid="stRadio"] label {{
+  display: flex !important;
+  align-items: center !important;
+  padding: 7px 10px 7px 12px !important;
+  margin: 1px 4px !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  transition: background 0.14s !important;
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  outline: none !important;
-  border-radius: 8px !important;
-  width: 100% !important;
-  text-align: left !important;
-  padding: 7px 10px 7px 12px !important;
-  margin: 1px 0 !important;
+  min-height: 0 !important;
+}}
+div[data-testid="stSidebar"] div[data-testid="stRadio"] label:hover {{
+  background: {_nav_hover} !important;
+}}
+/* Hide the actual radio circle */
+div[data-testid="stSidebar"] div[data-testid="stRadio"] label > div:first-child {{
+  display: none !important;
+}}
+/* The text container */
+div[data-testid="stSidebar"] div[data-testid="stRadio"] label > div:last-child {{
+  padding: 0 !important;
   color: {_nav_txt} !important;
   font-size: 13px !important;
-  font-weight: 400 !important;
+  font-weight: 500 !important;
   line-height: 1.3 !important;
-  transition: background 0.15s ease !important;
+}}
+div[data-testid="stSidebar"] div[data-testid="stRadio"] label:hover > div:last-child {{
+  color: {_nav_htxt} !important;
+}}
+/* Log out / theme toggle buttons only — keep minimal styling */
+section[data-testid="stSidebar"] .stButton > button {{
+  background: transparent !important;
+  border: 1px solid {_bdr_c} !important;
+  box-shadow: none !important;
+  color: {_nav_sub} !important;
+  font-size: 12px !important;
 }}
 section[data-testid="stSidebar"] .stButton > button:hover {{
   background: {_nav_hover} !important;
+  border-color: {_nav_htxt} !important;
   color: {_nav_htxt} !important;
-  border: none !important;
   box-shadow: none !important;
-}}
-section[data-testid="stSidebar"] .stButton > button:focus {{
-  box-shadow: none !important;
-  border: none !important;
-  outline: none !important;
-}}
-section[data-testid="stSidebar"] .stButton > button p {{
-  color: inherit !important;
-  margin: 0 !important;
-}}
-/* Override Streamlit's forced button focus ring */
-section[data-testid="stSidebar"] .stButton > button:focus:not(:active) {{
-  box-shadow: none !important;
-}}
-/* Remove gap between buttons */
-section[data-testid="stSidebar"] .stButton {{
-  margin: 0 !important;
-  padding: 0 !important;
 }}
 </style>
 """, unsafe_allow_html=True)
 
 with st.sidebar:
     user  = st.session_state.get("current_user", "")
-    _icon  = "☀️" if _dark else "🌙"
-    _label = "Light mode" if _dark else "Dark mode"
+    _ti   = "☀️" if _dark else "🌙"
+    _tl   = "Light mode" if _dark else "Dark mode"
 
-    # Header: title + theme toggle
     col_title, col_toggle = st.columns([5, 2])
     with col_title:
         st.markdown(
             f"<div style='padding:4px 0 2px 0;'>"
-            f"<span style='font-size:19px;font-weight:800;'>🧭 EpiLab</span><br>"
+            f"<span style='font-size:19px;font-weight:800;color:{_nav_txt};display:block;'>🧭 EpiLab</span>"
             f"<span style='font-size:11px;color:{_nav_sub};'>Logged in as <b>{user}</b></span>"
             f"</div>",
             unsafe_allow_html=True
         )
     with col_toggle:
         st.markdown("<div style='padding-top:6px;'></div>", unsafe_allow_html=True)
-        if st.button(_icon, key="theme_toggle", help=_label):
-            st.session_state["dark_mode"] = not st.session_state["dark_mode"]
+        if st.button(_ti, key="theme_toggle", help=_tl):
+            st.session_state["dark_mode"] = not _dark
             st.rerun()
 
     if st.button("↩ Log Out", key="logout_sidebar", use_container_width=True):
@@ -567,55 +593,80 @@ with st.sidebar:
         st.session_state["current_user"] = ""
         st.rerun()
 
-    st.markdown(
-        f"<div style='margin:10px 0 4px 0;border-top:1px solid {"#2e3246" if _dark else "#e5e7eb"};'></div>",
-        unsafe_allow_html=True
-    )
+    st.markdown(f"<div style='margin:10px 0 4px 0;border-top:1px solid {_bdr_c};'></div>", unsafe_allow_html=True)
 
-    # ── Nav sections ────────────────────────────────────────
+    # Build radio options — each label is an HTML string with icon + name + subtitle
     current_page = st.session_state["current_page"]
-    _section_c   = "#4b5263" if _dark else "#a0a8b8"
-    _active_g    = "linear-gradient(90deg,#1a56db,#2563eb)" if not _dark else "linear-gradient(90deg,#2563eb,#3b82f6)"
+    radio_options = []
+    section_inserts = {}  # idx -> section header to inject above
 
+    flat_idx = 0
+    for section_title, items in NAV_STRUCTURE:
+        section_inserts[flat_idx] = section_title
+        for key, icon, label, subtitle in items:
+            radio_options.append(f"{icon}  {label}")
+            flat_idx += 1
+
+    # Inject section headers as markdown before each section's first radio item
+    # We render one radio per section to allow headers between groups
+    flat_idx = 0
+    chosen_key = None
     for section_title, items in NAV_STRUCTURE:
         st.markdown(
             f"<div style='font-size:9px;font-weight:700;letter-spacing:0.14em;"
-            f"text-transform:uppercase;color:{_section_c};padding:14px 6px 4px 6px;'>"
+            f"text-transform:uppercase;color:{_sect_c};padding:14px 6px 2px 6px;'>"
             f"{section_title}</div>",
             unsafe_allow_html=True
         )
         for key, icon, label, subtitle in items:
             is_active = (current_page == key)
             if is_active:
-                # Active: pure HTML pill, no button needed
+                # Active item: pure HTML pill (no widget)
                 st.markdown(f"""
 <div style="display:flex;align-items:center;gap:10px;
      background:{_active_g};border-radius:8px;
-     padding:8px 12px 8px 14px;margin:1px 0;position:relative;">
+     padding:8px 12px 8px 14px;margin:1px 4px;position:relative;">
   <div style="position:absolute;left:0;top:6px;bottom:6px;width:3px;
-       background:rgba(255,255,255,0.45);border-radius:0 3px 3px 0;"></div>
-  <span style="font-size:15px;width:20px;text-align:center;flex-shrink:0;">{icon}</span>
-  <div style="flex:1;min-width:0;overflow:hidden;">
-    <div style="font-size:13px;font-weight:600;color:#fff;
+       background:rgba(255,255,255,0.4);border-radius:0 3px 3px 0;"></div>
+  <span style="font-size:14px;width:20px;text-align:center;flex-shrink:0;">{icon}</span>
+  <div style="flex:1;min-width:0;">
+    <div style="font-size:13px;font-weight:600;color:#fff;line-height:1.3;
          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{label}</div>
-    <div style="font-size:10px;color:rgba(255,255,255,0.62);
+    <div style="font-size:10px;color:rgba(255,255,255,0.58);
          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{subtitle}</div>
   </div>
 </div>""", unsafe_allow_html=True)
             else:
-                # Inactive: st.button styled as a plain row via injected CSS above
-                # Render icon + two lines of text as the button label using markdown HTML
-                btn_label = f"{icon}  {label}"
-                if st.button(btn_label, key=f"nav_{key}", use_container_width=True, help=subtitle):
+                # Inactive: styled markdown row + invisible button for click
+                st.markdown(f"""
+<div style="display:flex;align-items:center;gap:10px;
+     padding:7px 10px 2px 12px;margin:0 4px;">
+  <span style="font-size:14px;width:20px;text-align:center;flex-shrink:0;pointer-events:none;">{icon}</span>
+  <div style="flex:1;min-width:0;pointer-events:none;">
+    <div style="font-size:13px;font-weight:500;color:{_nav_txt};line-height:1.3;
+         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{label}</div>
+    <div style="font-size:10px;color:{_nav_sub};margin-bottom:2px;
+         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{subtitle}</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+                # Transparent full-width button layered on top via negative margin
+                st.markdown(f"""<style>
+div[data-testid="stSidebar"] [data-testid="baseButton-secondary"][aria-label="{icon}  {label}"],
+div[data-testid="stSidebar"] button[title="{subtitle}"] {{
+  position: relative !important;
+  margin-top: -52px !important;
+  height: 44px !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  opacity: 0 !important;
+  cursor: pointer !important;
+  z-index: 10 !important;
+}}
+</style>""", unsafe_allow_html=True)
+                if st.button(f"{icon}  {label}", key=f"nav_{key}", use_container_width=True, help=subtitle):
                     st.session_state["current_page"] = key
                     st.rerun()
-                # Inject subtitle as a small caption below the button
-                st.markdown(
-                    f"<div style='font-size:10px;color:{_nav_sub};padding:0 0 3px 36px;"
-                    f"margin-top:-6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>"
-                    f"{subtitle}</div>",
-                    unsafe_allow_html=True
-                )
 
 current_page = st.session_state["current_page"]
 
