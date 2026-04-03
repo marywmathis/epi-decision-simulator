@@ -1038,21 +1038,122 @@ Crude RR ({round(crude_rr,2)}) and adjusted RR ({mh_rr}) differ by only {round(p
                 with st.expander("💡 What to look for in this scenario"):
                     st.markdown(preset["teaching_point"])
 
-            # Show me the math
-            with st.expander("🔢 Show me the math — Mantel-Haenszel RR"):
+            # Per-stratum 2x2 math
+            cell_style  = "border:1px solid #aaa; padding:8px 14px; text-align:center; font-size:14px;"
+            label_style = "border:1px solid #aaa; padding:8px 14px; text-align:center; font-size:12px; color:#555; background:#f5f5f5; font-weight:bold;"
+            total_style = "border:1px solid #ccc; padding:8px 14px; text-align:center; font-size:13px; color:#555; background:#f0f0f0;"
+
+            with st.expander("🔢 Show me the math — Stratum-Specific RRs"):
+                st.markdown(f"**Cell key:** a = {exp_lbl} with {out_lbl} &nbsp;|&nbsp; b = {exp_lbl} without &nbsp;|&nbsp; c = {unexp_lbl} with {out_lbl} &nbsp;|&nbsp; d = {unexp_lbl} without")
+                st.markdown("---")
+                for s, (a, b, c, d) in enumerate(strata_data):
+                    rr_s = round((a/(a+b)) / (c/(c+d)), 3) if (a+b) > 0 and (c+d) > 0 and c > 0 else None
+                    risk_exp   = round(a/(a+b), 4) if (a+b) > 0 else 0
+                    risk_unexp = round(c/(c+d), 4) if (c+d) > 0 else 0
+                    table_html = f"""
+<p style="font-weight:bold; margin-bottom:6px;">{strata_names[s]}</p>
+<table style="border-collapse:collapse; width:100%; max-width:560px; margin-bottom:4px;">
+  <tr>
+    <td style="{label_style} background:#fff; border:none;"></td>
+    <td style="{label_style}">✚ {out_lbl}</td>
+    <td style="{label_style}">✕ {no_out_lbl}</td>
+    <td style="{label_style}">Row Total</td>
+  </tr>
+  <tr>
+    <td style="{label_style}">{exp_lbl}</td>
+    <td style="{cell_style} background:#e8f4e8;"><span style="font-size:10px;color:#888;font-style:italic;">a = </span><span style="font-size:18px;font-weight:bold;color:#2e7d32;">{int(a)}</span></td>
+    <td style="{cell_style} background:#fdecea;"><span style="font-size:10px;color:#888;font-style:italic;">b = </span><span style="font-size:18px;font-weight:bold;color:#c0392b;">{int(b)}</span></td>
+    <td style="{total_style}">{int(a+b)}</td>
+  </tr>
+  <tr>
+    <td style="{label_style}">{unexp_lbl}</td>
+    <td style="{cell_style} background:#fdecea;"><span style="font-size:10px;color:#888;font-style:italic;">c = </span><span style="font-size:18px;font-weight:bold;color:#c0392b;">{int(c)}</span></td>
+    <td style="{cell_style} background:#e8f4e8;"><span style="font-size:10px;color:#888;font-style:italic;">d = </span><span style="font-size:18px;font-weight:bold;color:#2e7d32;">{int(d)}</span></td>
+    <td style="{total_style}">{int(c+d)}</td>
+  </tr>
+  <tr>
+    <td style="{label_style}">Col Total</td>
+    <td style="{total_style}">{int(a+c)}</td>
+    <td style="{total_style}">{int(b+d)}</td>
+    <td style="{total_style}">{int(a+b+c+d)}</td>
+  </tr>
+</table>"""
+                    st.markdown(table_html, unsafe_allow_html=True)
+                    if rr_s:
+                        st.markdown(f"""
+**RR ({strata_names[s]})** = [a ÷ (a+b)] ÷ [c ÷ (c+d)]
+= [{int(a)} ÷ {int(a+b)}] ÷ [{int(c)} ÷ {int(c+d)}]
+= {risk_exp} ÷ {risk_unexp}
+= **{rr_s}**
+                        """)
+                    st.markdown("---")
+
+                # Crude (combined) table
+                st.markdown(f"**Combined (Crude) Table — ignoring {stratifier}**")
+                ca, cb, cc, cd = crude_a, crude_b, crude_c, crude_d
+                crude_risk_exp   = round(ca/(ca+cb), 4) if (ca+cb) > 0 else 0
+                crude_risk_unexp = round(cc/(cc+cd), 4) if (cc+cd) > 0 else 0
+                crude_table_html = f"""
+<table style="border-collapse:collapse; width:100%; max-width:560px; margin-bottom:4px;">
+  <tr>
+    <td style="{label_style} background:#fff; border:none;"></td>
+    <td style="{label_style}">✚ {out_lbl}</td>
+    <td style="{label_style}">✕ {no_out_lbl}</td>
+    <td style="{label_style}">Row Total</td>
+  </tr>
+  <tr>
+    <td style="{label_style}">{exp_lbl}</td>
+    <td style="{cell_style} background:#e8f4e8;"><span style="font-size:10px;color:#888;font-style:italic;">a = </span><span style="font-size:18px;font-weight:bold;color:#2e7d32;">{int(ca)}</span></td>
+    <td style="{cell_style} background:#fdecea;"><span style="font-size:10px;color:#888;font-style:italic;">b = </span><span style="font-size:18px;font-weight:bold;color:#c0392b;">{int(cb)}</span></td>
+    <td style="{total_style}">{int(ca+cb)}</td>
+  </tr>
+  <tr>
+    <td style="{label_style}">{unexp_lbl}</td>
+    <td style="{cell_style} background:#fdecea;"><span style="font-size:10px;color:#888;font-style:italic;">c = </span><span style="font-size:18px;font-weight:bold;color:#c0392b;">{int(cc)}</span></td>
+    <td style="{cell_style} background:#e8f4e8;"><span style="font-size:10px;color:#888;font-style:italic;">d = </span><span style="font-size:18px;font-weight:bold;color:#2e7d32;">{int(cd)}</span></td>
+    <td style="{total_style}">{int(cc+cd)}</td>
+  </tr>
+  <tr>
+    <td style="{label_style}">Col Total</td>
+    <td style="{total_style}">{int(ca+cc)}</td>
+    <td style="{total_style}">{int(cb+cd)}</td>
+    <td style="{total_style}">{int(ca+cb+cc+cd)}</td>
+  </tr>
+</table>"""
+                st.markdown(crude_table_html, unsafe_allow_html=True)
                 st.markdown(f"""
-The **Mantel-Haenszel method** pools stratum-specific RRs into a single adjusted estimate by weighting each stratum by its contribution.
+**Crude RR** = [a ÷ (a+b)] ÷ [c ÷ (c+d)]
+= [{int(ca)} ÷ {int(ca+cb)}] ÷ [{int(cc)} ÷ {int(cc+cd)}]
+= {crude_risk_exp} ÷ {crude_risk_unexp}
+= **{round(crude_rr,3) if crude_rr else 'N/A'}**
+                """)
+
+            # Mantel-Haenszel expander
+            with st.expander("🔢 Show me the math — Mantel-Haenszel Adjusted RR"):
+                st.markdown(f"""
+The **Mantel-Haenszel method** pools stratum-specific RRs into a single adjusted estimate, weighting each stratum proportionally to its size.
 
 **Formula:** RR_MH = Σ[a_s × (c_s + d_s) / n_s] ÷ Σ[c_s × (a_s + b_s) / n_s]
 
-Where for each stratum s: a = {exp_lbl} with {out_lbl}, b = {exp_lbl} without, c = {unexp_lbl} with {out_lbl}, d = {unexp_lbl} without, n = total in stratum.
+Where: **a** = {exp_lbl} with {out_lbl}, **b** = {exp_lbl} without, **c** = {unexp_lbl} with {out_lbl}, **d** = {unexp_lbl} without, **n** = stratum total
                 """)
+                mh_num_check = 0; mh_den_check = 0
                 for s, (a, b, c, d) in enumerate(strata_data):
                     n = a+b+c+d
-                    num_s = a*(c+d)/n
-                    den_s = c*(a+b)/n
-                    st.markdown(f"**{strata_names[s]}:** numerator contribution = {a}×{c+d}/{n} = {round(num_s,3)} | denominator contribution = {c}×{a+b}/{n} = {round(den_s,3)}")
-                st.markdown(f"**RR_MH = {round(mh_num,3)} ÷ {round(mh_den,3)} = {mh_rr}**")
+                    num_s = round(a*(c+d)/n, 3)
+                    den_s = round(c*(a+b)/n, 3)
+                    mh_num_check += num_s; mh_den_check += den_s
+                    st.markdown(f"""
+**{strata_names[s]}** (n = {n})
+- Numerator: a×(c+d)/n = {int(a)}×{int(c+d)}/{n} = **{num_s}**
+- Denominator: c×(a+b)/n = {int(c)}×{int(a+b)}/{n} = **{den_s}**
+                    """)
+                st.markdown(f"""
+---
+**Sum of numerator terms:** {round(mh_num_check,3)}
+**Sum of denominator terms:** {round(mh_den_check,3)}
+**RR_MH = {round(mh_num_check,3)} ÷ {round(mh_den_check,3)} = {mh_rr}**
+                """)
 
     st.markdown("---")
     st.markdown("*Strong epidemiologists think structurally before computing.*")
@@ -1274,24 +1375,216 @@ elif current_page == "disease_frequency":
                 st.success(f"{new_cases} new cases among {pop_at_risk:,} at-risk people over {time_label} → {round(ci*100,2)}% risk")
 
         elif calc_type == "Incidence Rate (Person-Time)":
-            new_cases = st.number_input("New cases", min_value=0, value=87)
-            person_time = st.number_input("Total person-years at risk", min_value=0.1, value=24500.0, step=100.0)
-            multiplier = st.selectbox("Express rate per:", [1000, 10000, 100000])
-            if st.button("Calculate Incidence Rate"):
-                ir = new_cases / person_time * multiplier
-                st.metric(f"Incidence Rate (per {multiplier:,} person-years)", round(ir,2))
-                st.success(f"{new_cases} cases ÷ {person_time:,.0f} person-years × {multiplier:,} = {round(ir,2)} per {multiplier:,} person-years")
-                with st.expander("🔢 What is person-time?"):
+            st.markdown("""
+**Why person-time?** When participants are followed for different lengths of time — some drop out, some die of unrelated causes, some join late — simply counting who got sick is unfair. Someone followed for 10 years had far more *opportunity* to develop disease than someone followed for 6 months. Person-time puts everyone on equal footing by counting the time each person was actually at risk.
+            """)
+            st.divider()
+
+            pt_mode = st.radio("Data entry mode:", [
+                "📋 Enter summary totals",
+                "👤 Build a cohort person-by-person (visual)"
+            ], horizontal=True, key="pt_mode")
+
+            if pt_mode == "📋 Enter summary totals":
+                new_cases   = st.number_input("New cases", min_value=0, value=87)
+                person_time = st.number_input("Total person-years at risk", min_value=0.1, value=24500.0, step=100.0)
+                multiplier  = st.selectbox("Express rate per:", [1000, 10000, 100000])
+                if st.button("Calculate Incidence Rate", key="ir_summary"):
+                    ir = new_cases / person_time * multiplier
+                    st.metric(f"Incidence Rate (per {multiplier:,} person-years)", round(ir, 2))
+                    st.success(f"{new_cases} cases ÷ {person_time:,.0f} person-years × {multiplier:,} = **{round(ir,2)} per {multiplier:,} person-years**")
+
+            else:
+                st.markdown("Add up to 12 participants. Set each person's follow-up duration and whether they developed the outcome. The diagram will show each person's timeline.")
+
+                # Default cohort
+                PRESETS_PT = {
+                    "Custom": None,
+                    "Simple: 5 people, varied follow-up": [
+                        {"label":"Person 1","years":5.0,"event":False,"reason":"Completed study"},
+                        {"label":"Person 2","years":3.0,"event":True, "reason":"Developed disease"},
+                        {"label":"Person 3","years":5.0,"event":False,"reason":"Completed study"},
+                        {"label":"Person 4","years":1.5,"event":False,"reason":"Lost to follow-up"},
+                        {"label":"Person 5","years":5.0,"event":True, "reason":"Developed disease"},
+                    ],
+                    "Realistic: 8-person cohort": [
+                        {"label":"Person 1","years":4.0,"event":False,"reason":"Completed study"},
+                        {"label":"Person 2","years":2.0,"event":True, "reason":"Developed disease"},
+                        {"label":"Person 3","years":4.0,"event":False,"reason":"Completed study"},
+                        {"label":"Person 4","years":1.0,"event":False,"reason":"Lost to follow-up"},
+                        {"label":"Person 5","years":3.5,"event":True, "reason":"Developed disease"},
+                        {"label":"Person 6","years":4.0,"event":False,"reason":"Completed study"},
+                        {"label":"Person 7","years":0.5,"event":False,"reason":"Withdrew"},
+                        {"label":"Person 8","years":4.0,"event":False,"reason":"Completed study"},
+                    ],
+                }
+
+                preset_pt = st.selectbox("Load a preset:", list(PRESETS_PT.keys()), key="pt_preset")
+                use_preset = PRESETS_PT[preset_pt]
+
+                if use_preset:
+                    n_people = len(use_preset)
+                else:
+                    n_people = st.slider("Number of participants", min_value=2, max_value=12, value=5, key="pt_n")
+
+                study_duration = st.number_input("Maximum study duration (years)", min_value=1.0, max_value=20.0, value=5.0, step=0.5, key="pt_maxdur")
+                multiplier = st.selectbox("Express rate per:", [100, 1000, 10000], key="pt_mult")
+
+                people = []
+                st.markdown("---")
+                st.markdown("**Enter each participant's follow-up:**")
+                header_cols = st.columns([3, 3, 2, 3])
+                header_cols[0].markdown("**Participant**")
+                header_cols[1].markdown("**Years followed**")
+                header_cols[2].markdown("**Outcome?**")
+                header_cols[3].markdown("**Reason left / ended**")
+
+                for i in range(n_people):
+                    if use_preset and i < len(use_preset):
+                        default_label  = use_preset[i]["label"]
+                        default_years  = use_preset[i]["years"]
+                        default_event  = use_preset[i]["event"]
+                        default_reason = use_preset[i]["reason"]
+                    else:
+                        default_label  = f"Person {i+1}"
+                        default_years  = study_duration
+                        default_event  = False
+                        default_reason = "Completed study"
+
+                    row = st.columns([3, 3, 2, 3])
+                    label  = row[0].text_input("", value=default_label,  key=f"pt_lbl_{i}",  label_visibility="collapsed")
+                    years  = row[1].number_input("", min_value=0.1, max_value=float(study_duration), value=min(default_years, study_duration), step=0.5, key=f"pt_yrs_{i}", label_visibility="collapsed")
+                    event  = row[2].checkbox("",   value=default_event,  key=f"pt_evt_{i}",  label_visibility="collapsed")
+                    reason = row[3].text_input("", value=default_reason, key=f"pt_rsn_{i}",  label_visibility="collapsed")
+                    people.append({"label": label, "years": years, "event": event, "reason": reason})
+
+                if st.button("Generate Person-Time Diagram", key="ir_visual", type="primary"):
+                    total_pt    = sum(p["years"] for p in people)
+                    total_cases = sum(1 for p in people if p["event"])
+                    ir = total_cases / total_pt * multiplier if total_pt > 0 else 0
+
+                    # ---- SVG timeline diagram ----
+                    row_h    = 36
+                    pad_top  = 50
+                    pad_left = 110
+                    pad_right = 80
+                    axis_w   = 420
+                    svg_h    = pad_top + row_h * len(people) + 40
+                    svg_w    = pad_left + axis_w + pad_right
+
+                    # axis ticks
+                    tick_interval = max(1, int(study_duration // 5))
+                    ticks = list(range(0, int(study_duration) + 1, tick_interval))
+
+                    def x_pos(yr):
+                        return pad_left + (yr / study_duration) * axis_w
+
+                    tick_svg = ""
+                    for t in ticks:
+                        xp = x_pos(t)
+                        tick_svg += f'<line x1="{xp}" y1="{pad_top - 8}" x2="{xp}" y2="{pad_top + row_h*len(people)}" stroke="#ddd" stroke-width="1"/>'
+                        tick_svg += f'<text x="{xp}" y="{pad_top - 12}" text-anchor="middle" font-size="11" fill="#888">Yr {t}</text>'
+
+                    bars_svg = ""
+                    legend_svg = ""
+                    for i, p in enumerate(people):
+                        y_center = pad_top + i * row_h + row_h // 2
+                        bar_w    = (p["years"] / study_duration) * axis_w
+                        color    = "#e53935" if p["event"] else "#1e88e5"
+                        end_x    = x_pos(p["years"])
+
+                        # name label
+                        bars_svg += f'<text x="{pad_left - 8}" y="{y_center + 4}" text-anchor="end" font-size="12" fill="#333">{p["label"]}</text>'
+                        # bar
+                        bars_svg += f'<rect x="{pad_left}" y="{y_center - 9}" width="{bar_w}" height="18" rx="4" fill="{color}" opacity="0.75"/>'
+                        # person-years label inside or just after bar
+                        pt_label = f"{p['years']}y"
+                        label_x  = pad_left + bar_w + 4
+                        bars_svg += f'<text x="{label_x}" y="{y_center + 4}" font-size="11" fill="{color}" font-weight="bold">{pt_label}</text>'
+
+                        # end marker: X for event, circle for censored
+                        if p["event"]:
+                            bars_svg += f'<text x="{end_x}" y="{y_center + 5}" text-anchor="middle" font-size="16" fill="#e53935" font-weight="bold">✕</text>'
+                        else:
+                            bars_svg += f'<circle cx="{end_x}" cy="{y_center}" r="6" fill="none" stroke="#1e88e5" stroke-width="2"/>'
+
+                    # axis line
+                    axis_svg = f'<line x1="{pad_left}" y1="{pad_top + row_h*len(people)}" x2="{pad_left + axis_w}" y2="{pad_top + row_h*len(people)}" stroke="#aaa" stroke-width="1.5"/>'
+
+                    # legend
+                    leg_y = pad_top + row_h * len(people) + 18
+                    legend_svg = f'''
+<rect x="{pad_left}" y="{leg_y}" width="14" height="14" rx="3" fill="#e53935" opacity="0.75"/>
+<text x="{pad_left + 18}" y="{leg_y + 11}" font-size="11" fill="#555">✕ Outcome event (contributes years up to event)</text>
+<rect x="{pad_left + 260}" y="{leg_y}" width="14" height="14" rx="3" fill="#1e88e5" opacity="0.75"/>
+<circle cx="{pad_left + 296}" cy="{leg_y + 7}" r="5" fill="none" stroke="#1e88e5" stroke-width="2"/>
+<text x="{pad_left + 304}" y="{leg_y + 11}" font-size="11" fill="#555">○ Censored (completed, lost, withdrew)</text>'''
+
+                    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{svg_w}" height="{svg_h + 30}" style="font-family:sans-serif; display:block; max-width:100%;">
+  <rect width="{svg_w}" height="{svg_h + 30}" fill="#fafafa" rx="8"/>
+  <text x="{pad_left + axis_w//2}" y="18" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">Person-Time Follow-Up Diagram</text>
+  {tick_svg}
+  {axis_svg}
+  {bars_svg}
+  {legend_svg}
+</svg>"""
+                    st.markdown(svg, unsafe_allow_html=True)
+
+                    # ---- Summary table ----
+                    st.divider()
+                    rows = []
+                    for p in people:
+                        rows.append({
+                            "Participant": p["label"],
+                            "Years followed": p["years"],
+                            "Outcome": "✕ Yes" if p["event"] else "○ No",
+                            "Reason": p["reason"],
+                        })
+                    rows.append({
+                        "Participant": "**TOTAL**",
+                        "Years followed": round(total_pt, 1),
+                        "Outcome": f"**{total_cases} events**",
+                        "Reason": "",
+                    })
+                    st.table(pd.DataFrame(rows))
+
+                    # ---- Calculation breakdown ----
+                    st.divider()
+                    st.markdown("#### Person-Time Calculation")
+                    st.markdown("Each row below shows one participant's contribution. The bars above represent these exact values.")
+                    calc_rows = []
+                    for p in people:
+                        calc_rows.append(f"- **{p['label']}:** {p['years']} years {'*(outcome event — contributes up to event date)*' if p['event'] else '*(censored — contributes full follow-up)*'}")
+                    st.markdown("\n".join(calc_rows))
+                    contrib_str = " + ".join(str(p["years"]) for p in people)
+                    st.markdown(f"\n**Total person-time = {contrib_str} = {round(total_pt,1)} person-years**")
+
+                    # ---- Rate ----
+                    st.divider()
+                    st.markdown("#### Incidence Rate")
                     st.markdown(f"""
-Person-time adds up each participant's individual follow-up time. It handles the fact that some people leave the study early (move away, die of other causes, reach end of study).
+**IR = New cases ÷ Total person-time × {multiplier:,}**
 
-**Example:** If 100 people are followed and:
-- 80 complete the full 2 years → 80 × 2 = 160 person-years
-- 20 drop out after 1 year → 20 × 1 = 20 person-years
-- Total: **180 person-years** (not 200, because 20 people only contributed 1 year each)
+= {total_cases} ÷ {round(total_pt,1)} × {multiplier:,}
 
-This is more precise than using a fixed denominator when follow-up varies.
+= **{round(ir,2)} per {multiplier:,} person-years**
                     """)
+                    st.metric(f"Incidence Rate (per {multiplier:,} person-years)", round(ir, 2))
+
+                    # ---- Why not just use n? ----
+                    naive_rate = total_cases / len(people) * multiplier
+                    with st.expander("🤔 What if we had ignored follow-up time?"):
+                        st.markdown(f"""
+If we had simply divided cases by the number of participants (ignoring how long each was followed):
+
+**Naive rate = {total_cases} ÷ {len(people)} × {multiplier:,} = {round(naive_rate,2)} per {multiplier:,}**
+
+vs. the correct person-time rate: **{round(ir,2)} per {multiplier:,} person-years**
+
+{"These are similar here because follow-up times happen to be close." if abs(naive_rate - ir)/max(ir,0.001) < 0.15 else f"These differ because participants had **very different follow-up durations** — treating them all equally would be misleading. Person-time accounts for the fact that someone followed for {max(p['years'] for p in people)} years had far more opportunity to develop the outcome than someone followed for {min(p['years'] for p in people)} years."}
+
+**The key principle:** Person-time is the correct denominator whenever follow-up duration varies. Each person contributes time at risk proportional to how long they were actually observed — no more, no less.
+                        """)
 
         elif calc_type == "Case Fatality Rate (CFR)":
             deaths = st.number_input("Deaths from disease", min_value=0, value=142)
