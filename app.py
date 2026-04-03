@@ -274,62 +274,256 @@ _all_labels = [item[2] for section in NAV_STRUCTURE for item in section[1]]
 
 if "current_page" not in st.session_state:
     st.session_state["current_page"] = "study_designs"
+if "dark_mode" not in st.session_state:
+    st.session_state["dark_mode"] = False
 
 def nav_to(page_key):
     st.session_state["current_page"] = page_key
 
-# Inject CSS that hides the default radio widget entirely,
-# then we render our own styled HTML nav that wraps invisible radio labels
-with st.sidebar:
-    # ── Header ──────────────────────────────────────────────
-    st.markdown("""
-<style>
-/* Hide the actual radio circles and their container */
-div[data-testid="stRadio"] > label { display: none !important; }
-div[data-testid="stRadio"] > div   { gap: 0 !important; }
-div[data-testid="stRadio"] > div > label {
-    display: block !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    cursor: pointer;
-}
-/* Remove the radio dot */
-div[data-testid="stRadio"] > div > label > div:first-child { display: none !important; }
-/* Remove default padding on the text span */
-div[data-testid="stRadio"] > div > label > div:last-child {
-    padding: 0 !important;
-    width: 100%;
-}
-/* Hide the stRadio border/background */
-div[data-testid="stRadio"] { background: none !important; border: none !important; padding: 0 !important; }
-/* Remove sidebar top padding */
-section[data-testid="stSidebar"] > div { padding-top: 1rem !important; }
-</style>
-""", unsafe_allow_html=True)
+# ── Theme CSS injection ─────────────────────────────────────
+_dark = st.session_state["dark_mode"]
 
-    # App title + user
+_THEME = f"""
+<style>
+/* ===== ROOT TOKENS ===== */
+:root {{
+  --bg-main:        {"#0f1117" if _dark else "#ffffff"};
+  --bg-sidebar:     {"#1a1d27" if _dark else "#f8f9fb"};
+  --bg-card:        {"#1e2130" if _dark else "#f9f9f9"};
+  --bg-input:       {"#252836" if _dark else "#ffffff"};
+  --text-primary:   {"#e8eaf0" if _dark else "#1a1a2e"};
+  --text-secondary: {"#9ca3b0" if _dark else "#6b7280"};
+  --text-muted:     {"#6b7280" if _dark else "#9ca3af"};
+  --border:         {"#2e3246" if _dark else "#e5e7eb"};
+  --nav-hover-bg:   {"#252836" if _dark else "#f0f4ff"};
+  --nav-hover-txt:  {"#7ea6f7" if _dark else "#1a56db"};
+  --nav-section:    {"#4b5263" if _dark else "#b0b0b0"};
+  --accent:         {"#3b82f6" if _dark else "#1a56db"};
+  --success-bg:     {"#0d2e1a" if _dark else "#f0fdf4"};
+  --success-txt:    {"#4ade80" if _dark else "#166534"};
+  --warn-bg:        {"#2e2200" if _dark else "#fffbeb"};
+  --warn-txt:       {"#fcd34d" if _dark else "#92400e"};
+  --error-bg:       {"#2e0d0d" if _dark else "#fef2f2"};
+  --error-txt:      {"#f87171" if _dark else "#991b1b"};
+  --info-bg:        {"#0c1e3a" if _dark else "#eff6ff"};
+  --info-txt:       {"#93c5fd" if _dark else "#1e40af"};
+  --divider:        {"#2e3246" if _dark else "#e5e7eb"};
+  --metric-bg:      {"#1e2130" if _dark else "#f9fafb"};
+  --table-head:     {"#252836" if _dark else "#f3f4f6"};
+  --table-row-alt:  {"#1a1d27" if _dark else "#f9fafb"};
+  --expander-bg:    {"#1e2130" if _dark else "#ffffff"};
+  --code-bg:        {"#252836" if _dark else "#f3f4f6"};
+}}
+
+/* ===== MAIN APP BACKGROUND & TEXT ===== */
+.stApp, .main .block-container {{
+  background-color: var(--bg-main) !important;
+  color: var(--text-primary) !important;
+}}
+.stApp * {{ color: var(--text-primary); }}
+
+/* ===== SIDEBAR ===== */
+section[data-testid="stSidebar"],
+section[data-testid="stSidebar"] > div {{
+  background-color: var(--bg-sidebar) !important;
+  border-right: 1px solid var(--border) !important;
+  padding-top: 1rem !important;
+}}
+section[data-testid="stSidebar"] * {{ color: var(--text-primary) !important; }}
+
+/* ===== SIDEBAR BUTTONS (nav rows) ===== */
+div[data-testid="stSidebar"] button[kind="secondary"] {{
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  text-align: left !important;
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
+  color: var(--text-primary) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+}}
+div[data-testid="stSidebar"] button[kind="secondary"]:hover {{
+  background: var(--nav-hover-bg) !important;
+  color: var(--nav-hover-txt) !important;
+}}
+/* Log out button */
+div[data-testid="stSidebar"] button[kind="secondary"]:first-of-type {{
+  border: 1px solid var(--border) !important;
+  color: var(--text-secondary) !important;
+  font-size: 12px !important;
+  padding: 5px 10px !important;
+}}
+
+/* ===== HEADINGS ===== */
+h1, h2, h3, h4, h5, h6,
+.stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {{
+  color: var(--text-primary) !important;
+}}
+
+/* ===== PARAGRAPHS & GENERAL TEXT ===== */
+p, li, td, th, label, span, .stMarkdown {{
+  color: var(--text-primary) !important;
+}}
+
+/* ===== INPUTS, SELECTS, TEXTAREAS ===== */
+input, textarea, select,
+div[data-testid="stTextInput"] input,
+div[data-testid="stNumberInput"] input,
+div[data-testid="stSelectbox"] div[data-baseweb="select"] {{
+  background-color: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border) !important;
+}}
+div[data-baseweb="select"] * {{ color: var(--text-primary) !important; background-color: var(--bg-input) !important; }}
+div[data-baseweb="popover"] * {{ background-color: var(--bg-input) !important; color: var(--text-primary) !important; }}
+
+/* ===== SLIDERS ===== */
+div[data-testid="stSlider"] * {{ color: var(--text-primary) !important; }}
+
+/* ===== RADIO BUTTONS ===== */
+div[data-testid="stRadio"] label {{ color: var(--text-primary) !important; }}
+
+/* ===== CHECKBOXES ===== */
+div[data-testid="stCheckbox"] label {{ color: var(--text-primary) !important; }}
+
+/* ===== BUTTONS (main content) ===== */
+.stButton > button {{
+  background-color: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border) !important;
+}}
+.stButton > button[kind="primary"] {{
+  background-color: var(--accent) !important;
+  color: #ffffff !important;
+  border: none !important;
+}}
+.stButton > button:hover {{
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}}
+
+/* ===== METRICS ===== */
+div[data-testid="stMetric"] {{
+  background-color: var(--metric-bg) !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+  border: 1px solid var(--border) !important;
+}}
+div[data-testid="stMetricValue"] * {{ color: var(--text-primary) !important; }}
+div[data-testid="stMetricLabel"] * {{ color: var(--text-secondary) !important; }}
+
+/* ===== ALERTS (info, success, warning, error) ===== */
+div[data-testid="stAlert"][data-type="info"],
+div[data-testid="stAlertContainer"][data-type="info"] {{
+  background-color: var(--info-bg) !important;
+  color: var(--info-txt) !important;
+  border-color: var(--accent) !important;
+}}
+div[data-testid="stAlert"][data-type="success"],
+div[data-testid="stAlertContainer"][data-type="success"] {{
+  background-color: var(--success-bg) !important;
+  color: var(--success-txt) !important;
+}}
+div[data-testid="stAlert"][data-type="warning"],
+div[data-testid="stAlertContainer"][data-type="warning"] {{
+  background-color: var(--warn-bg) !important;
+  color: var(--warn-txt) !important;
+}}
+div[data-testid="stAlert"][data-type="error"],
+div[data-testid="stAlertContainer"][data-type="error"] {{
+  background-color: var(--error-bg) !important;
+  color: var(--error-txt) !important;
+}}
+/* fallback for alert text */
+div[data-testid^="stAlert"] p,
+div[data-testid^="stAlert"] li {{ color: inherit !important; }}
+
+/* ===== EXPANDERS ===== */
+div[data-testid="stExpander"] {{
+  background-color: var(--expander-bg) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+}}
+div[data-testid="stExpander"] summary,
+div[data-testid="stExpander"] summary span {{
+  color: var(--text-primary) !important;
+}}
+
+/* ===== TABLES ===== */
+table {{ border-collapse: collapse; width: 100%; }}
+thead tr th {{
+  background-color: var(--table-head) !important;
+  color: var(--text-primary) !important;
+  border-bottom: 2px solid var(--border) !important;
+}}
+tbody tr td {{
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--border) !important;
+  background-color: var(--bg-main) !important;
+}}
+tbody tr:nth-child(even) td {{ background-color: var(--table-row-alt) !important; }}
+
+/* ===== CODE BLOCKS ===== */
+code, pre {{
+  background-color: var(--code-bg) !important;
+  color: {"#e2e8f0" if _dark else "#1e293b"} !important;
+  border-radius: 4px !important;
+}}
+
+/* ===== DIVIDERS ===== */
+hr {{ border-color: var(--divider) !important; }}
+
+/* ===== DATAFRAMES ===== */
+div[data-testid="stDataFrame"] * {{ color: var(--text-primary) !important; background-color: var(--bg-card) !important; }}
+
+/* ===== TABS ===== */
+button[data-baseweb="tab"] {{ color: var(--text-secondary) !important; }}
+button[data-baseweb="tab"][aria-selected="true"] {{ color: var(--accent) !important; border-bottom-color: var(--accent) !important; }}
+
+/* ===== TOOLTIP ===== */
+div[data-testid="stTooltipContent"] {{ background: var(--bg-card) !important; color: var(--text-primary) !important; }}
+</style>
+"""
+st.markdown(_THEME, unsafe_allow_html=True)
+
+# ── Sidebar ─────────────────────────────────────────────────
+with st.sidebar:
+    # App title + theme toggle on same row
     user = st.session_state.get("current_user", "")
-    st.markdown(f"""
-<div style="padding:0 4px 12px 4px;">
-  <div style="font-size:19px;font-weight:800;letter-spacing:-0.01em;color:#1a1a2e;">🧭 EpiLab</div>
-  <div style="font-size:11px;color:#999;margin-top:2px;">Logged in as <b>{user}</b></div>
-</div>""", unsafe_allow_html=True)
+    _icon  = "☀️" if _dark else "🌙"
+    _label = "Light mode" if _dark else "Dark mode"
+
+    col_title, col_toggle = st.columns([5, 2])
+    with col_title:
+        st.markdown(
+            f"<div style='padding:4px 0 2px 0;'>"
+            f"<span style='font-size:19px;font-weight:800;'>🧭 EpiLab</span><br>"
+            f"<span style='font-size:11px;color:var(--text-muted);'>Logged in as <b>{user}</b></span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+    with col_toggle:
+        st.markdown("<div style='padding-top:6px;'></div>", unsafe_allow_html=True)
+        if st.button(_icon, key="theme_toggle", help=_label):
+            st.session_state["dark_mode"] = not st.session_state["dark_mode"]
+            st.rerun()
 
     if st.button("↩ Log Out", key="logout_sidebar", use_container_width=True):
         st.session_state["authenticated"] = False
         st.session_state["current_user"] = ""
         st.rerun()
 
-    st.markdown("<div style='margin:10px 0 4px 0;border-top:1px solid #e8e8e8;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='margin:10px 0 4px 0;border-top:1px solid var(--border);'></div>", unsafe_allow_html=True)
 
     # ── Nav sections ────────────────────────────────────────
     current_page = st.session_state["current_page"]
+    _active_gradient = "linear-gradient(90deg,#1a56db 0%,#2563eb 100%)" if not _dark else "linear-gradient(90deg,#2563eb 0%,#3b82f6 100%)"
 
     for section_title, items in NAV_STRUCTURE:
-        # Section header
         st.markdown(
             f"<div style='font-size:9.5px;font-weight:700;letter-spacing:0.12em;"
-            f"text-transform:uppercase;color:#b0b0b0;padding:14px 6px 5px 6px;'>"
+            f"text-transform:uppercase;color:var(--nav-section);padding:14px 6px 5px 6px;'>"
             f"{section_title}</div>",
             unsafe_allow_html=True
         )
@@ -338,46 +532,18 @@ section[data-testid="stSidebar"] > div { padding-top: 1rem !important; }
             if is_active:
                 st.markdown(f"""
 <div style="display:flex;align-items:center;gap:10px;
-     background:linear-gradient(90deg,#1a56db 0%,#2563eb 100%);
+     background:{_active_gradient};
      border-radius:8px;padding:9px 12px;margin:2px 0;cursor:default;">
   <span style="font-size:16px;line-height:1;">{icon}</span>
   <div style="flex:1;min-width:0;">
-    <div style="font-size:13px;font-weight:600;color:#ffffff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{label}</div>
-    <div style="font-size:10px;color:rgba(255,255,255,0.72);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{subtitle}</div>
+    <div style="font-size:13px;font-weight:600;color:#ffffff !important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{label}</div>
+    <div style="font-size:10px;color:rgba(255,255,255,0.72) !important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{subtitle}</div>
   </div>
 </div>""", unsafe_allow_html=True)
             else:
-                # Render as a button but style it to look like a plain row
-                # Use a unique per-item markdown+button trick
-                clicked = st.button(
-                    f"{icon}  {label}",
-                    key=f"nav_{key}",
-                    use_container_width=True,
-                    help=subtitle,
-                )
-                if clicked:
+                if st.button(f"{icon}  {label}", key=f"nav_{key}", use_container_width=True, help=subtitle):
                     nav_to(key)
                     st.rerun()
-                # Inject CSS to style ONLY the last button rendered to look like a nav row
-                st.markdown(f"""
-<style>
-div[data-testid="stSidebar"] button[kind="secondary"][data-testid*="nav_{key}"],
-div[data-testid="stSidebar"] button[kind="secondary"] {{
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    text-align: left !important;
-    padding: 8px 12px !important;
-    border-radius: 8px !important;
-    color: #374151 !important;
-    font-size: 13px !important;
-    font-weight: 400 !important;
-}}
-div[data-testid="stSidebar"] button[kind="secondary"]:hover {{
-    background: #f0f4ff !important;
-    color: #1a56db !important;
-}}
-</style>""", unsafe_allow_html=True)
 
 current_page = st.session_state["current_page"]
 
