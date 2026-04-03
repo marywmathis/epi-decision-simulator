@@ -806,27 +806,213 @@ elif current_page == "study_designs":
 
     elif section == "3️⃣ RCT & Evidence Hierarchy":
         st.subheader("Evidence Hierarchy")
-        st.markdown("Not all study designs provide equally strong evidence for causation. The hierarchy reflects internal validity — how confident can we be that the exposure causes the outcome?")
-        levels = [
-            ("Systematic Reviews & Meta-Analyses", "Pool results across multiple RCTs. Strongest overall evidence when studies are consistent.","#1a237e"),
-            ("Randomized Controlled Trials (RCTs)", "Random assignment balances confounders. Gold standard for causal inference.","#283593"),
-            ("Prospective Cohort Studies", "Follow participants forward from exposure to outcome. Strong temporality, but confounding possible.","#1565c0"),
-            ("Retrospective Cohort / Case-Control", "Efficient but more susceptible to bias (recall bias, selection bias).","#1976d2"),
-            ("Cross-Sectional Studies", "Snapshot in time. Cannot establish temporality — useful for prevalence and hypothesis generation.","#42a5f5"),
-            ("Case Reports / Expert Opinion", "Lowest level — no comparison group, high potential for bias.","#90caf9"),
+        st.markdown("Not all study designs provide equally strong evidence for causation. The hierarchy reflects **internal validity** — how confident can we be the exposure causes the outcome? Higher levels have stronger designs for ruling out alternative explanations.")
+
+        import streamlit.components.v1 as _comp_eh
+
+        LEVELS = [
+            {
+                "num": 1,
+                "title": "Systematic Reviews & Meta-Analyses",
+                "badge": "STRONGEST",
+                "badge_color": "#16a34a",
+                "desc": "Pool and synthesize results across multiple RCTs using statistical methods. When studies are consistent, this provides the most reliable overall estimate of an effect.",
+                "strengths": ["Reduces impact of any single study's chance findings", "Quantifies heterogeneity across studies", "Most comprehensive evidence base"],
+                "limits": ["Only as good as the studies included", "Publication bias can distort pooled estimates", "Heterogeneity can make pooling misleading"],
+                "measure": "Pooled RR / OR / HR",
+                "bar_pct": 100,
+                "bar_color": "#1d4ed8",
+                "num_bg": "#1e3a8a",
+            },
+            {
+                "num": 2,
+                "title": "Randomized Controlled Trials (RCTs)",
+                "badge": "GOLD STANDARD",
+                "badge_color": "#b45309",
+                "desc": "Random assignment distributes both measured and unmeasured confounders equally across groups. The only design that can establish causation without residual confounding concern.",
+                "strengths": ["Controls for known and unknown confounders", "Clear temporal order", "Blinding possible"],
+                "limits": ["Expensive and time-consuming", "Ethical limits (can't randomize harmful exposures)", "May not reflect real-world populations"],
+                "measure": "RR / HR / Risk Difference",
+                "bar_pct": 86,
+                "bar_color": "#1d4ed8",
+                "num_bg": "#1e40af",
+            },
+            {
+                "num": 3,
+                "title": "Prospective Cohort Studies",
+                "badge": "OBSERVATIONAL",
+                "badge_color": "#0369a1",
+                "desc": "Participants classified by exposure at baseline, then followed forward to measure new outcomes. Establishes temporal order — exposure clearly precedes outcome.",
+                "strengths": ["Clear temporality", "Can study multiple outcomes", "Measures incidence directly"],
+                "limits": ["Residual confounding possible", "Expensive for rare diseases", "Loss to follow-up bias"],
+                "measure": "RR / IRR / HR",
+                "bar_pct": 74,
+                "bar_color": "#2563eb",
+                "num_bg": "#1d4ed8",
+            },
+            {
+                "num": 4,
+                "title": "Retrospective Cohort / Case-Control",
+                "badge": "OBSERVATIONAL",
+                "badge_color": "#0369a1",
+                "desc": "Retrospective cohort uses historical records; case-control recruits by outcome status and looks back at exposure. Both are efficient but introduce more opportunities for bias.",
+                "strengths": ["Efficient for rare outcomes (case-control)", "Faster and cheaper than prospective", "Can use existing data"],
+                "limits": ["Recall bias (case-control)", "Selection bias in control group", "Confounding harder to rule out"],
+                "measure": "OR (case-control) / RR (retro cohort)",
+                "bar_pct": 62,
+                "bar_color": "#3b82f6",
+                "num_bg": "#2563eb",
+            },
+            {
+                "num": 5,
+                "title": "Cross-Sectional Studies",
+                "badge": "OBSERVATIONAL",
+                "badge_color": "#0369a1",
+                "desc": "Exposure and outcome measured simultaneously in a single snapshot. Cannot determine which came first — useful for estimating prevalence and generating hypotheses.",
+                "strengths": ["Fast and inexpensive", "Good for prevalence estimates", "Useful for generating hypotheses"],
+                "limits": ["Cannot establish temporality", "Prevalence-incidence bias", "Not suitable for rare conditions"],
+                "measure": "Prevalence Ratio (PR)",
+                "bar_pct": 48,
+                "bar_color": "#60a5fa",
+                "num_bg": "#3b82f6",
+            },
+            {
+                "num": 6,
+                "title": "Case Reports & Expert Opinion",
+                "badge": "LOWEST",
+                "badge_color": "#9a3412",
+                "desc": "Individual case descriptions or consensus opinions without a systematic comparison group. Essential for identifying new conditions and rare adverse events, but cannot establish causation.",
+                "strengths": ["Critical for identifying new diseases", "Detects rare adverse drug reactions", "Generates hypotheses quickly"],
+                "limits": ["No comparison group", "High potential for bias", "Cannot quantify associations"],
+                "measure": "Descriptive only",
+                "bar_pct": 36,
+                "bar_color": "#93c5fd",
+                "num_bg": "#60a5fa",
+            },
         ]
-        for i, (title, desc, color) in enumerate(levels):
-            width = 100 - i * 12
-            st.markdown(f"""<div style="background:{color};color:white;border-radius:6px;padding:10px 16px;margin:4px auto;width:{width}%;text-align:center;">
-            <strong>{title}</strong><br><span style="font-size:12px;">{desc}</span></div>""", unsafe_allow_html=True)
+
+        _is_dark = st.session_state.get("dark_mode", False)
+        _card_bg    = "#1e2130" if _is_dark else "#ffffff"
+        _card_bdr   = "#2e3246" if _is_dark else "#e5e7eb"
+        _body_txt   = "#d1d5db" if _is_dark else "#374151"
+        _head_txt   = "#f1f5f9" if _is_dark else "#111827"
+        _sub_bg     = "#252836" if _is_dark else "#f8fafc"
+        _sub_bdr    = "#3a3f52" if _is_dark else "#e2e8f0"
+        _str_head   = "#4ade80" if _is_dark else "#166534"
+        _lim_head   = "#f87171" if _is_dark else "#991b1b"
+        _meas_bg    = "#1a1d27" if _is_dark else "#f0f9ff"
+        _meas_txt   = "#93c5fd" if _is_dark else "#1e40af"
+        _meas_bdr   = "#2563eb" if _is_dark else "#bfdbfe"
+
+        cards_html = ""
+        for lv in LEVELS:
+            strengths_li = "".join(f'<li>{s}</li>' for s in lv["strengths"])
+            limits_li    = "".join(f'<li>{l}</li>' for l in lv["limits"])
+            cards_html += f"""
+<div class="card">
+  <div class="card-header">
+    <div class="num-badge" style="background:{lv['num_bg']};">{lv['num']}</div>
+    <div class="header-mid">
+      <div class="card-title">{lv['title']}</div>
+      <div class="card-desc">{lv['desc']}</div>
+    </div>
+    <span class="badge" style="background:{lv['badge_color']}22;color:{lv['badge_color']};border:1px solid {lv['badge_color']}55;">{lv['badge']}</span>
+  </div>
+  <div class="bar-row">
+    <div class="bar-track">
+      <div class="bar-fill" style="width:{lv['bar_pct']}%;background:linear-gradient(90deg,{lv['bar_color']},{lv['bar_color']}99);"></div>
+    </div>
+    <span class="bar-label">Evidence strength</span>
+  </div>
+  <div class="card-body">
+    <div class="sl-box">
+      <div class="sl-head" style="color:{_str_head};">✓ Strengths</div>
+      <ul>{strengths_li}</ul>
+    </div>
+    <div class="sl-box">
+      <div class="sl-head" style="color:{_lim_head};">✗ Limitations</div>
+      <ul>{limits_li}</ul>
+    </div>
+    <div class="measure-pill" style="background:{_meas_bg};color:{_meas_txt};border:1px solid {_meas_bdr};">
+      <span style="font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;opacity:0.7;">Typical measure</span>
+      <span style="font-weight:700;margin-left:8px;">{lv['measure']}</span>
+    </div>
+  </div>
+</div>"""
+
+        full_html = f"""<!DOCTYPE html><html><head><style>
+* {{ box-sizing:border-box; margin:0; padding:0; }}
+body {{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:transparent; padding:4px 0 12px 0; }}
+.card {{
+  background:{_card_bg};
+  border:1px solid {_card_bdr};
+  border-radius:12px;
+  margin:0 0 10px 0;
+  overflow:hidden;
+  transition:box-shadow 0.2s;
+}}
+.card:hover {{ box-shadow: 0 4px 16px rgba(0,0,0,{"0.4" if _is_dark else "0.08"}); }}
+.card-header {{
+  display:flex; align-items:flex-start; gap:14px;
+  padding:14px 16px 10px 16px;
+}}
+.num-badge {{
+  width:32px; height:32px; border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:15px; font-weight:800; color:white; flex-shrink:0;
+}}
+.header-mid {{ flex:1; min-width:0; }}
+.card-title {{ font-size:15px; font-weight:700; color:{_head_txt}; line-height:1.3; }}
+.card-desc  {{ font-size:12.5px; color:{_body_txt}; margin-top:3px; line-height:1.5; }}
+.badge {{
+  flex-shrink:0; font-size:9.5px; font-weight:700;
+  letter-spacing:0.08em; text-transform:uppercase;
+  padding:3px 8px; border-radius:20px; white-space:nowrap; margin-top:2px;
+}}
+.bar-row {{
+  display:flex; align-items:center; gap:10px;
+  padding:0 16px 10px 62px;
+}}
+.bar-track {{
+  flex:1; height:5px; background:{_sub_bdr}; border-radius:3px; overflow:hidden;
+}}
+.bar-fill {{ height:100%; border-radius:3px; }}
+.bar-label {{ font-size:10px; color:{_body_txt}; opacity:0.6; white-space:nowrap; }}
+.card-body {{
+  background:{_sub_bg};
+  border-top:1px solid {_sub_bdr};
+  padding:12px 16px;
+  display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start;
+}}
+.sl-box {{ flex:1; min-width:180px; }}
+.sl-head {{ font-size:11px; font-weight:700; margin-bottom:5px; }}
+.sl-box ul {{ list-style:none; padding:0; }}
+.sl-box li {{ font-size:12px; color:{_body_txt}; line-height:1.5; padding:1px 0; }}
+.sl-box li::before {{ content:"· "; color:#94a3b8; }}
+.measure-pill {{
+  display:flex; align-items:center; border-radius:6px;
+  padding:7px 12px; font-size:12.5px;
+  align-self:flex-end; white-space:nowrap;
+}}
+</style></head><body>
+{cards_html}
+</body></html>"""
+
+        _comp_eh.html(full_html, height=len(LEVELS) * 195 + 20, scrolling=True)
+
         st.divider()
-        st.markdown("""
-**Important caveats:**
-- Higher on the hierarchy = stronger internal validity, but not always better external validity (generalizability)
-- Case reports are crucial for identifying new diseases and adverse drug reactions
-- Observational studies are often the only ethical option (e.g., studying harm from smoking)
-- A well-conducted observational study beats a poorly conducted RCT
-        """)
+        with st.expander("💡 Important caveats about the hierarchy"):
+            st.markdown("""
+**The hierarchy is about internal validity, not overall usefulness.** Higher levels give stronger evidence for causation, but this doesn't make lower levels unimportant:
+
+- **Case reports** are often the first signal of a new disease or drug reaction — without them, we'd never know to design an RCT
+- **Observational studies** are the only ethical option when the exposure is harmful (smoking, radiation, poverty)
+- **A well-conducted cohort study** beats a poorly designed RCT with low adherence and massive dropout
+- **External validity** (generalizability) often favors observational studies — RCT participants are highly selected
+
+Think of the hierarchy as a guide for *how much confounding you need to worry about*, not as a ranking of which studies matter.
+            """)
+
 
     st.markdown("---")
     st.markdown("*Strong epidemiologists think structurally before computing.*")
