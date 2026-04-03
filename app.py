@@ -488,12 +488,18 @@ div[data-testid="stTooltipContent"] {{ background: var(--bg-card) !important; co
 st.markdown(_THEME, unsafe_allow_html=True)
 
 # ── Sidebar ─────────────────────────────────────────────────
+# The nav is rendered as pure HTML — no st.button calls.
+# Clicks send the page key via postMessage to a hidden st.text_input,
+# which triggers a rerun and updates current_page.
+
+import streamlit.components.v1 as _components
+
 with st.sidebar:
-    # App title + theme toggle on same row
     user = st.session_state.get("current_user", "")
     _icon  = "☀️" if _dark else "🌙"
     _label = "Light mode" if _dark else "Dark mode"
 
+    # Header row: title + theme toggle + logout
     col_title, col_toggle = st.columns([5, 2])
     with col_title:
         st.markdown(
@@ -514,36 +520,159 @@ with st.sidebar:
         st.session_state["current_user"] = ""
         st.rerun()
 
-    st.markdown("<div style='margin:10px 0 4px 0;border-top:1px solid var(--border);'></div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='margin:10px 0 6px 0;border-top:1px solid var(--border);'></div>", unsafe_allow_html=True)
 
-    # ── Nav sections ────────────────────────────────────────
+    # ── Build nav HTML ───────────────────────────────────────
     current_page = st.session_state["current_page"]
-    _active_gradient = "linear-gradient(90deg,#1a56db 0%,#2563eb 100%)" if not _dark else "linear-gradient(90deg,#2563eb 0%,#3b82f6 100%)"
 
+    _sb_bg      = "#1a1d27" if _dark else "#f8f9fb"
+    _txt        = "#e8eaf0" if _dark else "#22273a"
+    _txt_muted  = "#7b8494" if _dark else "#9ca3af"
+    _section_c  = "#4b5263" if _dark else "#a0a8b8"
+    _hover_bg   = "#252836" if _dark else "#eef1fb"
+    _hover_txt  = "#7ea6f7" if _dark else "#1a56db"
+    _active_g   = "linear-gradient(90deg,#1a56db,#2563eb)" if not _dark else "linear-gradient(90deg,#2563eb,#3b82f6)"
+    _left_bar   = "#3b82f6" if _dark else "#1a56db"
+
+    nav_items_html = ""
     for section_title, items in NAV_STRUCTURE:
-        st.markdown(
-            f"<div style='font-size:9.5px;font-weight:700;letter-spacing:0.12em;"
-            f"text-transform:uppercase;color:var(--nav-section);padding:14px 6px 5px 6px;'>"
-            f"{section_title}</div>",
-            unsafe_allow_html=True
-        )
+        nav_items_html += f"""
+  <div class="section-label">{section_title}</div>"""
         for key, icon, label, subtitle in items:
             is_active = (current_page == key)
             if is_active:
-                st.markdown(f"""
-<div style="display:flex;align-items:center;gap:10px;
-     background:{_active_gradient};
-     border-radius:8px;padding:9px 12px;margin:2px 0;cursor:default;">
-  <span style="font-size:16px;line-height:1;">{icon}</span>
-  <div style="flex:1;min-width:0;">
-    <div style="font-size:13px;font-weight:600;color:#ffffff !important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{label}</div>
-    <div style="font-size:10px;color:rgba(255,255,255,0.72) !important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{subtitle}</div>
-  </div>
-</div>""", unsafe_allow_html=True)
+                nav_items_html += f"""
+  <div class="nav-item active">
+    <span class="nav-icon">{icon}</span>
+    <div class="nav-text">
+      <div class="nav-label">{label}</div>
+      <div class="nav-sub">{subtitle}</div>
+    </div>
+    <div class="active-bar"></div>
+  </div>"""
             else:
-                if st.button(f"{icon}  {label}", key=f"nav_{key}", use_container_width=True, help=subtitle):
-                    nav_to(key)
-                    st.rerun()
+                nav_items_html += f"""
+  <div class="nav-item" onclick="navigate('{key}')">
+    <span class="nav-icon">{icon}</span>
+    <div class="nav-text">
+      <div class="nav-label">{label}</div>
+      <div class="nav-sub">{subtitle}</div>
+    </div>
+  </div>"""
+
+    nav_html = f"""<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{
+    background: {_sb_bg};
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    padding: 0 0 16px 0;
+  }}
+  .section-label {{
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: {_section_c};
+    padding: 16px 12px 5px 12px;
+  }}
+  .nav-item {{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px 8px 14px;
+    margin: 1px 6px;
+    border-radius: 8px;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.15s ease;
+    user-select: none;
+  }}
+  .nav-item:hover {{
+    background: {_hover_bg};
+  }}
+  .nav-item:hover .nav-label {{
+    color: {_hover_txt} !important;
+  }}
+  .nav-item.active {{
+    background: {_active_g};
+    cursor: default;
+  }}
+  .nav-icon {{
+    font-size: 15px;
+    line-height: 1;
+    flex-shrink: 0;
+    width: 20px;
+    text-align: center;
+  }}
+  .nav-text {{ flex: 1; min-width: 0; }}
+  .nav-label {{
+    font-size: 12.5px;
+    font-weight: 500;
+    color: {_txt};
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+  }}
+  .nav-sub {{
+    font-size: 10px;
+    color: {_txt_muted};
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+  }}
+  .nav-item.active .nav-label {{ color: #ffffff !important; font-weight: 600; }}
+  .nav-item.active .nav-sub   {{ color: rgba(255,255,255,0.65) !important; }}
+  .active-bar {{
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 3px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 0 3px 3px 0;
+  }}
+</style>
+</head>
+<body>
+{nav_items_html}
+<script>
+function navigate(key) {{
+  // Send the key to the parent Streamlit frame
+  window.parent.postMessage({{type: "epilab_nav", key: key}}, "*");
+}}
+</script>
+</body>
+</html>"""
+
+    # Render the nav HTML
+    nav_height = sum(len(items) for _, items in NAV_STRUCTURE) * 40 + len(NAV_STRUCTURE) * 32 + 20
+    _components.html(nav_html, height=nav_height, scrolling=False)
+
+    # Hidden text input that receives the nav click via JS query_params trick
+    # We use st.query_params as the communication bridge
+    _qp = st.query_params
+    if "nav" in _qp and _qp["nav"] != current_page:
+        nav_to(_qp["nav"])
+        st.query_params.clear()
+        st.rerun()
+
+# Also handle postMessage → query_params via a tiny JS injected into main page
+st.markdown("""
+<script>
+window.addEventListener("message", function(e) {
+  if (e.data && e.data.type === "epilab_nav") {
+    const url = new URL(window.location.href);
+    url.searchParams.set("nav", e.data.key);
+    window.location.href = url.toString();
+  }
+});
+</script>
+""", unsafe_allow_html=True)
 
 current_page = st.session_state["current_page"]
 
