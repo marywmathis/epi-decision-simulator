@@ -272,81 +272,52 @@ NAV_STRUCTURE = [
 if "current_page" not in st.session_state:
     st.session_state["current_page"] = "study_designs"
 
-# ── Sidebar CSS — minimal, reliable, no theme fighting ──────
+# ── Minimal sidebar CSS ─────────────────────────────────────
 st.markdown("""
 <style>
-/* Sidebar background */
 section[data-testid="stSidebar"] > div:first-child {
   background-color: #f8f9fb !important;
-  padding-top: 1.2rem !important;
+  padding-top: 1rem !important;
 }
-/* Section header labels */
-.nav-section-label {
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  color: #a0aec0;
-  padding: 16px 8px 4px 8px;
+/* Style the selectbox labels */
+section[data-testid="stSidebar"] .stSelectbox label {
+  font-size: 9.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: #a0aec0 !important;
 }
-/* All sidebar buttons: strip chrome */
+/* Log out button */
 section[data-testid="stSidebar"] button {
   background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  outline: none !important;
-  color: #2d3748 !important;
-  font-weight: 500 !important;
-  font-size: 13.5px !important;
-  text-align: left !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  border-radius: 0 !important;
-  width: 100% !important;
-}
-section[data-testid="stSidebar"] button:hover {
-  background: transparent !important;
-  color: #1a56db !important;
-  box-shadow: none !important;
-  border: none !important;
-}
-section[data-testid="stSidebar"] button:focus {
-  box-shadow: none !important;
-  border: none !important;
-  outline: none !important;
-}
-section[data-testid="stSidebar"] button p {
-  color: inherit !important;
-  font-size: inherit !important;
-  font-weight: inherit !important;
-  margin: 0 !important;
-}
-/* Remove stButton wrapper spacing */
-section[data-testid="stSidebar"] .stButton {
-  margin: 0 !important;
-  padding: 0 !important;
-}
-section[data-testid="stSidebar"] .stButton > div {
-  margin: 0 !important;
-}
-/* Logout button keeps a border */
-section[data-testid="stSidebar"] button[data-testid="baseButton-secondary"]:first-of-type {
   border: 1px solid #e2e8f0 !important;
-  border-radius: 6px !important;
+  box-shadow: none !important;
   color: #718096 !important;
   font-size: 12px !important;
-  padding: 6px 12px !important;
-  text-align: center !important;
+}
+section[data-testid="stSidebar"] button:hover {
+  background: #eef1fb !important;
+  color: #1a56db !important;
+  border-color: #bee3f8 !important;
+  box-shadow: none !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
+# Build page lookup
+_PAGE_LOOKUP = {
+    key: (icon, label, subtitle, section_title)
+    for section_title, items in NAV_STRUCTURE
+    for key, icon, label, subtitle in items
+}
+
 with st.sidebar:
     user = st.session_state.get("current_user", "")
     st.markdown(
-        f"<div style='padding:0 4px 10px 4px;'>"
-        f"<div style='font-size:20px;font-weight:800;color:#1a202c;'>🧭 EpiLab</div>"
-        f"<div style='font-size:11px;color:#a0aec0;'>Logged in as <b style='color:#4a5568'>{user}</b></div>"
+        f"<div style='padding:0 2px 12px 2px;'>"
+        f"<div style='font-size:20px;font-weight:800;color:#1a202c;line-height:1.2;'>🧭 EpiLab</div>"
+        f"<div style='font-size:11px;color:#a0aec0;margin-top:2px;'>Logged in as "
+        f"<b style='color:#4a5568;'>{user}</b></div>"
         f"</div>",
         unsafe_allow_html=True
     )
@@ -355,60 +326,48 @@ with st.sidebar:
         st.session_state["current_user"] = ""
         st.rerun()
 
-    st.markdown("<div style='border-top:1px solid #e2e8f0;margin:10px 0 2px 0;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='border-top:1px solid #e2e8f0;margin:12px 0 4px 0;'></div>",
+                unsafe_allow_html=True)
 
     current_page = st.session_state["current_page"]
 
+    # One selectbox per module — Streamlit-native, no CSS fighting
     for section_title, items in NAV_STRUCTURE:
-        st.markdown(
-            f"<div class='nav-section-label'>{section_title}</div>",
-            unsafe_allow_html=True
+        option_labels = [f"{icon}  {label}" for key, icon, label, subtitle in items]
+        option_keys   = [key for key, icon, label, subtitle in items]
+
+        # Find which option in this section is currently active (if any)
+        cur_idx = 0
+        for i, key in enumerate(option_keys):
+            if key == current_page:
+                cur_idx = i
+                break
+
+        chosen_label = st.selectbox(
+            section_title,
+            options=option_labels,
+            index=cur_idx,
+            key=f"sel_{section_title}",
         )
-        for key, icon, label, subtitle in items:
-            is_active = (current_page == key)
-            if is_active:
-                # Active: blue gradient pill, pure HTML
-                st.markdown(f"""
-<div style="display:flex;align-items:center;gap:10px;
-     background:linear-gradient(90deg,#1a56db,#2563eb);
-     border-radius:8px;padding:9px 12px 9px 14px;
-     margin:2px 0;position:relative;">
-  <div style="position:absolute;left:0;top:7px;bottom:7px;width:3px;
-       background:rgba(255,255,255,0.45);border-radius:0 3px 3px 0;"></div>
-  <span style="font-size:15px;width:22px;text-align:center;flex-shrink:0;">{icon}</span>
-  <div style="min-width:0;flex:1;">
-    <div style="font-size:13.5px;font-weight:700;color:#fff;
-         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{label}</div>
-    <div style="font-size:10.5px;color:rgba(255,255,255,0.65);
-         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{subtitle}</div>
-  </div>
-</div>""", unsafe_allow_html=True)
-            else:
-                # Inactive: icon+text row then an invisible full-width button over it
-                st.markdown(f"""
-<div style="display:flex;align-items:center;gap:10px;
-     padding:8px 12px 2px 14px;margin:0;">
-  <span style="font-size:15px;width:22px;text-align:center;flex-shrink:0;pointer-events:none;">{icon}</span>
-  <div style="min-width:0;flex:1;pointer-events:none;">
-    <div style="font-size:13.5px;font-weight:500;color:#2d3748;line-height:1.3;
-         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{label}</div>
-    <div style="font-size:10.5px;color:#a0aec0;margin-bottom:4px;
-         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{subtitle}</div>
-  </div>
-</div>
-<style>
-  section[data-testid="stSidebar"] button[title="{subtitle}"] {{
-    margin-top: -48px !important;
-    height: 46px !important;
-    opacity: 0 !important;
-    z-index: 10 !important;
-    position: relative !important;
-    cursor: pointer !important;
-  }}
-</style>""", unsafe_allow_html=True)
-                if st.button(label, key=f"nav_{key}", use_container_width=True, help=subtitle):
-                    st.session_state["current_page"] = key
-                    st.rerun()
+
+        # Navigate if user picked something different from current page
+        chosen_key = option_keys[option_labels.index(chosen_label)]
+        if chosen_key != current_page:
+            st.session_state["current_page"] = chosen_key
+            st.rerun()
+
+        # Show subtitle for active item in this section
+        active_in_section = next(
+            ((icon, label, subtitle) for key, icon, label, subtitle in items if key == current_page),
+            None
+        )
+        if active_in_section:
+            _, _, subtitle = active_in_section
+            st.markdown(
+                f"<div style='font-size:10.5px;color:#718096;padding:2px 4px 8px 4px;'>"
+                f"{subtitle}</div>",
+                unsafe_allow_html=True
+            )
 
 current_page = st.session_state["current_page"]
 
