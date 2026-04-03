@@ -12,15 +12,24 @@ st.set_page_config(page_title="Epidemiology Decision Simulator", layout="wide")
 # ==================================================
 
 def check_credentials(username, password):
-    """Check credentials against secrets, with graceful fallback."""
+    """
+    Add or remove users here directly.
+    Format:  "username": "password"
+    """
+    USERS = {
+        "marymathis": "epilab2024",
+        "student1":   "epilab2024",
+        "student2":   "epilab2024",
+        "guest":      "epilab2024",
+    }
+    # Also check Streamlit Cloud secrets if available
     try:
-        users = st.secrets.get("users", {})
-        if not users:
-            # No users section in secrets — show setup instructions
-            return None  # signals "secrets not configured"
-        return username in users and users[username] == password
+        cloud_users = st.secrets.get("users", {})
+        if cloud_users:
+            return username in cloud_users and cloud_users[username] == password
     except Exception:
-        return None  # signals "secrets not configured"
+        pass
+    return username in USERS and USERS[username] == password
 
 def login_screen():
     col_l, col_m, col_r = st.columns([1, 2, 1])
@@ -29,53 +38,19 @@ def login_screen():
         st.markdown("## 🧭 Epidemiology Decision Simulator")
         st.markdown("*EpiLab Interactive — licensed access only*")
         st.divider()
-
-        # Check if secrets are configured at all
-        secrets_ok = True
-        try:
-            users = st.secrets.get("users", {})
-            if not users:
-                secrets_ok = False
-        except Exception:
-            secrets_ok = False
-
-        if not secrets_ok:
-            st.warning("⚙️ **Setup required:** No user credentials found.")
-            st.markdown("""
-**To configure login, add a `secrets.toml` file:**
-
-**On Streamlit Cloud:** App menu → Settings → Secrets, paste:
-```toml
-[users]
-your_username = "your_password"
-```
-
-**Locally:** Create `.streamlit/secrets.toml` with the same content.
-
----
-**Quick access for testing** (bypass login):
-            """)
-            if st.button("Enter without login (testing only)", type="secondary", use_container_width=True):
-                st.session_state["authenticated"] = True
-                st.session_state["current_user"] = "guest"
-                st.rerun()
-            return
-
         st.markdown("**Please log in to continue.**")
         username = st.text_input("Username", key="login_username")
         password = st.text_input("Password", type="password", key="login_password")
         if st.button("Log In", type="primary", use_container_width=True):
-            result = check_credentials(username, password)
-            if result is True:
+            if check_credentials(username, password):
                 st.session_state["authenticated"] = True
                 st.session_state["current_user"] = username
                 st.rerun()
-            elif result is None:
-                st.error("Could not read credentials. Check your secrets configuration.")
             else:
-                st.error("Incorrect username or password. Please contact your instructor.")
+                st.error("Incorrect username or password.")
         st.markdown("<br>", unsafe_allow_html=True)
         st.caption("Access issues? Contact your course instructor.")
+
 
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
