@@ -268,384 +268,145 @@ NAV_STRUCTURE = [
     ]),
 ]
 
-# Flat list for the radio widget
-_all_keys   = [item[0] for section in NAV_STRUCTURE for item in section[1]]
-_all_labels = [item[2] for section in NAV_STRUCTURE for item in section[1]]
 
 if "current_page" not in st.session_state:
     st.session_state["current_page"] = "study_designs"
-if "dark_mode" not in st.session_state:
-    st.session_state["dark_mode"] = False
-if "theme_mode" not in st.session_state:
-    st.session_state["theme_mode"] = "System"
 
-def nav_to(page_key):
-    st.session_state["current_page"] = page_key
-
-# ── Theme CSS injection ─────────────────────────────────────
-# System mode: check query param set by JS on first load
-_theme_mode = st.session_state.get("theme_mode", "System")
-if _theme_mode == "System":
-    # JS will set ?_sysdark=1 if OS is dark; read it here
-    _sys_dark = st.query_params.get("_sysdark", "0") == "1"
-    _dark = _sys_dark
-else:
-    _dark = st.session_state["dark_mode"]
-
-_THEME = f"""
+# ── Sidebar CSS — minimal, reliable, no theme fighting ──────
+st.markdown("""
 <style>
-/* ===== ROOT TOKENS ===== */
-:root {{
-  --bg-main:        {"#0f1117" if _dark else "#ffffff"};
-  --bg-sidebar:     {"#1a1d27" if _dark else "#f8f9fb"};
-  --bg-card:        {"#1e2130" if _dark else "#f9f9f9"};
-  --bg-input:       {"#252836" if _dark else "#ffffff"};
-  --text-primary:   {"#e8eaf0" if _dark else "#1a1a2e"};
-  --text-secondary: {"#9ca3b0" if _dark else "#6b7280"};
-  --text-muted:     {"#6b7280" if _dark else "#9ca3af"};
-  --border:         {"#2e3246" if _dark else "#e5e7eb"};
-  --nav-hover-bg:   {"#252836" if _dark else "#f0f4ff"};
-  --nav-hover-txt:  {"#7ea6f7" if _dark else "#1a56db"};
-  --nav-section:    {"#4b5263" if _dark else "#b0b0b0"};
-  --accent:         {"#3b82f6" if _dark else "#1a56db"};
-  --success-bg:     {"#0d2e1a" if _dark else "#f0fdf4"};
-  --success-txt:    {"#4ade80" if _dark else "#166534"};
-  --warn-bg:        {"#2e2200" if _dark else "#fffbeb"};
-  --warn-txt:       {"#fcd34d" if _dark else "#92400e"};
-  --error-bg:       {"#2e0d0d" if _dark else "#fef2f2"};
-  --error-txt:      {"#f87171" if _dark else "#991b1b"};
-  --info-bg:        {"#0c1e3a" if _dark else "#eff6ff"};
-  --info-txt:       {"#93c5fd" if _dark else "#1e40af"};
-  --divider:        {"#2e3246" if _dark else "#e5e7eb"};
-  --metric-bg:      {"#1e2130" if _dark else "#f9fafb"};
-  --table-head:     {"#252836" if _dark else "#f3f4f6"};
-  --table-row-alt:  {"#1a1d27" if _dark else "#f9fafb"};
-  --expander-bg:    {"#1e2130" if _dark else "#ffffff"};
-  --code-bg:        {"#252836" if _dark else "#f3f4f6"};
-}}
-
-/* ===== MAIN APP BACKGROUND & TEXT ===== */
-.stApp, .main .block-container {{
-  background-color: var(--bg-main) !important;
-  color: var(--text-primary) !important;
-}}
-.stApp * {{ color: var(--text-primary); }}
-
-/* ===== SIDEBAR ===== */
-section[data-testid="stSidebar"],
-section[data-testid="stSidebar"] > div {{
-  background-color: var(--bg-sidebar) !important;
-  border-right: 1px solid var(--border) !important;
-  padding-top: 1rem !important;
-}}
-section[data-testid="stSidebar"] * {{ color: var(--text-primary) !important; }}
-
-/* ===== SIDEBAR BUTTONS (nav rows) ===== */
-div[data-testid="stSidebar"] button[kind="secondary"] {{
+/* Sidebar background */
+section[data-testid="stSidebar"] > div:first-child {
+  background-color: #f8f9fb !important;
+  padding-top: 1.2rem !important;
+}
+/* Section header labels */
+.nav-section-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: #a0aec0;
+  padding: 16px 8px 4px 8px;
+}
+/* All sidebar buttons: strip chrome */
+section[data-testid="stSidebar"] button {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
+  outline: none !important;
+  color: #2d3748 !important;
+  font-weight: 500 !important;
+  font-size: 13.5px !important;
   text-align: left !important;
-  padding: 8px 12px !important;
-  border-radius: 8px !important;
-  color: var(--text-primary) !important;
-  font-size: 13px !important;
-  font-weight: 400 !important;
-}}
-div[data-testid="stSidebar"] button[kind="secondary"]:hover {{
-  background: var(--nav-hover-bg) !important;
-  color: var(--nav-hover-txt) !important;
-}}
-/* Log out button */
-div[data-testid="stSidebar"] button[kind="secondary"]:first-of-type {{
-  border: 1px solid var(--border) !important;
-  color: var(--text-secondary) !important;
-  font-size: 12px !important;
-  padding: 5px 10px !important;
-}}
-
-/* ===== HEADINGS ===== */
-h1, h2, h3, h4, h5, h6,
-.stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {{
-  color: var(--text-primary) !important;
-}}
-
-/* ===== PARAGRAPHS & GENERAL TEXT ===== */
-p, li, td, th, label, span, .stMarkdown {{
-  color: var(--text-primary) !important;
-}}
-
-/* ===== INPUTS, SELECTS, TEXTAREAS ===== */
-input, textarea, select,
-div[data-testid="stTextInput"] input,
-div[data-testid="stNumberInput"] input,
-div[data-testid="stSelectbox"] div[data-baseweb="select"] {{
-  background-color: var(--bg-input) !important;
-  color: var(--text-primary) !important;
-  border-color: var(--border) !important;
-}}
-div[data-baseweb="select"] * {{ color: var(--text-primary) !important; background-color: var(--bg-input) !important; }}
-div[data-baseweb="popover"] * {{ background-color: var(--bg-input) !important; color: var(--text-primary) !important; }}
-
-/* ===== SLIDERS ===== */
-div[data-testid="stSlider"] * {{ color: var(--text-primary) !important; }}
-
-/* ===== RADIO BUTTONS ===== */
-div[data-testid="stRadio"] label {{ color: var(--text-primary) !important; }}
-
-/* ===== CHECKBOXES ===== */
-div[data-testid="stCheckbox"] label {{ color: var(--text-primary) !important; }}
-
-/* ===== BUTTONS (main content) ===== */
-.stButton > button {{
-  background-color: var(--bg-input) !important;
-  color: var(--text-primary) !important;
-  border-color: var(--border) !important;
-}}
-.stButton > button[kind="primary"] {{
-  background-color: var(--accent) !important;
-  color: #ffffff !important;
-  border: none !important;
-}}
-.stButton > button:hover {{
-  border-color: var(--accent) !important;
-  color: var(--accent) !important;
-}}
-
-/* ===== METRICS ===== */
-div[data-testid="stMetric"] {{
-  background-color: var(--metric-bg) !important;
-  border-radius: 8px !important;
-  padding: 12px !important;
-  border: 1px solid var(--border) !important;
-}}
-div[data-testid="stMetricValue"] * {{ color: var(--text-primary) !important; }}
-div[data-testid="stMetricLabel"] * {{ color: var(--text-secondary) !important; }}
-
-/* ===== ALERTS (info, success, warning, error) ===== */
-div[data-testid="stAlert"][data-type="info"],
-div[data-testid="stAlertContainer"][data-type="info"] {{
-  background-color: var(--info-bg) !important;
-  color: var(--info-txt) !important;
-  border-color: var(--accent) !important;
-}}
-div[data-testid="stAlert"][data-type="success"],
-div[data-testid="stAlertContainer"][data-type="success"] {{
-  background-color: var(--success-bg) !important;
-  color: var(--success-txt) !important;
-}}
-div[data-testid="stAlert"][data-type="warning"],
-div[data-testid="stAlertContainer"][data-type="warning"] {{
-  background-color: var(--warn-bg) !important;
-  color: var(--warn-txt) !important;
-}}
-div[data-testid="stAlert"][data-type="error"],
-div[data-testid="stAlertContainer"][data-type="error"] {{
-  background-color: var(--error-bg) !important;
-  color: var(--error-txt) !important;
-}}
-/* fallback for alert text */
-div[data-testid^="stAlert"] p,
-div[data-testid^="stAlert"] li {{ color: inherit !important; }}
-
-/* ===== EXPANDERS ===== */
-div[data-testid="stExpander"] {{
-  background-color: var(--expander-bg) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 8px !important;
-}}
-div[data-testid="stExpander"] summary,
-div[data-testid="stExpander"] summary span {{
-  color: var(--text-primary) !important;
-}}
-
-/* ===== TABLES ===== */
-table {{ border-collapse: collapse; width: 100%; }}
-thead tr th {{
-  background-color: var(--table-head) !important;
-  color: var(--text-primary) !important;
-  border-bottom: 2px solid var(--border) !important;
-}}
-tbody tr td {{
-  color: var(--text-primary) !important;
-  border-bottom: 1px solid var(--border) !important;
-  background-color: var(--bg-main) !important;
-}}
-tbody tr:nth-child(even) td {{ background-color: var(--table-row-alt) !important; }}
-
-/* ===== CODE BLOCKS ===== */
-code, pre {{
-  background-color: var(--code-bg) !important;
-  color: {"#e2e8f0" if _dark else "#1e293b"} !important;
-  border-radius: 4px !important;
-}}
-
-/* ===== DIVIDERS ===== */
-hr {{ border-color: var(--divider) !important; }}
-
-/* ===== DATAFRAMES ===== */
-div[data-testid="stDataFrame"] * {{ color: var(--text-primary) !important; background-color: var(--bg-card) !important; }}
-
-/* ===== TABS ===== */
-button[data-baseweb="tab"] {{ color: var(--text-secondary) !important; }}
-button[data-baseweb="tab"][aria-selected="true"] {{ color: var(--accent) !important; border-bottom-color: var(--accent) !important; }}
-
-/* ===== TOOLTIP ===== */
-div[data-testid="stTooltipContent"] {{ background: var(--bg-card) !important; color: var(--text-primary) !important; }}
-</style>
-"""
-st.markdown(_THEME, unsafe_allow_html=True)
-
-# System theme detection — JS sets ?_sysdark=1 if OS prefers dark, then reloads once
-if _theme_mode == "System":
-    st.markdown("""
-<script>
-(function() {
-  const url = new URL(window.location.href);
-  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches ? '1' : '0';
-  if (url.searchParams.get('_sysdark') !== isDark) {
-    url.searchParams.set('_sysdark', isDark);
-    window.location.replace(url.toString());
-  }
-})();
-</script>
-""", unsafe_allow_html=True)
-
-
-_nav_txt   = "#e8eaf0" if _dark else "#22273a"
-_nav_sub   = "#7b8494" if _dark else "#9ca3af"
-_nav_hover = "#252836" if _dark else "#eef1fb"
-_nav_htxt  = "#7ea6f7" if _dark else "#1a56db"
-_sb_bg     = "#1a1d27" if _dark else "#f8f9fb"
-_bdr_c     = "#2e3246" if _dark else "#e5e7eb"
-_sect_c    = "#4b5263" if _dark else "#a0a8b8"
-_active_g  = "linear-gradient(90deg,#1a56db,#2563eb)" if not _dark else "linear-gradient(90deg,#2563eb,#3b82f6)"
-
-st.markdown(f"""
-<style>
-section[data-testid="stSidebar"] > div:first-child {{
-  background-color: {_sb_bg} !important;
-}}
-/* Log out / theme toggle buttons */
-section[data-testid="stSidebar"] .stButton > button {{
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  width: 100% !important;
+}
+section[data-testid="stSidebar"] button:hover {
   background: transparent !important;
-  border: 1px solid {_bdr_c} !important;
+  color: #1a56db !important;
   box-shadow: none !important;
-  color: {_nav_sub} !important;
+  border: none !important;
+}
+section[data-testid="stSidebar"] button:focus {
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+}
+section[data-testid="stSidebar"] button p {
+  color: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  margin: 0 !important;
+}
+/* Remove stButton wrapper spacing */
+section[data-testid="stSidebar"] .stButton {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+section[data-testid="stSidebar"] .stButton > div {
+  margin: 0 !important;
+}
+/* Logout button keeps a border */
+section[data-testid="stSidebar"] button[data-testid="baseButton-secondary"]:first-of-type {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 6px !important;
+  color: #718096 !important;
   font-size: 12px !important;
-}}
-section[data-testid="stSidebar"] .stButton > button:hover {{
-  background: {_nav_hover} !important;
-  border-color: {_nav_htxt} !important;
-  color: {_nav_htxt} !important;
-  box-shadow: none !important;
-}}
+  padding: 6px 12px !important;
+  text-align: center !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
 with st.sidebar:
-    user  = st.session_state.get("current_user", "")
-    _mode = st.session_state.get("theme_mode", "System")
-
-    col_title, col_toggle = st.columns([5, 2])
-    with col_title:
-        st.markdown(
-            f"<div style='padding:4px 0 2px 0;'>"
-            f"<span style='font-size:19px;font-weight:800;color:{_nav_txt};display:block;'>🧭 EpiLab</span>"
-            f"<span style='font-size:11px;color:{_nav_sub};'>Logged in as <b>{user}</b></span>"
-            f"</div>",
-            unsafe_allow_html=True
-        )
-    with col_toggle:
-        st.markdown("<div style='padding-top:4px;'></div>", unsafe_allow_html=True)
-        # Cycle through System → Light → Dark → System
-        _icons = {"System": "🖥️", "Light": "☀️", "Dark": "🌙"}
-        _next  = {"System": "Light", "Light": "Dark", "Dark": "System"}
-        _help  = {"System": "System theme (click for Light)", "Light": "Light mode (click for Dark)", "Dark": "Dark mode (click for System)"}
-        if st.button(_icons[_mode], key="theme_toggle", help=_help[_mode]):
-            st.session_state["theme_mode"] = _next[_mode]
-            # Update dark_mode based on new selection
-            new_mode = _next[_mode]
-            if new_mode == "Dark":
-                st.session_state["dark_mode"] = True
-            elif new_mode == "Light":
-                st.session_state["dark_mode"] = False
-            # System: detect via JS on next render (default to False)
-            else:
-                st.session_state["dark_mode"] = False
-            st.rerun()
-
+    user = st.session_state.get("current_user", "")
+    st.markdown(
+        f"<div style='padding:0 4px 10px 4px;'>"
+        f"<div style='font-size:20px;font-weight:800;color:#1a202c;'>🧭 EpiLab</div>"
+        f"<div style='font-size:11px;color:#a0aec0;'>Logged in as <b style='color:#4a5568'>{user}</b></div>"
+        f"</div>",
+        unsafe_allow_html=True
+    )
     if st.button("↩ Log Out", key="logout_sidebar", use_container_width=True):
         st.session_state["authenticated"] = False
         st.session_state["current_user"] = ""
         st.rerun()
 
-    st.markdown(f"<div style='margin:10px 0 4px 0;border-top:1px solid {_bdr_c};'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='border-top:1px solid #e2e8f0;margin:10px 0 2px 0;'></div>", unsafe_allow_html=True)
 
-    # ── Nav: each item is pure HTML for display, with a real st.button for clicks
-    # The button is rendered AFTER the HTML row and given negative top margin via CSS
-    # so it sits invisibly over the row. Only the HTML is visible.
     current_page = st.session_state["current_page"]
-
-    # Single CSS block for all invisible nav buttons
-    st.markdown(f"""
-<style>
-/* Make ALL nav_* buttons invisible but clickable */
-section[data-testid="stSidebar"] button[data-testid*="baseButton"][title] {{
-  position: relative !important;
-  margin-top: -48px !important;
-  height: 46px !important;
-  opacity: 0 !important;
-  cursor: pointer !important;
-  z-index: 99 !important;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  width: 100% !important;
-}}
-</style>
-""", unsafe_allow_html=True)
 
     for section_title, items in NAV_STRUCTURE:
         st.markdown(
-            f"<div style='font-size:9px;font-weight:700;letter-spacing:0.14em;"
-            f"text-transform:uppercase;color:{_sect_c};padding:14px 6px 2px 6px;'>"
-            f"{section_title}</div>",
+            f"<div class='nav-section-label'>{section_title}</div>",
             unsafe_allow_html=True
         )
         for key, icon, label, subtitle in items:
             is_active = (current_page == key)
             if is_active:
+                # Active: blue gradient pill, pure HTML
                 st.markdown(f"""
 <div style="display:flex;align-items:center;gap:10px;
-     background:{_active_g};border-radius:8px;
-     padding:8px 12px 8px 14px;margin:2px 4px;position:relative;">
-  <div style="position:absolute;left:0;top:6px;bottom:6px;width:3px;
-       background:rgba(255,255,255,0.4);border-radius:0 3px 3px 0;"></div>
-  <span style="font-size:14px;width:20px;text-align:center;flex-shrink:0;">{icon}</span>
-  <div style="flex:1;min-width:0;">
-    <div style="font-size:13px;font-weight:600;color:#fff;line-height:1.3;
+     background:linear-gradient(90deg,#1a56db,#2563eb);
+     border-radius:8px;padding:9px 12px 9px 14px;
+     margin:2px 0;position:relative;">
+  <div style="position:absolute;left:0;top:7px;bottom:7px;width:3px;
+       background:rgba(255,255,255,0.45);border-radius:0 3px 3px 0;"></div>
+  <span style="font-size:15px;width:22px;text-align:center;flex-shrink:0;">{icon}</span>
+  <div style="min-width:0;flex:1;">
+    <div style="font-size:13.5px;font-weight:700;color:#fff;
          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{label}</div>
-    <div style="font-size:10px;color:rgba(255,255,255,0.58);
+    <div style="font-size:10.5px;color:rgba(255,255,255,0.65);
          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{subtitle}</div>
   </div>
 </div>""", unsafe_allow_html=True)
             else:
-                # 1) Display row (pure HTML, looks exactly how we want)
+                # Inactive: icon+text row then an invisible full-width button over it
                 st.markdown(f"""
 <div style="display:flex;align-items:center;gap:10px;
-     padding:8px 12px 8px 14px;margin:2px 4px;border-radius:8px;">
-  <span style="font-size:14px;width:20px;text-align:center;flex-shrink:0;">{icon}</span>
-  <div style="flex:1;min-width:0;">
-    <div style="font-size:13px;font-weight:500;color:{_nav_txt};line-height:1.3;
+     padding:8px 12px 2px 14px;margin:0;">
+  <span style="font-size:15px;width:22px;text-align:center;flex-shrink:0;pointer-events:none;">{icon}</span>
+  <div style="min-width:0;flex:1;pointer-events:none;">
+    <div style="font-size:13.5px;font-weight:500;color:#2d3748;line-height:1.3;
          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{label}</div>
-    <div style="font-size:10px;color:{_nav_sub};
+    <div style="font-size:10.5px;color:#a0aec0;margin-bottom:4px;
          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{subtitle}</div>
   </div>
-</div>""", unsafe_allow_html=True)
-                # 2) Invisible button pulled up over the display row via CSS above
-                if st.button(f"{icon}  {label}", key=f"nav_{key}",
-                             use_container_width=True, help=subtitle):
+</div>
+<style>
+  section[data-testid="stSidebar"] button[title="{subtitle}"] {{
+    margin-top: -48px !important;
+    height: 46px !important;
+    opacity: 0 !important;
+    z-index: 10 !important;
+    position: relative !important;
+    cursor: pointer !important;
+  }}
+</style>""", unsafe_allow_html=True)
+                if st.button(label, key=f"nav_{key}", use_container_width=True, help=subtitle):
                     st.session_state["current_page"] = key
                     st.rerun()
 
