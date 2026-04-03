@@ -270,7 +270,7 @@ NAV_STRUCTURE = [
 
 
 if "current_page" not in st.session_state:
-    st.session_state["current_page"] = "study_designs"
+    st.session_state["current_page"] = "home"
 
 # ── Minimal sidebar CSS ─────────────────────────────────────
 st.markdown("""
@@ -331,43 +331,25 @@ with st.sidebar:
 
     current_page = st.session_state["current_page"]
 
-    # One selectbox per module — Streamlit-native, no CSS fighting
-    for section_title, items in NAV_STRUCTURE:
+    # One selectbox per module — purely native Streamlit
+    for s_idx, (section_title, items) in enumerate(NAV_STRUCTURE):
         option_labels = [f"{icon}  {label}" for key, icon, label, subtitle in items]
         option_keys   = [key for key, icon, label, subtitle in items]
 
-        # Find which option in this section is currently active (if any)
-        cur_idx = 0
-        for i, key in enumerate(option_keys):
-            if key == current_page:
-                cur_idx = i
-                break
+        # Default index: active page if it's in this section, else 0
+        cur_idx = next((i for i, k in enumerate(option_keys) if k == current_page), 0)
 
         chosen_label = st.selectbox(
             section_title,
             options=option_labels,
             index=cur_idx,
-            key=f"sel_{section_title}",
+            key=f"sel_mod_{s_idx}",
         )
 
-        # Navigate if user picked something different from current page
         chosen_key = option_keys[option_labels.index(chosen_label)]
         if chosen_key != current_page:
             st.session_state["current_page"] = chosen_key
             st.rerun()
-
-        # Show subtitle for active item in this section
-        active_in_section = next(
-            ((icon, label, subtitle) for key, icon, label, subtitle in items if key == current_page),
-            None
-        )
-        if active_in_section:
-            _, _, subtitle = active_in_section
-            st.markdown(
-                f"<div style='font-size:10.5px;color:#718096;padding:2px 4px 8px 4px;'>"
-                f"{subtitle}</div>",
-                unsafe_allow_html=True
-            )
 
 current_page = st.session_state["current_page"]
 
@@ -586,7 +568,7 @@ elif current_page == "study_designs":
             },
         ]
 
-        _is_dark = st.session_state.get("dark_mode", False)
+        _is_dark = False  # theme system removed — always light
         _card_bg    = "#1e2130" if _is_dark else "#ffffff"
         _card_bdr   = "#2e3246" if _is_dark else "#e5e7eb"
         _body_txt   = "#d1d5db" if _is_dark else "#374151"
