@@ -1,3 +1,4 @@
+[README.md](https://github.com/user-attachments/files/26472611/README.md)
 # 🧭 EpiLab — Epidemiology Decision Simulator
 
 An interactive epidemiology learning suite built with Streamlit.
